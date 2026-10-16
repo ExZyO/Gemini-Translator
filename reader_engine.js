@@ -442,6 +442,10 @@
     }, [currentChapter, chapters, activeIdx]);
 
     const [isTranslatingCurrentChapter, setIsTranslatingCurrentChapter] = useState(false);
+    const [isTranslatingTitles, setIsTranslatingTitles] = useState(false);
+    const [titlesProgress, setTitlesProgress] = useState({ done: 0, total: 0 });
+    const [isHealingAll, setIsHealingAll] = useState(false);
+    const [healAllProgress, setHealAllProgress] = useState({ done: 0, total: 0 });
     const [isTranslationPaused, setIsTranslationPaused] = useState(false);
     const [chapterTranslateProgress, setChapterTranslateProgress] = useState({ pct: 0, msg: '' });
     const [suiteModalChap, setSuiteModalChap] = useState(null);
@@ -685,8 +689,6 @@
       }
     }, [isTranslatingCurrentChapter, isTranslatingTitles, isHealingAll, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
 
-    const [isTranslatingTitles, setIsTranslatingTitles] = useState(false);
-    const [titlesProgress, setTitlesProgress] = useState({ done: 0, total: 0 });
 
     const handleTranslateAllChapterTitles = useCallback(async () => {
       if (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) {
@@ -788,8 +790,6 @@
       }
     }, [isTranslatingCurrentChapter, isTranslatingTitles, isHealingAll, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
 
-    const [isHealingAll, setIsHealingAll] = useState(false);
-    const [healAllProgress, setHealAllProgress] = useState({ done: 0, total: 0 });
 
     const handleHealAllChapters = useCallback(async () => {
       if (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) {

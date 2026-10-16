@@ -1,9 +1,9 @@
 {
-  "version": "8.21.51",
-  "versionCode": 8462,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.51/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.51/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.51",
+  "version": "8.21.52",
+  "versionCode": 8463,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.52/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.52/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.52",
   "releaseDate": "2026-10-16",
-  "releaseNotes": "v8.21.51: Enhanced chapter & title translator with scroll-jank prevention, pause gate, mutex locks, and multi-tier settings resolution."
+  "releaseNotes": "v8.21.52: Fix TDZ ReferenceError on reader modal initialization by hoisting title and healing progress states to top level."
 }
