@@ -1,9 +1,9 @@
 {
-  "version": "8.21.57",
-  "versionCode": 8468,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.57/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.57/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.57",
+  "version": "8.21.58",
+  "versionCode": 8469,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.58/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.58/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.58",
   "releaseDate": "2026-10-17",
-  "releaseNotes": "v8.21.57: Fix concurrency reference error when expanding reader translator advanced settings."
+  "releaseNotes": "v8.21.58: Smart model quota failover on free-tier limits, prioritize Gemini 3.8 Flash flagship."
 }

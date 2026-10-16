@@ -1234,6 +1234,34 @@ const translateWithRotation = async (text, opts) => {
           errMsg.includes('empty stream') || errMsg.includes('network') || errMsg.includes('failed to fetch') ||
           errMsg.includes('timed out') || errMsg.includes('timeout') || errMsg.includes('aborted');
         if (isRetryable) {
+          // Model-level quota check: if Google specifically limits requests per model (e.g. limit: 20 per day on gemini-3.6-flash)
+          // or if keys keep failing on this model across key rotations
+          const isModelQuotaCeiling = errMsg.includes('generatelanguage.googleapis.com/generate_content_free_tier_requests') ||
+            errMsg.includes('generaterequestsperdayperprojectpermodel') ||
+            (errMsg.includes('429') && errMsg.includes('limit: 20')) ||
+            (attempt >= Math.min(12, (allKeys.length || 1) * 2) && errMsg.includes('429'));
+
+          if (isModelQuotaCeiling && (currentOpts.provider || 'gemini') === 'gemini') {
+            const fallbackModel = (currentOpts.model === 'gemini-3.8-flash') ? 'gemini-3.7-flash' : 'gemini-3.8-flash';
+            if (currentOpts.model !== fallbackModel) {
+              const oldModel = currentOpts.model || 'gemini-3.6-flash';
+              console.warn(`[Model Auto-Fallback] Model ${oldModel} hit Google free-tier quota ceiling. Auto-rotating model to ${fallbackModel}...`);
+              window.AppLogger?.log('warn', 'ModelFallback', `Model ${oldModel} quota exhausted on Google free tier. Auto-switching to ${fallbackModel}.`);
+              currentOpts.model = fallbackModel;
+              try {
+                if (typeof localStorage !== 'undefined') {
+                  localStorage.setItem('gemini_model', fallbackModel);
+                  localStorage.setItem('geminiModel', fallbackModel);
+                }
+              } catch (e) {}
+              if (typeof window !== 'undefined' && window.KeyPool?.clearCooldowns) {
+                window.KeyPool.clearCooldowns();
+              }
+              await new Promise(r => setTimeout(r, 400));
+              continue;
+            }
+          }
+
           if (allKeys.length > 1) {
             const freshKey = await KeyPool.acquireKey(allKeys, currentOpts.apiKey);
             if (freshKey && freshKey !== currentOpts.apiKey) {

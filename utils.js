@@ -571,9 +571,9 @@ const LIBRE_LANG_MAP = {
 };
 
 const DEFAULT_GEMINI_MODELS = [
-    { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Latest Flagship · Fast & Literary)' },
+    { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Official Flagship · Fast & High Quota)' },
     { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash (Flagship Hybrid & Fast)' },
-    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Official 2026 Recommended)' },
+    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Legacy Preview · 20 Req/Day Limit)' },
     { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash (Ultra Fast)' },
     { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite (Highest Free Quota)' },
     { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash-Lite (High Quota & Fast)' },
