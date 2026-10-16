@@ -1,9 +1,9 @@
 {
-  "version": "8.21.50",
-  "versionCode": 8461,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.50/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.50/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.50",
+  "version": "8.21.51",
+  "versionCode": 8462,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.51/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.51/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.51",
   "releaseDate": "2026-10-16",
-  "releaseNotes": "v8.21.50: Full Chapter Translation Suite with dynamic floating progress pill, live streaming prose dashboard, and multi-language healing inspector."
+  "releaseNotes": "v8.21.51: Enhanced chapter & title translator with scroll-jank prevention, pause gate, mutex locks, and multi-tier settings resolution."
 }

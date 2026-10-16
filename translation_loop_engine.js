@@ -1181,10 +1181,11 @@
         : (opts.geminiApiKey || (typeof localStorage !== 'undefined' ? (localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey')) : null))) ||
       (availableKeys.length > 0 ? (typeof availableKeys[0] === 'string' ? availableKeys[0] : availableKeys[0].key) : null);
 
+    const fallbackModel = (typeof window !== 'undefined' && window.getProviderFallbackModel) ? window.getProviderFallbackModel(provider) : (provider === 'deepseek' ? 'deepseek-chat' : 'gemini-3.8-flash');
     const storedModel = (typeof localStorage !== 'undefined' ? (provider === 'deepseek' ? localStorage.getItem('deepseekModel') : localStorage.getItem('geminiModel')) : null);
     const activeModel = opts.model || (provider === 'deepseek'
       ? (config.useCustomDeepseekModel && config.customDeepseekModel ? config.customDeepseekModel : (config.deepseekModel || storedModel || 'deepseek-chat'))
-      : (config.useCustomModel && config.customModel ? config.customModel : (config.geminiModel || storedModel || 'gemini-3.7-flash')));
+      : (config.useCustomModel && config.customModel ? config.customModel : (config.geminiModel || storedModel || fallbackModel)));
 
     const targetLanguage = opts.tgtLang || config.tgtLang || 'English';
     const textToTranslate = coreToTranslate || preCleaned;
@@ -1296,7 +1297,15 @@
     let chapterCtx = '';
     const useContext = Boolean(config.contextAware && (provider === 'gemini' || provider === 'deepseek'));
 
+    let interrupted = false;
     for (let j = 0; j < chunks.length; j++) {
+      if (config.pauseGate && typeof config.pauseGate.checkPause === 'function') {
+        await config.pauseGate.checkPause();
+      }
+      if (workerOpts.signal && workerOpts.signal.aborted) {
+        interrupted = true;
+        break;
+      }
       const pct = Math.round(10 + ((j / chunks.length) * 85));
       if (callbacks.onProgress) {
         callbacks.onProgress(pct, `Translating chunk ${j + 1}/${chunks.length}${chunks.length > 1 ? ` (${pct}%)` : ''}…`);
@@ -1307,22 +1316,38 @@
       const shouldPassContext = useContext && (hasIncomingContext || j > 0);
       const shouldRequestUpdate = useContext && !isLastChunk;
 
-      const translated = await safeTranslateWithRotation(chunks[j], {
-        ...workerOpts,
-        context: shouldPassContext ? chapterCtx : undefined,
-        needContextUpdate: shouldRequestUpdate,
-        onStreamChunk: (token) => {
-          if (typeof callbacks.onStreamChunk === 'function') {
-            callbacks.onStreamChunk({ chunkIdx: j, totalChunks: chunks.length, token });
+      let translated = null;
+      try {
+        translated = await safeTranslateWithRotation(chunks[j], {
+          ...workerOpts,
+          context: shouldPassContext ? chapterCtx : undefined,
+          needContextUpdate: shouldRequestUpdate,
+          onStreamChunk: (token) => {
+            if (typeof callbacks.onStreamChunk === 'function') {
+              callbacks.onStreamChunk({ chunkIdx: j, totalChunks: chunks.length, token });
+            }
           }
+        });
+      } catch (chunkErr) {
+        if (workerOpts.signal && workerOpts.signal.aborted) {
+          interrupted = true;
+          break;
         }
-      });
+        throw chunkErr;
+      }
 
       const translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
       if (useContext && translated?.newContext) {
         chapterCtx = translated.newContext;
       }
       parts.push(translatedText);
+    }
+
+    // Anti-truncation safeguard: if aborted mid-chapter, merge remaining raw chunks so no chapter prose is lost
+    if (interrupted || parts.length < chunks.length) {
+      for (let r = parts.length; r < chunks.length; r++) {
+        parts.push(chunks[r]);
+      }
     }
 
     let content = safeCleanNovelProse(safeStripContextLeak(parts.join('\n\n')).replace(/\r\n/g, '\n')).trim();
@@ -2430,14 +2455,15 @@
         // 6. Update Database: GeminiNovelDB
         if (typeof window !== 'undefined' && window.GeminiNovelDB) {
           try {
-            let full = novelRec;
-            if (!full && currentNovelId) {
+            let full = null;
+            if (currentNovelId) {
               full = await window.GeminiNovelDB.getNovel(currentNovelId);
             }
             if (!full && readerNovelTitle) {
               const all = await window.GeminiNovelDB.getAllNovels();
               full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
             }
+            if (!full) full = novelRec;
             if (full) {
               const baseList = (candidateBase && candidateBase.length > 0) ? candidateBase : (full.chapters || full.rawChapters || []);
               const updatedChs = (full.chapters && full.chapters.length > 0) ? [...full.chapters] : [...baseList];
@@ -2500,34 +2526,16 @@
         const sep = isDoubleBreak ? '\n\n' : '\n';
         const paragraphs = curBody.split(isDoubleBreak ? /\r?\n\r?\n/ : /\r?\n/);
 
-        const hasUntranslatedOrError = (p) => {
-          if (!p || typeof p !== 'string') return false;
-          if (/\[Error:.*?\]/i.test(p)) return true;
-          // CJK characters (Chinese, Japanese Kanji/Kana)
-          if (/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(p)) return true;
-          // Korean Hangul
-          if (/[\uac00-\ud7af]/.test(p)) return true;
-          // Cyrillic (if target is not Russian/Ukrainian/Bulgarian/Serbian)
-          if (!/^(?:Russian|Ukrainian|Bulgarian|Serbian|Cyrillic)/i.test(targetLanguage) && /[\u0400-\u04ff]/.test(p)) return true;
-          // Thai (if target is not Thai)
-          if (!/^Thai/i.test(targetLanguage) && /[\u0e00-\u0e7f]/.test(p)) return true;
-          // Arabic (if target is not Arabic)
-          if (!/^Arabic/i.test(targetLanguage) && /[\u0600-\u06ff]/.test(p)) return true;
-          return false;
-        };
-
-        const cleanHealedProse = (str) => {
-          if (!str) return '';
-          let s = str.trim();
-          s = s.replace(/^```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/i, '');
-          s = s.replace(/^(?:Here(?:\s+is|\s*'s)?\s+(?:the\s+)?translation[:\s]*|Translation[:\s]*)/i, '');
-          return s.trim();
-        };
+        const rawParagraphs = (rawText && typeof rawText === 'string') ? rawText.split(isDoubleBreak ? /\r?\n\r?\n/ : /\r?\n/) : [];
+        const detectUntranslated = (typeof window !== 'undefined' && window.hasUntranslatedOrError) ? window.hasUntranslatedOrError : null;
+        const cleanProseFn = (typeof window !== 'undefined' && window.cleanHealedProse) ? window.cleanHealedProse : (s => (s || '').trim());
 
         const blocks = [];
         let curBlock = null;
         paragraphs.forEach((p, idx) => {
-          if (hasUntranslatedOrError(p)) {
+          const rawSrcP = rawParagraphs[idx] || null;
+          const isProblem = detectUntranslated ? detectUntranslated(p, rawSrcP, targetLanguage) : (/[\u3040-\u9fff\uac00-\ud7af]/.test(p) || /\[Error:.*?\]/i.test(p));
+          if (isProblem) {
             if (!curBlock) {
               curBlock = { startIdx: idx, endIdx: idx, texts: [p] };
             } else {
@@ -2579,7 +2587,7 @@
             instructions: healInstructions
           });
           let translatedBlockText = (transBlock && typeof transBlock === 'object') ? (transBlock.text || '') : (typeof transBlock === 'string' ? transBlock : '');
-          translatedBlockText = cleanHealedProse(translatedBlockText);
+          translatedBlockText = cleanProseFn(translatedBlockText);
           if (translatedBlockText && translatedBlockText.trim()) {
             const splitTranslated = translatedBlockText.trim().split(isDoubleBreak ? /\r?\n\r?\n/ : /\r?\n/);
             if (splitTranslated.length === block.texts.length) {
@@ -2640,14 +2648,15 @@
 
         if (typeof window !== 'undefined' && window.GeminiNovelDB) {
           try {
-            let full = novelRec;
-            if (!full && currentNovelId) {
+            let full = null;
+            if (currentNovelId) {
               full = await window.GeminiNovelDB.getNovel(currentNovelId);
             }
             if (!full && readerNovelTitle) {
               const all = await window.GeminiNovelDB.getAllNovels();
               full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
             }
+            if (!full) full = novelRec;
             if (full) {
               const baseList = (candidateBase && candidateBase.length > 0) ? candidateBase : (full.chapters || full.rawChapters || []);
               const updatedChs = (full.chapters && full.chapters.length > 0) ? [...full.chapters] : [...baseList];
@@ -2822,14 +2831,15 @@
       // 6. Update Database: GeminiNovelDB
       if (typeof window !== 'undefined' && window.GeminiNovelDB) {
         try {
-          let full = novelRec;
-          if (!full && currentNovelId) {
+          let full = null;
+          if (currentNovelId) {
             full = await window.GeminiNovelDB.getNovel(currentNovelId);
           }
           if (!full && readerNovelTitle) {
             const all = await window.GeminiNovelDB.getAllNovels();
             full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
           }
+          if (!full) full = novelRec;
           if (full) {
             const baseList = (candidateBase && candidateBase.length > 0) ? candidateBase : (full.chapters || full.rawChapters || []);
             const updatedChs = (full.chapters && full.chapters.length > 0) ? [...full.chapters] : [...baseList];

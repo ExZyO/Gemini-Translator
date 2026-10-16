@@ -1559,44 +1559,45 @@
 
     if (!isOpen || !chapter) return null;
 
-    // Scope: 'app' | 'novel' | 'chapter'
-    const [scope, setScope] = useState('app');
+    const nSettings = novelRecord?.translationSettings;
+    const defaultScope = (nSettings && Object.keys(nSettings).length > 0) ? 'novel' : 'app';
+    const [scope, setScope] = useState(defaultScope);
     const [action, setAction] = useState('full');
 
-    const initProvider = () => novelRecord?.translationSettings?.provider || appSettings.provider || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_provider') : null) || 'gemini';
-    const initGeminiModel = () => novelRecord?.translationSettings?.geminiModel || appSettings.geminiModel || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_model') : null) || 'gemini-3.8-flash';
-    const initDeepseekModel = () => novelRecord?.translationSettings?.deepseekModel || appSettings.deepseekModel || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_deepseek_model') : null) || 'deepseek-chat';
-    const initTgtLang = () => novelRecord?.translationSettings?.tgtLang || appSettings.tgtLang || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_tgt_lang') : null) || 'English';
-    const initConcurrency = () => novelRecord?.translationSettings?.concurrency || appSettings.concurrency || (typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('gemini_concurrency'), 10) : null) || 3;
-    const initChunkSize = () => novelRecord?.translationSettings?.chunkSizePreset || appSettings.chunkSizePreset || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_chunk_size') : null) || 'standard';
-    const initStreaming = () => {
-      const v = novelRecord?.translationSettings?.enableStreaming ?? appSettings.enableStreaming ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_enable_streaming') : null);
-      return v !== null && v !== undefined ? (v === true || v === 'true') : true;
-    };
-    const initThinking = () => {
-      const v = novelRecord?.translationSettings?.enableThinking ?? appSettings.enableThinking ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_enable_thinking') : null);
-      return v !== null && v !== undefined ? (v === true || v === 'true') : false;
-    };
-    const initStrictModel = () => {
-      const v = novelRecord?.translationSettings?.strictModel ?? appSettings.strictModel ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_strict_model') : null);
-      return v !== null && v !== undefined ? (v === true || v === 'true') : false;
+    const resolve = (key, fallback, storageKey) => {
+      if (typeof window !== 'undefined' && window.resolveSetting) {
+        return window.resolveSetting(nSettings, key, (typeof localStorage !== 'undefined' && storageKey) ? localStorage.getItem(storageKey) : fallback);
+      }
+      return nSettings?.[key] ?? appSettings[key] ?? (typeof localStorage !== 'undefined' && storageKey ? localStorage.getItem(storageKey) : null) ?? fallback;
     };
 
-    const [provider, setProvider] = useState(initProvider);
-    const [geminiModel, setGeminiModel] = useState(initGeminiModel);
-    const [deepseekModel, setDeepseekModel] = useState(initDeepseekModel);
-    const [useCustomModel, setUseCustomModel] = useState(Boolean(novelRecord?.translationSettings?.useCustomModel ?? appSettings.useCustomModel));
-    const [customModel, setCustomModel] = useState(novelRecord?.translationSettings?.customModel || appSettings.customModel || '');
-    const [tgtLang, setTgtLang] = useState(initTgtLang);
-    const [concurrency, setConcurrency] = useState(initConcurrency);
-    const [chunkSizePreset, setChunkSizePreset] = useState(initChunkSize);
-    const [enableStreaming, setEnableStreaming] = useState(initStreaming);
-    const [enableThinking, setEnableThinking] = useState(initThinking);
-    const [strictModel, setStrictModel] = useState(initStrictModel);
-    const [customInstructions, setCustomInstructions] = useState(novelRecord?.translationSettings?.customInstructions || appSettings.customInstructions || '');
-    const [terminology, setTerminology] = useState(novelRecord?.translationSettings?.terminology || appSettings.terminology || '');
-    const [selectedGlossaryId, setSelectedGlossaryId] = useState(novelRecord?.translationSettings?.glossaryId || appSettings.activeGlossaryId || 'default');
+    const [provider, setProvider] = useState(() => resolve('provider', appSettings.provider || 'gemini', 'gemini_provider'));
+    const [geminiModel, setGeminiModel] = useState(() => resolve('geminiModel', appSettings.geminiModel || 'gemini-3.8-flash', 'gemini_model'));
+    const [deepseekModel, setDeepseekModel] = useState(() => resolve('deepseekModel', appSettings.deepseekModel || 'deepseek-chat', 'gemini_deepseek_model'));
+    const [useCustomModel, setUseCustomModel] = useState(() => Boolean(resolve('useCustomModel', appSettings.useCustomModel || false)));
+    const [customModel, setCustomModel] = useState(() => resolve('customModel', appSettings.customModel || ''));
+    const [tgtLang, setTgtLang] = useState(() => resolve('tgtLang', appSettings.tgtLang || 'English', 'gemini_tgt_lang'));
+    const [concurrency, setConcurrency] = useState(() => parseInt(resolve('concurrency', appSettings.concurrency || 3, 'gemini_concurrency'), 10) || 3);
+    const [chunkSizePreset, setChunkSizePreset] = useState(() => resolve('chunkSizePreset', appSettings.chunkSizePreset || 'standard', 'gemini_chunk_size'));
+    const [enableStreaming, setEnableStreaming] = useState(() => {
+      const v = resolve('enableStreaming', appSettings.enableStreaming ?? true, 'gemini_enable_streaming');
+      return v === true || v === 'true';
+    });
+    const [enableThinking, setEnableThinking] = useState(() => {
+      const v = resolve('enableThinking', appSettings.enableThinking ?? false, 'gemini_enable_thinking');
+      return v === true || v === 'true';
+    });
+    const [strictModel, setStrictModel] = useState(() => {
+      const v = resolve('strictModel', appSettings.strictModel ?? false, 'gemini_strict_model');
+      return v === true || v === 'true';
+    });
+    const [customInstructions, setCustomInstructions] = useState(() => resolve('customInstructions', appSettings.customInstructions || ''));
+    const [terminology, setTerminology] = useState(() => resolve('terminology', appSettings.terminology || ''));
+    const [selectedGlossaryId, setSelectedGlossaryId] = useState(() => resolve('glossaryId', appSettings.activeGlossaryId || 'default'));
     const [showAdvanced, setShowAdvanced] = useState(false);
+
+    const isMachineTranslation = provider === 'deepl' || provider === 'libretranslate';
+    const availableProviders = Array.from(new Set(['gemini', 'deepseek', provider].filter(Boolean)));
 
     const targetLanguages = (typeof window !== 'undefined' && window.TARGET_LANGUAGES) || [
       'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Russian', 'Japanese', 'Chinese', 'Korean', 'Vietnamese', 'Thai', 'Indonesian', 'Arabic'
@@ -1885,12 +1886,12 @@
             ),
 
             // Provider & Model Row
-            h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 } },
+            h('div', { style: { display: 'grid', gridTemplateColumns: isMachineTranslation ? '1fr' : '1fr 1fr', gap: 10 } },
               // Provider Selector
               h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
                 h('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--r-text)' } }, 'AI Provider'),
                 h('div', { style: { display: 'flex', gap: 4 } },
-                  ['gemini', 'deepseek'].map(p => {
+                  availableProviders.map(p => {
                     const isSel = provider === p;
                     return h('button', {
                       key: p,
@@ -1913,52 +1914,68 @@
                 )
               ),
 
-              // Model Selector
-              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
-                h('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--r-text)' } }, 'AI Model'),
-                useCustomModel ? (
-                  h('input', {
-                    type: 'text',
-                    placeholder: 'Custom model ID',
-                    value: customModel,
-                    style: {
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: 'inherit',
-                      fontSize: 12,
-                      outline: 'none'
+              // Model Selector or Neural MT badge
+              isMachineTranslation ? (
+                h('div', {
+                  style: {
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    background: 'rgba(59, 130, 246, 0.12)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    color: '#93c5fd',
+                    fontSize: 11.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }
+                }, ic('Sparkles', 14), 'Direct Neural Translation Engine')
+              ) : (
+                h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+                  h('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--r-text)' } }, 'AI Model'),
+                  useCustomModel ? (
+                    h('input', {
+                      type: 'text',
+                      placeholder: 'Custom model ID',
+                      value: customModel,
+                      style: {
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: 'inherit',
+                        fontSize: 12,
+                        outline: 'none'
+                      },
+                      onChange: (e) => setCustomModel(e.target.value)
+                    })
+                  ) : (
+                    h('select', {
+                      value: provider === 'deepseek' ? deepseekModel : geminiModel,
+                      style: {
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: 'inherit',
+                        fontSize: 12,
+                        outline: 'none'
+                      },
+                      onChange: (e) => {
+                        if (provider === 'deepseek') setDeepseekModel(e.target.value);
+                        else setGeminiModel(e.target.value);
+                      }
                     },
-                    onChange: (e) => setCustomModel(e.target.value)
-                  })
-                ) : (
-                  h('select', {
-                    value: provider === 'deepseek' ? deepseekModel : geminiModel,
-                    style: {
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      color: 'inherit',
-                      fontSize: 12,
-                      outline: 'none'
-                    },
-                    onChange: (e) => {
-                      if (provider === 'deepseek') setDeepseekModel(e.target.value);
-                      else setGeminiModel(e.target.value);
-                    }
-                  },
-                    (provider === 'deepseek' ? deepseekModels : geminiModels).map(m => (
-                      h('option', { key: m.id, value: m.id, style: { background: '#1e293b', color: '#fff' } }, m.name)
-                    ))
+                      (provider === 'deepseek' ? deepseekModels : geminiModels).map(m => (
+                        h('option', { key: m.id, value: m.id, style: { background: '#1e293b', color: '#fff' } }, m.name)
+                      ))
+                    )
                   )
                 )
               )
             ),
 
-            // Custom Model Toggle
-            h('label', {
+            // Custom Model Toggle (LLM only)
+            !isMachineTranslation && h('label', {
               style: {
                 display: 'flex',
                 alignItems: 'center',
@@ -2000,17 +2017,30 @@
           ),
 
           // 5. Advanced Settings Drawer Content
-          showAdvanced && h('div', {
-            style: {
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-              padding: '12px 14px',
-              borderRadius: 10,
-              background: 'rgba(0,0,0,0.3)',
-              border: '1px solid rgba(255,255,255,0.08)'
-            }
-          },
+          showAdvanced && (
+            isMachineTranslation ? (
+              h('div', {
+                style: {
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#93c5fd',
+                  fontSize: 11.5,
+                  lineHeight: 1.5
+                }
+              }, 'Neural machine translation translates directly via API. Deep reasoning models, real-time token streaming, and custom prompt overrides are bypassed.')
+            ) : h('div', {
+              style: {
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                padding: '12px 14px',
+                borderRadius: 10,
+                background: 'rgba(0,0,0,0.3)',
+                border: '1px solid rgba(255,255,255,0.08)'
+              }
+            },
             // Concurrency & Chunk Size Row
             h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 } },
               h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
@@ -2126,7 +2156,7 @@
                 onChange: (e) => setTerminology(e.target.value)
               })
             )
-          )
+          ))
         ),
 
         // Modal Footer

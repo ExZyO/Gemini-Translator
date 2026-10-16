@@ -25,7 +25,6 @@
   // ══════════════════════════════════════════════════════════════════════
   const ensureStyles = (typeof window !== 'undefined' && window.ensureReaderStyles) ? window.ensureReaderStyles : function() {};
 
-
   const decodeEntities = (str) => {
     if (!str) return '';
     if (typeof window !== 'undefined' && window.he && typeof window.he.decode === 'function') {
@@ -443,6 +442,7 @@
     }, [currentChapter, chapters, activeIdx]);
 
     const [isTranslatingCurrentChapter, setIsTranslatingCurrentChapter] = useState(false);
+    const [isTranslationPaused, setIsTranslationPaused] = useState(false);
     const [chapterTranslateProgress, setChapterTranslateProgress] = useState({ pct: 0, msg: '' });
     const [suiteModalChap, setSuiteModalChap] = useState(null);
     const [isLiveDashboardOpen, setIsLiveDashboardOpen] = useState(false);
@@ -453,6 +453,49 @@
     const [chunkProgress, setChunkProgress] = useState({ current: 1, total: 1 });
     const translationAbortRef = useRef(null);
     const translationTimerRef = useRef(null);
+    const streamBufferRef = useRef('');
+    const throttleTimerRef = useRef(null);
+    const isLiveDashboardOpenRef = useRef(false);
+    const pauseResolverRef = useRef(null);
+
+    useEffect(() => {
+      isLiveDashboardOpenRef.current = isLiveDashboardOpen;
+    }, [isLiveDashboardOpen]);
+
+    const pauseGate = useMemo(() => ({
+      checkPause: async () => {
+        if (pauseResolverRef.current) {
+          await pauseResolverRef.current.promise;
+        }
+      }
+    }), []);
+
+    const handleTogglePause = useCallback(() => {
+      if (!isTranslationPaused) {
+        let resolve;
+        const promise = new Promise(r => { resolve = r; });
+        pauseResolverRef.current = { promise, resolve };
+        setIsTranslationPaused(true);
+        if (typeof window !== 'undefined' && window.NativeBridge?.releaseWakeLock) {
+          window.NativeBridge.releaseWakeLock();
+        }
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Translation paused at chunk boundary. Screen wake lock released.', 'info');
+        }
+      } else {
+        if (pauseResolverRef.current) {
+          pauseResolverRef.current.resolve();
+          pauseResolverRef.current = null;
+        }
+        setIsTranslationPaused(false);
+        if (typeof window !== 'undefined' && window.NativeBridge?.acquireWakeLock) {
+          window.NativeBridge.acquireWakeLock();
+        }
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Translation resumed.', 'info');
+        }
+      }
+    }, [isTranslationPaused]);
 
     // Translation elapsed timer effect
     useEffect(() => {
@@ -480,6 +523,11 @@
 
     // Instant Stop Handler for all translation operations
     const handleStopChapterTranslation = useCallback(() => {
+      if (pauseResolverRef.current) {
+        try { pauseResolverRef.current.resolve(); } catch (_) {}
+        pauseResolverRef.current = null;
+      }
+      setIsTranslationPaused(false);
       if (translationAbortRef.current) {
         try { translationAbortRef.current.abort(); } catch (_) {}
         translationAbortRef.current = null;
@@ -487,6 +535,10 @@
       if (translationTimerRef.current) {
         clearInterval(translationTimerRef.current);
         translationTimerRef.current = null;
+      }
+      if (throttleTimerRef.current) {
+        clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = null;
       }
       setIsTranslatingCurrentChapter(false);
       setIsTranslatingTitles(false);
@@ -498,7 +550,12 @@
     }, []);
 
     const handleTranslateActiveChapter = useCallback(async (targetChapterIndex = null, optionsOverride = {}) => {
-      if (isTranslatingCurrentChapter) return;
+      if (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Another translation task is currently active. Please wait or stop it first.', 'warning');
+        }
+        return;
+      }
       if (typeof onTranslateChapter !== 'function') {
         if (typeof window !== 'undefined' && window.toast) {
           window.toast('Translation handler not available in current mode.', 'error');
@@ -509,6 +566,7 @@
       const targetChap = (chapters && chapters[idx]) || (safeChapters && safeChapters[idx]) || currentChapter;
       setIsTranslatingCurrentChapter(true);
       setActiveTranslationMode('full');
+      streamBufferRef.current = '';
       setLiveStreamText('');
       setLiveHealingBlocks([]);
       setChunkProgress({ current: 1, total: 1 });
@@ -524,8 +582,20 @@
         }, 'full', {
           optionsOverride,
           abortController: translationAbortRef.current,
-          onStreamChunk: (chunkText) => {
-            if (chunkText) setLiveStreamText(prev => prev + chunkText);
+          pauseGate,
+          onStreamChunk: (chunkData) => {
+            const token = (typeof chunkData === 'object' && chunkData?.token) ? chunkData.token : String(chunkData || '');
+            streamBufferRef.current += token;
+            if (isLiveDashboardOpenRef.current) {
+              if (!throttleTimerRef.current) {
+                throttleTimerRef.current = setTimeout(() => {
+                  throttleTimerRef.current = null;
+                  if (isLiveDashboardOpenRef.current) {
+                    setLiveStreamText(streamBufferRef.current);
+                  }
+                }, 150);
+              }
+            }
           }
         });
 
@@ -569,6 +639,12 @@
     }, [isTranslatingCurrentChapter, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
 
     const handleTranslateActiveChapterTitleOnly = useCallback(async (targetChapterIndex = null, optionsOverride = {}) => {
+      if (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Another translation task is currently active. Please wait or stop it first.', 'warning');
+        }
+        return;
+      }
       if (typeof onTranslateChapter !== 'function') {
         if (typeof window !== 'undefined' && window.toast) {
           window.toast('Translation handler not available in current mode.', 'error');
@@ -607,13 +683,18 @@
       } finally {
         setActiveTranslationMode(null);
       }
-    }, [onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
+    }, [isTranslatingCurrentChapter, isTranslatingTitles, isHealingAll, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
 
     const [isTranslatingTitles, setIsTranslatingTitles] = useState(false);
     const [titlesProgress, setTitlesProgress] = useState({ done: 0, total: 0 });
 
     const handleTranslateAllChapterTitles = useCallback(async () => {
-      if (isTranslatingTitles) return;
+      if (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Another translation task is currently active. Please wait or stop it first.', 'warning');
+        }
+        return;
+      }
       if (typeof onTranslateChapter !== 'function') {
         if (typeof window !== 'undefined' && window.toast) {
           window.toast('Translation handler not available in current mode.', 'error');
@@ -645,11 +726,13 @@
       }
 
       let completedCount = 0;
-      const batchFn = (typeof window !== 'undefined' && window.batchParallel) ? window.batchParallel : (typeof global !== 'undefined' && global.batchParallel ? global.batchParallel : null);
+      const pacingDelay = (ms) => new Promise(r => setTimeout(r, ms));
 
       try {
-        if (batchFn) {
-          await batchFn(targets, async (chIdx) => {
+        for (let i = 0; i < targets.length; i += 2) {
+          if (translationAbortRef.current?.signal?.aborted) break;
+          const chunk = targets.slice(i, i + 2);
+          await Promise.all(chunk.map(async (chIdx) => {
             if (translationAbortRef.current?.signal?.aborted) return;
             const chap = safeChapters[chIdx];
             try {
@@ -671,32 +754,19 @@
             } catch (_) {}
             completedCount++;
             setTitlesProgress({ done: completedCount, total: targets.length });
+          }));
+
+          // Incremental persistence every 10 titles or when batch finishes
+          if (completedCount % 10 === 0 || completedCount === targets.length) {
+            if (typeof onChaptersChange === 'function' && Array.isArray(safeChapters)) {
+              onChaptersChange([...safeChapters]);
+            }
             setRenderTick(t => t + 1);
-          }, 3, translationAbortRef.current?.signal);
-        } else {
-          for (const chIdx of targets) {
-            if (translationAbortRef.current?.signal?.aborted) break;
-            const chap = safeChapters[chIdx];
-            try {
-              const res = await onTranslateChapter(chIdx, chap, null, 'titleOnly', {
-                abortController: translationAbortRef.current
-              });
-              if (res && res.title) {
-                if (Array.isArray(chapters) && chapters[chIdx]) {
-                  chapters[chIdx] = { ...chapters[chIdx], title: res.title, isTranslated: true };
-                }
-                if (Array.isArray(safeChapters) && safeChapters[chIdx]) {
-                  safeChapters[chIdx] = { ...safeChapters[chIdx], title: res.title, isTranslated: true };
-                }
-                if (currentChapter && chIdx === activeIdx) {
-                  currentChapter.title = res.title;
-                  currentChapter.isTranslated = true;
-                }
-              }
-            } catch (_) {}
-            completedCount++;
-            setTitlesProgress({ done: completedCount, total: targets.length });
-            setRenderTick(t => t + 1);
+          }
+
+          // Gentle 200ms pacing delay between pairs to respect API rate limits
+          if (i + 2 < targets.length && !translationAbortRef.current?.signal?.aborted) {
+            await pacingDelay(200);
           }
         }
 
@@ -716,20 +786,31 @@
         setActiveTranslationMode(null);
         translationAbortRef.current = null;
       }
-    }, [isTranslatingTitles, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
+    }, [isTranslatingCurrentChapter, isTranslatingTitles, isHealingAll, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
 
     const [isHealingAll, setIsHealingAll] = useState(false);
     const [healAllProgress, setHealAllProgress] = useState({ done: 0, total: 0 });
 
     const handleHealAllChapters = useCallback(async () => {
-      if (isHealingAll || isTranslatingTitles) return;
+      if (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Another translation task is currently active. Please wait or stop it first.', 'warning');
+        }
+        return;
+      }
       if (typeof onTranslateChapter !== 'function') {
         if (typeof window !== 'undefined' && window.toast) {
           window.toast('Translation handler not available in current mode.', 'error');
         }
         return;
       }
-      const hasCjkOrError = (p) => typeof p === 'string' && (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(p) || /\[Error:.*?\]/i.test(p));
+      const hasCjkOrError = (p) => {
+        if (!p || typeof p !== 'string') return false;
+        if (typeof window !== 'undefined' && window.hasUntranslatedOrError) {
+          return window.hasUntranslatedOrError(p, null, 'English');
+        }
+        return (/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(p) || /\[Error:.*?\]/i.test(p));
+      };
 
       const targets = [];
       safeChapters.forEach((ch, idx) => {
@@ -793,10 +874,15 @@
       } finally {
         setIsHealingAll(false);
       }
-    }, [isHealingAll, isTranslatingTitles, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
+    }, [isTranslatingCurrentChapter, isHealingAll, isTranslatingTitles, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
 
     const handleHealActiveChapterLines = useCallback(async (targetChapterIndex = null, optionsOverride = {}) => {
-      if (isTranslatingCurrentChapter) return;
+      if (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) {
+        if (typeof window !== 'undefined' && window.toast) {
+          window.toast('Another translation task is currently active. Please wait or stop it first.', 'warning');
+        }
+        return;
+      }
       if (typeof onTranslateChapter !== 'function') {
         if (typeof window !== 'undefined' && window.toast) {
           window.toast('Translation handler not available in current mode.', 'error');
@@ -808,6 +894,7 @@
       if (!targetChap) return;
       setIsTranslatingCurrentChapter(true);
       setActiveTranslationMode('heal');
+      streamBufferRef.current = '';
       setLiveStreamText('');
       setLiveHealingBlocks([]);
       setChunkProgress({ current: 1, total: 1 });
@@ -823,11 +910,15 @@
         }, 'heal', {
           optionsOverride,
           abortController: translationAbortRef.current,
+          pauseGate,
           onHealingScanned: (items) => {
             if (Array.isArray(items)) setLiveHealingBlocks(items);
           },
-          onHealingBlockProgress: (blockIdx, healedText) => {
-            setLiveHealingBlocks(prev => prev.map((b, i) => i === blockIdx ? { ...b, healedText, status: 'healed' } : b));
+          onHealingBlockProgress: (arg1, arg2) => {
+            const blockIdx = (typeof arg1 === 'object') ? arg1.blockIdx : arg1;
+            const healedSnippet = (typeof arg1 === 'object') ? (arg1.healedSnippet || '') : (arg2 || '');
+            const status = (typeof arg1 === 'object') ? (arg1.status || 'healed') : 'healed';
+            setLiveHealingBlocks(prev => prev.map((b, i) => i === blockIdx ? { ...b, healedText: healedSnippet, status } : b));
           }
         });
 
@@ -2726,7 +2817,10 @@
         chunkCurrent: chunkProgress.current,
         chunkTotal: chunkProgress.total,
         titlesProgress,
-        onOpenDashboard: () => setIsLiveDashboardOpen(true),
+        onOpenDashboard: () => {
+          setLiveStreamText(streamBufferRef.current || '');
+          setIsLiveDashboardOpen(true);
+        },
         onStop: handleStopChapterTranslation
       }),
 
@@ -2734,6 +2828,9 @@
       h(window.ReaderLiveDashboardModal || (typeof ReaderLiveDashboardModal !== 'undefined' ? ReaderLiveDashboardModal : 'div'), {
         isOpen: isLiveDashboardOpen,
         onClose: () => setIsLiveDashboardOpen(false),
+        isPaused: isTranslationPaused,
+        onPause: handleTogglePause,
+        onResume: handleTogglePause,
         onStop: handleStopChapterTranslation,
         activeMode: activeTranslationMode || (isTranslatingTitles ? 'titles' : 'full'),
         chapterIndex: activeIdx,

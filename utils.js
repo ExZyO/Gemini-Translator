@@ -1802,6 +1802,94 @@ window.safeQuerySelectorAll = safeQuerySelectorAll;
 window.safeQuerySelector = safeQuerySelector;
 window.safeMatches = safeMatches;
 
+/**
+ * Multi-language untranslated prose detector with target language awareness
+ * Catches CJK, Hangul, Cyrillic, Thai, Arabic, Vietnamese, Latin-to-Latin duplicates, and [Error:] tags.
+ */
+function hasUntranslatedOrError(p, sourceP, targetLanguage = 'English') {
+    if (!p || typeof p !== 'string') return false;
+    if (/\[Error:.*?\]/i.test(p)) return true;
+
+    const trimmedP = p.trim();
+    // Compare against raw source paragraph (catches Latin-to-Latin languages like Spanish, French, German)
+    if (sourceP && typeof sourceP === 'string') {
+        const trimmedSrc = sourceP.trim();
+        if (trimmedP === trimmedSrc && trimmedP.length > 3) return true;
+    }
+
+    // Script checks guarded by targetLanguage (prevents falsely flagging translated prose)
+    if (!/^(?:Japanese|Chinese)/i.test(targetLanguage) && /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(p)) return true;
+    if (!/^Korean/i.test(targetLanguage) && /[\uac00-\ud7af]/.test(p)) return true;
+    if (!/^(?:Russian|Ukrainian|Bulgarian|Serbian|Cyrillic)/i.test(targetLanguage) && /[\u0400-\u04ff]/.test(p)) return true;
+    if (!/^Thai/i.test(targetLanguage) && /[\u0e00-\u0e7f]/.test(p)) return true;
+    if (!/^Arabic/i.test(targetLanguage) && /[\u0600-\u06ff]/.test(p)) return true;
+    if (!/^Vietnamese/i.test(targetLanguage) && /[\u1ea0-\u1ef9]/.test(p)) return true;
+
+    return false;
+}
+window.hasUntranslatedOrError = hasUntranslatedOrError;
+
+/**
+ * Strips markdown code blocks, conversational introductions, and trailing translator notes from healed prose,
+ * while normalizing internal line breaks to preserve paragraph array alignment.
+ */
+function cleanHealedProse(raw) {
+    if (!raw || typeof raw !== 'string') return '';
+    let text = raw.trim();
+
+    // 1. Strip markdown code fences
+    text = text.replace(/^```[a-zA-Z]*\r?\n?/gm, '').replace(/\r?\n?```$/gm, '').trim();
+
+    // 2. Strip AI conversational introductions
+    text = text.replace(/^(?:Here(?:\s+is|\s+'s)?(?:\s+the)?\s+(?:translation|healed\s+text|healed\s+prose|output)[\s\S]*?:\s*\r?\n?)+/i, '');
+    text = text.replace(/^(?:Translation|Healed\s+prose|Result|Output)\s*:\s*\r?\n?/i, '');
+
+    // 3. Strip trailing commentary or notes
+    text = text.replace(/\r?\n\r?\n(?:Note|Notes|Translator's\s+Note|TL\s+Note)\s*:[\s\S]*$/i, '');
+
+    // 4. Normalize internal newlines to spaces so paragraph array alignment is preserved
+    text = text.replace(/\r?\n+/g, ' ').trim();
+
+    return text;
+}
+window.cleanHealedProse = cleanHealedProse;
+
+/**
+ * Three-tier settings resolution helper: chapterOverride -> novelSettings -> localStorage -> fallback
+ */
+function resolveSetting(novelSettings, key, fallback) {
+    if (novelSettings && novelSettings[key] !== undefined && novelSettings[key] !== null) {
+        return novelSettings[key];
+    }
+    if (typeof localStorage !== 'undefined') {
+        const stored = localStorage.getItem(key);
+        if (stored !== null && stored !== undefined) return stored;
+    }
+    return fallback;
+}
+window.resolveSetting = resolveSetting;
+
+/**
+ * Provider-specific model fallback mapping to prevent cross-provider 404s
+ */
+function getProviderFallbackModel(provider, currentModel) {
+    const prov = (provider || 'gemini').toLowerCase();
+    if (prov === 'deepseek') {
+        return 'deepseek-chat';
+    }
+    if (prov === 'openai') {
+        return 'gpt-4o-mini';
+    }
+    if (prov === 'anthropic' || prov === 'claude') {
+        return 'claude-3-5-haiku-20241022';
+    }
+    if (prov === 'deepl' || prov === 'libretranslate') {
+        return 'default';
+    }
+    return (currentModel === 'gemini-3.8-flash') ? 'gemini-3.7-flash' : 'gemini-3.8-flash';
+}
+window.getProviderFallbackModel = getProviderFallbackModel;
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         escapeXml,
@@ -1868,7 +1956,11 @@ if (typeof module !== 'undefined' && module.exports) {
         SITE_RECIPE_MAX_TOC_PAGES,
         SITE_RECIPE_MAX_DELAY_MS,
         SITE_RECIPE_MIN_CONTENT_CHARS,
-        SITE_RECIPE_PREVIEW_CHARS
+        SITE_RECIPE_PREVIEW_CHARS,
+        hasUntranslatedOrError,
+        cleanHealedProse,
+        resolveSetting,
+        getProviderFallbackModel
     };
 }
 })();
