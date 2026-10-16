@@ -683,7 +683,9 @@
       callbacks.onProgressLabel(`Translating ${chapterItems.length} chapter(s) with ${Math.min(effectiveConcurrency, chapterItems.length)} parallel multi-key stream(s)${useContext ? ' (intra-chapter context)' : ''}...`);
     }
 
-    const batchResults = await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx, workerId = 0) => {
+    let batchResults = [];
+    try {
+      batchResults = await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx, workerId = 0) => {
       const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
       const workerOpts = { ...opts, apiKey: workerKey, availableKeys, isParallelWorker: effectiveConcurrency > 1 };
       let title = ch?.title || '';
@@ -933,6 +935,10 @@
       }
       await saveState(chapterCtx, done, i + 1, 0, allParts, newChapters);
     }, effectiveConcurrency, opts.signal);
+    } catch (batchErr) {
+      if (batchErr.name !== 'AbortError' && !opts.signal?.aborted) throw batchErr;
+      console.log('[translateEbook] Stopped early by user. Staging and retaining all completed chapters...');
+    }
 
     const failedChapterItems = (batchResults || []).filter(r => r && r.error);
     if (failedChapterItems.length > 0 && opts?.strictModel) {
@@ -2564,42 +2570,46 @@
 
         const healingConcurrency = Math.max(1, Math.min(Number(config.concurrency || userOpts.concurrency || 3), (opts.availableKeys && opts.availableKeys.length) || 3));
         let completedHealingCount = 0;
-        await batchParallel(activeBlocks, async (block, bIdx, workerId) => {
-          if (ctrl.signal?.aborted) return;
-          if (typeof params.onHealingBlockProgress === 'function') {
-            params.onHealingBlockProgress({ blockIdx: bIdx, totalBlocks: activeBlocks.length, status: 'healing' });
-          }
-          const blockRawText = block.texts.join(sep);
-          const healInstructions = opts.instructions || config.instructions ||
-            `Translate accurately and fluently into ${targetLanguage}. Maintain formal novel prose style and preserve all quotes, indentation, and formatting. Output ONLY the translated prose, without commentary or markdown code fences.`;
-          const workerKey = (opts.availableKeys && opts.availableKeys.length > 0)
-            ? (typeof opts.availableKeys[workerId % opts.availableKeys.length] === 'string' ? opts.availableKeys[workerId % opts.availableKeys.length] : (opts.availableKeys[workerId % opts.availableKeys.length].key || opts.apiKey))
-            : opts.apiKey;
-          try {
-            const transBlock = await safeTranslateWithRotation(blockRawText, {
-              ...opts,
-              apiKey: workerKey,
-              instructions: healInstructions
-            });
-            let translatedBlockText = (transBlock && typeof transBlock === 'object') ? (transBlock.text || '') : (typeof transBlock === 'string' ? transBlock : '');
-            translatedBlockText = cleanProseFn(translatedBlockText);
-            block.translatedText = translatedBlockText;
-          } catch (healErr) {
-            console.warn(`[Healing] Block ${bIdx + 1} error:`, healErr.message);
-          }
-          completedHealingCount++;
-          if (typeof onProgress === 'function') {
-            onProgress(Math.floor((completedHealingCount / activeBlocks.length) * 80) + 15, `Healing section ${completedHealingCount}/${activeBlocks.length}…`);
-          }
-          if (typeof params.onHealingBlockProgress === 'function') {
-            params.onHealingBlockProgress({
-              blockIdx: bIdx,
-              totalBlocks: activeBlocks.length,
-              healedSnippet: (block.translatedText || '').slice(0, 150),
-              status: block.translatedText ? 'healed' : 'failed'
-            });
-          }
-        }, healingConcurrency, ctrl.signal);
+        try {
+          await batchParallel(activeBlocks, async (block, bIdx, workerId) => {
+            if (ctrl.signal?.aborted) return;
+            if (typeof params.onHealingBlockProgress === 'function') {
+              params.onHealingBlockProgress({ blockIdx: bIdx, totalBlocks: activeBlocks.length, status: 'healing' });
+            }
+            const blockRawText = block.texts.join(sep);
+            const healInstructions = opts.instructions || config.instructions ||
+              `Translate accurately and fluently into ${targetLanguage}. Maintain formal novel prose style and preserve all quotes, indentation, and formatting. Output ONLY the translated prose, without commentary or markdown code fences.`;
+            const workerKey = (opts.availableKeys && opts.availableKeys.length > 0)
+              ? (typeof opts.availableKeys[workerId % opts.availableKeys.length] === 'string' ? opts.availableKeys[workerId % opts.availableKeys.length] : (opts.availableKeys[workerId % opts.availableKeys.length].key || opts.apiKey))
+              : opts.apiKey;
+            try {
+              const transBlock = await safeTranslateWithRotation(blockRawText, {
+                ...opts,
+                apiKey: workerKey,
+                instructions: healInstructions
+              });
+              let translatedBlockText = (transBlock && typeof transBlock === 'object') ? (transBlock.text || '') : (typeof transBlock === 'string' ? transBlock : '');
+              translatedBlockText = cleanProseFn(translatedBlockText);
+              block.translatedText = translatedBlockText;
+            } catch (healErr) {
+              console.warn(`[Healing] Block ${bIdx + 1} error:`, healErr.message);
+            }
+            completedHealingCount++;
+            if (typeof onProgress === 'function') {
+              onProgress(Math.floor((completedHealingCount / activeBlocks.length) * 80) + 15, `Healing section ${completedHealingCount}/${activeBlocks.length}…`);
+            }
+            if (typeof params.onHealingBlockProgress === 'function') {
+              params.onHealingBlockProgress({
+                blockIdx: bIdx,
+                totalBlocks: activeBlocks.length,
+                healedSnippet: (block.translatedText || '').slice(0, 150),
+                status: block.translatedText ? 'healed' : 'failed'
+              });
+            }
+          }, healingConcurrency, ctrl.signal);
+        } catch (parallelErr) {
+          if (parallelErr.name !== 'AbortError' && !ctrl.signal?.aborted) console.warn('[Healing] batch error:', parallelErr);
+        }
 
         for (let bIdx = 0; bIdx < activeBlocks.length; bIdx++) {
           const block = activeBlocks[bIdx];
@@ -2712,7 +2722,12 @@
         }
 
         if (typeof toast === 'function') {
-          toast(`Healed ${totalHealedSections} untranslated section(s)! Zero wasted tokens.`, 'success');
+          const numHealed = activeBlocks.filter(b => b && b.translatedText && b.translatedText.trim()).length;
+          if (ctrl.signal?.aborted) {
+            toast(`Stopped early. Safely saved ${numHealed} healed section(s) to book!`, 'info');
+          } else {
+            toast(`Healed ${totalHealedSections} untranslated section(s)! Zero wasted tokens.`, 'success');
+          }
         }
         return { content: finalContent, title: finalTitle, isTranslated: true };
       }
