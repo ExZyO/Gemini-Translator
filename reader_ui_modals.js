@@ -578,7 +578,8 @@
       paragraphIndent, setParagraphIndent, justify, setJustify, ttsEngines,
       selectedTtsEngine, setSelectedTtsEngine, ttsVoices, selectedTtsVoice,
       setSelectedTtsVoice, ttsRate, handleRateChange, dacDelayMs, setDacDelayMs,
-      sleepTimerMinutes, setSleepTimerMinutes, setSleepTimerSecondsLeft, setShowVoiceModal
+      sleepTimerMinutes, setSleepTimerMinutes, setSleepTimerSecondsLeft, setShowVoiceModal,
+      moonStatusBar, setMoonStatusBar
     } = props;
     if (!showSettings) return null;
     return h('div', {
@@ -705,6 +706,16 @@
               style: { flex: 1, padding: '8px 0' },
               onClick: () => setJustify(s => !s)
             }, justify ? 'Justify Text' : 'Align Left')
+          ),
+
+          // Moon+ Reader Pro Status Bar Toggle
+          typeof setMoonStatusBar === 'function' && h('div', { style: { marginBottom: 16 } },
+            h('button', {
+              type: 'button',
+              className: `mini-btn ${moonStatusBar !== false ? '' : 'ghost'}`,
+              style: { width: '100%', padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+              onClick: () => setMoonStatusBar(s => !s)
+            }, ic('Smartphone', 14), moonStatusBar !== false ? 'Moon+ Reader Status Bar: Enabled' : 'Moon+ Reader Status Bar: Disabled')
           ),
 
           // Audio & Speech (TTS) Engine & Voice Settings (Legado & Piper Integration)

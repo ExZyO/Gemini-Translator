@@ -41,7 +41,8 @@
   const getReadingProgress = (key) => {
     if (!key) return null;
     const map = getReadingProgressMap();
-    return map[String(key)] || null;
+    if (map[String(key)]) return map[String(key)];
+    return window.MoonReaderEngine?.PositionBridge?.getPositionFromPo ? window.MoonReaderEngine.PositionBridge.getPositionFromPo(key) : null;
   };
 
   const saveReadingProgress = (key, chapterIdx, scrollTop, pct) => {
@@ -56,6 +57,7 @@
         updatedAt: Date.now()
       };
       localStorage.setItem('gemini_reading_progress', JSON.stringify(map));
+      window.MoonReaderEngine?.PositionBridge?.savePositionToPo?.(key, { chapterIdx, scrollTop, pct });
     } catch (e) {
       console.warn('saveReadingProgress error:', e);
     }
@@ -197,17 +199,19 @@
     }, [open, activeIdx, activeNovelKey]);
 
     // Debounced Scroll Persistence & Auto-Scroll Subpixel Accumulator
+    const [chapterScrollPct, setChapterScrollPct] = useState(() => initialSavedProgress?.pct || 0);
     const saveScrollTimeoutRef = useRef(null);
     const scrollAccumulatorRef = useRef(0);
     const handleScroll = useCallback((e) => {
       const el = e.currentTarget;
       if (!el) return;
       scrollAccumulatorRef.current = el.scrollTop || 0;
+      const top = el.scrollTop || 0;
+      const scrollHeight = el.scrollHeight - el.clientHeight;
+      const pct = scrollHeight > 0 ? (top / scrollHeight) * 100 : 0;
+      setChapterScrollPct(Math.round(pct * 10) / 10);
       if (saveScrollTimeoutRef.current) clearTimeout(saveScrollTimeoutRef.current);
       saveScrollTimeoutRef.current = setTimeout(() => {
-        const top = el.scrollTop || 0;
-        const scrollHeight = el.scrollHeight - el.clientHeight;
-        const pct = scrollHeight > 0 ? (top / scrollHeight) * 100 : 0;
         saveReadingProgress(activeNovelKey, activeIdx, top, pct);
       }, 200);
     }, [activeNovelKey, activeIdx]);
@@ -237,12 +241,14 @@
     const [lineHeight, setLineHeight] = useState(() => parseFloat(localStorage.getItem('gemini_reader_lineheight')) || 1.8);
     const [paragraphIndent, setParagraphIndent] = useState(() => localStorage.getItem('gemini_reader_indent') === 'true');
     const [justify, setJustify] = useState(() => localStorage.getItem('readerJustify') !== 'false');
+    const [moonStatusBar, setMoonStatusBar] = useState(() => localStorage.getItem('gemini_moon_status_bar') !== 'false');
 
     useEffect(() => { localStorage.setItem('gemini_reader_mode', viewMode); }, [viewMode]);
     useEffect(() => { localStorage.setItem('gemini_reader_width', contentWidth); }, [contentWidth]);
     useEffect(() => { localStorage.setItem('gemini_reader_lineheight', String(lineHeight)); }, [lineHeight]);
     useEffect(() => { localStorage.setItem('gemini_reader_indent', String(paragraphIndent)); }, [paragraphIndent]);
     useEffect(() => { localStorage.setItem('readerJustify', String(justify)); }, [justify]);
+    useEffect(() => { localStorage.setItem('gemini_moon_status_bar', String(moonStatusBar)); }, [moonStatusBar]);
 
     // Auto-Scroll Engine (Subpixel Precision & Chapter Auto-Advance)
     const [autoScroll, setAutoScroll] = useState(false);
@@ -2648,6 +2654,16 @@
         )
       ),
 
+      // ── MOON+ READER MINIMAL STATUS BAR (Active during immersive reading) ──
+      h(window.MoonReaderEngine?.StatusBar || 'div', {
+        bookTitle,
+        chapterTitle: currentChapter?.title,
+        chapterIndex: activeIdx,
+        totalChapters: safeChapters.length,
+        chapterScrollPct: viewMode === 'paginated' ? (totalPages > 1 ? ((currentPage + 1) / totalPages) * 100 : 0) : chapterScrollPct,
+        visible: !hudVisible && moonStatusBar !== false
+      }),
+
       // ── BOTTOM HUD ──
       h('div', { className: `reader-v2-hud-bottom ${hudVisible ? '' : 'reader-v2-hud-hidden'}` },
         // Progress Scrubber Slider with Live Chapter Tooltip
@@ -2845,7 +2861,8 @@
         paragraphIndent, setParagraphIndent, justify, setJustify, ttsEngines,
         selectedTtsEngine, setSelectedTtsEngine, ttsVoices, selectedTtsVoice,
         setSelectedTtsVoice, ttsRate, handleRateChange, dacDelayMs, setDacDelayMs,
-        sleepTimerMinutes, setSleepTimerMinutes, setSleepTimerSecondsLeft, setShowVoiceModal
+        sleepTimerMinutes, setSleepTimerMinutes, setSleepTimerSecondsLeft, setShowVoiceModal,
+        moonStatusBar, setMoonStatusBar
       }),
 
       // ── VOICE & OFFLINE ENGINE SELECTION MODAL ──

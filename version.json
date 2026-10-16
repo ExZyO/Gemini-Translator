@@ -1,9 +1,9 @@
 {
-  "version": "8.21.55",
-  "versionCode": 8466,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.55/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.55/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.55",
+  "version": "8.21.56",
+  "versionCode": 8467,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.56/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.56/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.56",
   "releaseDate": "2026-10-16",
-  "releaseNotes": "v8.21.55: Add full multi-key keyring rotation, auto-rotation on quota limits, and Turbo parallel batch requests to Reader chapter translation and healing."
+  "releaseNotes": "v8.21.56: Moon+ Reader Pro integration: Add two-way .po reading position sync bridge and immersive bottom status bar with battery and live clock."
 }

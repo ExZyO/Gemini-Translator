@@ -1583,6 +1583,239 @@
           MoonReaderEngine._isContinuationExecuting = false;
         }
       }
+    },
+
+    PositionBridge: {
+      getDeviceId() {
+        try {
+          let id = localStorage.getItem('gemini_moon_device_id');
+          if (!id) {
+            id = 'gm_' + Math.random().toString(16).slice(2, 10);
+            localStorage.setItem('gemini_moon_device_id', id);
+          }
+          return id;
+        } catch (e) {
+          return 'gm_default';
+        }
+      },
+
+      encodePo(opts = {}) {
+        const {
+          chapterIdx = 0,
+          splitIdx = 0,
+          charOffset = 0,
+          pct = 0,
+          scrollTop = 0,
+          deviceId = null
+        } = opts;
+        const dev = deviceId || this.getDeviceId();
+        const safePct = typeof pct === 'number' ? Math.max(0, Math.min(100, pct)).toFixed(1) : '0.0';
+        const safeScroll = Math.max(0, Math.round(scrollTop || 0));
+        const safeChar = Math.max(0, Math.round(charOffset || 0));
+        return `${dev}*${chapterIdx}@${splitIdx}#${safeChar}:${safePct}%|${safeScroll}`;
+      },
+
+      decodePo(raw) {
+        if (!raw || typeof raw !== 'string') return null;
+        try {
+          const str = raw.trim();
+          const starIdx = str.indexOf('*');
+          if (starIdx === -1) return null;
+          const deviceId = str.slice(0, starIdx);
+          const remainder = str.slice(starIdx + 1);
+
+          let body = remainder;
+          let scrollTop = 0;
+          const pipeIdx = remainder.indexOf('|');
+          if (pipeIdx !== -1) {
+            body = remainder.slice(0, pipeIdx);
+            scrollTop = parseInt(remainder.slice(pipeIdx + 1), 10) || 0;
+          }
+
+          let chapterIdx = 0;
+          let splitIdx = 0;
+          let charOffset = 0;
+          let pct = 0;
+
+          const atIdx = body.indexOf('@');
+          const hashIdx = body.indexOf('#');
+          const colonIdx = body.indexOf(':');
+
+          if (hashIdx !== -1) {
+            const chapPart = body.slice(0, hashIdx);
+            if (atIdx !== -1 && atIdx < hashIdx) {
+              chapterIdx = parseInt(chapPart.slice(0, atIdx), 10) || 0;
+              splitIdx = parseInt(chapPart.slice(atIdx + 1), 10) || 0;
+            } else {
+              chapterIdx = parseInt(chapPart, 10) || 0;
+            }
+
+            if (colonIdx !== -1 && colonIdx > hashIdx) {
+              charOffset = parseInt(body.slice(hashIdx + 1, colonIdx), 10) || 0;
+              const pctPart = body.slice(colonIdx + 1).replace('%', '').trim();
+              pct = parseFloat(pctPart) || 0;
+            } else {
+              charOffset = parseInt(body.slice(hashIdx + 1), 10) || 0;
+            }
+          } else if (colonIdx !== -1) {
+            chapterIdx = parseInt(body.slice(0, colonIdx), 10) || 0;
+            const pctPart = body.slice(colonIdx + 1).replace('%', '').trim();
+            pct = parseFloat(pctPart) || 0;
+          } else {
+            chapterIdx = parseInt(body, 10) || 0;
+          }
+
+          return {
+            deviceId,
+            chapterIdx: Math.max(0, chapterIdx),
+            splitIdx: Math.max(0, splitIdx),
+            charOffset: Math.max(0, charOffset),
+            pct: Math.max(0, Math.min(100, pct)),
+            scrollTop: Math.max(0, scrollTop)
+          };
+        } catch (e) {
+          console.warn('Failed to parse Moon+ Reader .po string:', e);
+          return null;
+        }
+      },
+
+      savePositionToPo(novelKey, opts = {}) {
+        if (!novelKey) return;
+        const { chapterIdx = 0, scrollTop = 0, pct = 0, totalChars = 0 } = opts;
+        try {
+          const poStr = this.encodePo({
+            chapterIdx,
+            splitIdx: 0,
+            charOffset: Math.round(((pct || 0) / 100) * (totalChars || 5000)),
+            pct,
+            scrollTop
+          });
+          const normKey = String(novelKey).trim().toLowerCase();
+          localStorage.setItem('moon_po_' + normKey, poStr);
+
+          const mappingStore = JSON.parse(localStorage.getItem('gemini_novel_folder_mappings') || '{}');
+          const mapped = mappingStore[normKey];
+          if (mapped?.folderTreeUri && window.NativeBridge?.writeFileInTree) {
+            const cleanTitle = (mapped.cleanTitle || novelKey).replace(/[\/\\?%*:|"<>]/g, '_');
+            const poFileName = cleanTitle.endsWith('.epub') ? `${cleanTitle}.po` : `${cleanTitle}.epub.po`;
+            window.NativeBridge.writeFileInTree(mapped.folderTreeUri, mapped.folderPath || '', poFileName, poStr);
+          }
+        } catch (e) {
+          console.warn('savePositionToPo failed:', e);
+        }
+      },
+
+      getPositionFromPo(novelKey) {
+        if (!novelKey) return null;
+        try {
+          const normKey = String(novelKey).trim().toLowerCase();
+          const raw = localStorage.getItem('moon_po_' + normKey);
+          return raw ? this.decodePo(raw) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+    },
+
+    StatusBar: function MoonReaderStatusBar(props) {
+      const {
+        bookTitle = '',
+        chapterTitle = '',
+        chapterIndex = 0,
+        totalChapters = 1,
+        chapterScrollPct = 0,
+        totalBookPct = 0,
+        visible = true
+      } = props;
+
+      const [timeStr, setTimeStr] = React.useState(() => {
+        try {
+          return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+          return '';
+        }
+      });
+      const [batteryLevel, setBatteryLevel] = React.useState(null);
+      const [isCharging, setIsCharging] = React.useState(false);
+
+      React.useEffect(() => {
+        const interval = setInterval(() => {
+          try {
+            setTimeStr(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+          } catch (_) {}
+        }, 30000);
+        return () => clearInterval(interval);
+      }, []);
+
+      React.useEffect(() => {
+        if (typeof navigator !== 'undefined' && navigator.getBattery) {
+          navigator.getBattery().then(b => {
+            setBatteryLevel(Math.round(b.level * 100));
+            setIsCharging(b.charging);
+            b.addEventListener('levelchange', () => setBatteryLevel(Math.round(b.level * 100)));
+            b.addEventListener('chargingchange', () => setIsCharging(b.charging));
+          }).catch(() => {});
+        }
+      }, []);
+
+      if (!visible) return null;
+
+      const cleanChap = (chapterTitle || '').replace(/^[#\s]+/, '').trim();
+      const cleanDisplayTitle = cleanChap || bookTitle || 'Chapter';
+      const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
+
+      return h('div', { className: 'moon-reader-status-bar' },
+        h('div', { className: 'moon-status-left' },
+          h('span', { className: 'moon-status-truncate' }, cleanDisplayTitle)
+        ),
+        h('div', { className: 'moon-status-center' },
+          h('span', null, `${chapterScrollPct.toFixed(1)}%`),
+          totalChapters > 1 && h('span', { style: { opacity: 0.7, marginLeft: 4 } }, `(${chapterIndex + 1}/${totalChapters})`)
+        ),
+        h('div', { className: 'moon-status-right' },
+          batteryLevel !== null && h('div', { className: 'moon-battery-wrap', title: `${batteryLevel}%${isCharging ? ' (Charging)' : ''}` },
+            h('div', { className: 'moon-battery-body' },
+              h('div', { className: 'moon-battery-fill', style: { width: `${Math.max(8, batteryLevel)}%`, background: isCharging ? '#4ade80' : 'currentColor' } })
+            ),
+            h('div', { className: 'moon-battery-tip' }),
+            h('span', { style: { fontSize: '9.5px', marginLeft: 3, fontWeight: 600 } }, `${batteryLevel}%`)
+          ),
+          h('span', { className: 'moon-clock-text' }, timeStr)
+        ),
+        h('div', { className: 'moon-bottom-progress-track' },
+          h('div', { className: 'moon-bottom-progress-fill', style: { width: `${Math.max(0, Math.min(100, chapterScrollPct))}%` } })
+        )
+      );
+    },
+
+    HighlightPalette: function MoonReaderHighlightPalette(props) {
+      const { onSelectColor, selectedColor = 'yellow' } = props;
+      const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
+      const colors = [
+        { id: 'yellow', label: 'Sun Yellow', color: '#facc15', bg: 'rgba(250, 204, 21, 0.35)' },
+        { id: 'green', label: 'Emerald Green', color: '#4ade80', bg: 'rgba(74, 222, 128, 0.35)' },
+        { id: 'cyan', label: 'Sky Cyan', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.35)' },
+        { id: 'pink', label: 'Blossom Pink', color: '#f472b6', bg: 'rgba(244, 114, 182, 0.35)' },
+        { id: 'orange', label: 'Sunset Orange', color: '#fb923c', bg: 'rgba(251, 146, 60, 0.35)' }
+      ];
+
+      return h('div', { className: 'moon-highlight-palette' },
+        colors.map(c => h('button', {
+          key: c.id,
+          type: 'button',
+          className: 'moon-color-chip',
+          title: c.label,
+          style: {
+            background: c.color,
+            transform: selectedColor === c.id ? 'scale(1.2)' : 'scale(1)',
+            borderColor: selectedColor === c.id ? '#ffffff' : 'rgba(255, 255, 255, 0.4)'
+          },
+          onClick: (e) => {
+            e.stopPropagation();
+            if (typeof onSelectColor === 'function') onSelectColor(c);
+          }
+        }))
+      );
     }
   };
 
@@ -1594,6 +1827,8 @@
   window.inspectMrexpt = MoonReaderEngine.inspectMrexpt.bind(MoonReaderEngine);
   window.extractTemplateFromMrexpt = MoonReaderEngine.extractTemplateFromMrexpt.bind(MoonReaderEngine);
   window.migrateMrexpt = MoonReaderEngine.migrateMrexpt.bind(MoonReaderEngine);
+  window.encodeMoonReaderPosition = MoonReaderEngine.PositionBridge.encodePo.bind(MoonReaderEngine.PositionBridge);
+  window.decodeMoonReaderPosition = MoonReaderEngine.PositionBridge.decodePo.bind(MoonReaderEngine.PositionBridge);
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = MoonReaderEngine;
   }
