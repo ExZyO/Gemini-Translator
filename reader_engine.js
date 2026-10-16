@@ -25,90 +25,8 @@
   // ══════════════════════════════════════════════════════════════════════
   const ensureStyles = (typeof window !== 'undefined' && window.ensureReaderStyles) ? window.ensureReaderStyles : function() {};
 
-  const decodeEntities = (str) => {
-    if (!str) return '';
-    if (typeof window !== 'undefined' && window.he && typeof window.he.decode === 'function') {
-      try { return window.he.decode(String(str)); } catch(_) {}
-    }
-    return String(str)
-      .replace(/&#(\d+);/g, (_, dec) => {
-        const code = parseInt(dec, 10);
-        if (code === 8216) return "‘";
-        if (code === 8217) return "’";
-        if (code === 8220) return "“";
-        if (code === 8221) return "”";
-        if (code === 8211) return "–";
-        if (code === 8212) return "—";
-        if (code === 8230) return "…";
-        try { return String.fromCharCode(code); } catch(e) { return _; }
-      })
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;|&#039;/g, "'")
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&nbsp;/g, ' ');
-  };
-
-  const swapPronouns = (text) => {
-    if (!text || typeof text !== 'string') return text;
-    // Words that follow an object 'her' (prepositions, conjunctions, punctuation, pronouns, verbs)
-    const nonPossessiveFollowers = /^(?:and|or|but|so|yet|that|which|who|whom|with|for|to|in|on|at|from|by|as|if|because|when|while|though|then|than|after|before|into|through|over|under|out|up|down|off|away|back|again|too|also|either|neither|now|here|there|not|is|was|are|were|has|had|have|did|does|do)\b/i;
-
-    // Step 1: Protect reflexives & absolute possessive
-    let s = text
-      .replace(/\bhimself\b/g, '___TEMP_HERSELF___')
-      .replace(/\bHimself\b/g, '___TEMP_HERSELF_CAP___')
-      .replace(/\bherself\b/g, 'himself')
-      .replace(/\bHerself\b/g, 'Himself')
-      .replace(/\bhers\b/g, '___TEMP_HIS_ABS___')
-      .replace(/\bHers\b/g, '___TEMP_HIS_ABS_CAP___');
-
-    // Step 2: Subject pronouns
-    s = s
-      .replace(/\bhe\b/g, '___TEMP_SHE___')
-      .replace(/\bHe\b/g, '___TEMP_SHE_CAP___')
-      .replace(/\bshe\b/g, 'he')
-      .replace(/\bShe\b/g, 'He');
-
-    // Step 3: 'his' -> 'her' (possessive)
-    s = s
-      .replace(/\bhis\b/g, '___TEMP_HER_POSS___')
-      .replace(/\bHis\b/g, '___TEMP_HER_POSS_CAP___');
-
-    // Step 4: 'him' -> 'her' (object)
-    s = s
-      .replace(/\bhim\b/g, '___TEMP_HER_OBJ___')
-      .replace(/\bHim\b/g, '___TEMP_HER_OBJ_CAP___');
-
-    // Step 5: Distinguish 'her' as possessive ("her sword" -> "his sword") vs object ("looked at her" -> "looked at him")
-    s = s.replace(/\b(her|Her)\b(\s+)?([a-zA-Z]+)?/g, (match, herWord, space, nextWord) => {
-      const isCap = herWord === 'Her';
-      if (!nextWord || nonPossessiveFollowers.test(nextWord)) {
-        // Object pronoun: "looked at her" -> "looked at him"
-        return (isCap ? 'Him' : 'him') + (space || '') + (nextWord || '');
-      } else {
-        // Possessive adjective: "her sword" -> "his sword"
-        return (isCap ? 'His' : 'his') + (space || '') + (nextWord || '');
-      }
-    });
-
-    // Step 6: Restore temporary tokens
-    s = s
-      .replace(/___TEMP_HERSELF___/g, 'herself')
-      .replace(/___TEMP_HERSELF_CAP___/g, 'Herself')
-      .replace(/___TEMP_HIS_ABS___/g, 'his')
-      .replace(/___TEMP_HIS_ABS_CAP___/g, 'His')
-      .replace(/___TEMP_SHE___/g, 'she')
-      .replace(/___TEMP_SHE_CAP___/g, 'She')
-      .replace(/___TEMP_HER_POSS___/g, 'her')
-      .replace(/___TEMP_HER_POSS_CAP___/g, 'Her')
-      .replace(/___TEMP_HER_OBJ___/g, 'her')
-      .replace(/___TEMP_HER_OBJ_CAP___/g, 'Her');
-
-    return s;
-  };
-  window.swapPronouns = swapPronouns;
+  const decodeEntities = (typeof window !== 'undefined' && window.decodeEntities) ? window.decodeEntities : (str => str || '');
+  const swapPronouns = (typeof window !== 'undefined' && window.swapPronouns) ? window.swapPronouns : (str => str);
 
   // ── Reading Progress Persistence (Moon+ Reader standard) ──
   const getReadingProgressMap = () => {
@@ -548,6 +466,9 @@
       setIsTranslatingTitles(false);
       setIsHealingAll(false);
       setActiveTranslationMode(null);
+      if (typeof window !== 'undefined' && window.NativeBridge) {
+        try { window.NativeBridge.releaseWakeLock?.(); window.NativeBridge.clearProgressNotification?.(false); } catch (_) {}
+      }
       if (typeof window !== 'undefined' && window.toast) {
         window.toast('Translation process stopped.', 'info');
       }
@@ -576,6 +497,9 @@
       setChunkProgress({ current: 1, total: 1 });
       setChapterTranslateProgress({ pct: 5, msg: 'Preparing translation…' });
       translationAbortRef.current = new AbortController();
+      if (typeof window !== 'undefined' && window.NativeBridge) {
+        try { window.NativeBridge.acquireWakeLock?.('Translating Chapter', `Translating Ch. ${idx + 1} in background…`); } catch (_) {}
+      }
 
       try {
         const res = await onTranslateChapter(idx, targetChap, (pct, msg, chunkData) => {
@@ -630,6 +554,9 @@
         } else {
           setIsTranslatingCurrentChapter(false);
           setActiveTranslationMode(null);
+          if (typeof window !== 'undefined' && window.toast) {
+            window.toast('Chapter translation was stopped or could not complete.', 'warning');
+          }
         }
       } catch (err) {
         setIsTranslatingCurrentChapter(false);
@@ -639,6 +566,9 @@
         }
       } finally {
         translationAbortRef.current = null;
+        if (typeof window !== 'undefined' && window.NativeBridge) {
+          try { window.NativeBridge.releaseWakeLock?.(); window.NativeBridge.clearProgressNotification?.(false); } catch (_) {}
+        }
       }
     }, [isTranslatingCurrentChapter, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
 
@@ -723,6 +653,9 @@
       setActiveTranslationMode('titles');
       setTitlesProgress({ done: 0, total: targets.length });
       translationAbortRef.current = new AbortController();
+      if (typeof window !== 'undefined' && window.NativeBridge) {
+        try { window.NativeBridge.acquireWakeLock?.('Translating Titles', 'Batch translating chapter titles in background…'); } catch (_) {}
+      }
       if (typeof window !== 'undefined' && window.toast) {
         window.toast(`Translating ${targets.length} chapter titles…`, 'info');
       }
@@ -787,6 +720,9 @@
         setIsTranslatingTitles(false);
         setActiveTranslationMode(null);
         translationAbortRef.current = null;
+        if (typeof window !== 'undefined' && window.NativeBridge) {
+          try { window.NativeBridge.releaseWakeLock?.(); window.NativeBridge.clearProgressNotification?.(false); } catch (_) {}
+        }
       }
     }, [isTranslatingCurrentChapter, isTranslatingTitles, isHealingAll, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
 
@@ -827,6 +763,9 @@
 
       setIsHealingAll(true);
       setHealAllProgress({ done: 0, total: targets.length });
+      if (typeof window !== 'undefined' && window.NativeBridge) {
+        try { window.NativeBridge.acquireWakeLock?.('Healing All Chapters', 'Scanning and healing novel prose in background…'); } catch (_) {}
+      }
       if (typeof window !== 'undefined' && window.toast) {
         window.toast(`Healing ${targets.length} chapter(s) with incomplete lines…`, 'info');
       }
@@ -873,6 +812,9 @@
         }
       } finally {
         setIsHealingAll(false);
+        if (typeof window !== 'undefined' && window.NativeBridge) {
+          try { window.NativeBridge.releaseWakeLock?.(); window.NativeBridge.clearProgressNotification?.(false); } catch (_) {}
+        }
       }
     }, [isTranslatingCurrentChapter, isHealingAll, isTranslatingTitles, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
 
@@ -900,6 +842,9 @@
       setChunkProgress({ current: 1, total: 1 });
       setChapterTranslateProgress({ pct: 10, msg: 'Scanning for untranslated lines…' });
       translationAbortRef.current = new AbortController();
+      if (typeof window !== 'undefined' && window.NativeBridge) {
+        try { window.NativeBridge.acquireWakeLock?.('Healing Chapter', `Healing incomplete lines in Ch. ${idx + 1}…`); } catch (_) {}
+      }
 
       try {
         const res = await onTranslateChapter(idx, targetChap, (pct, msg, chunkData) => {
@@ -949,6 +894,11 @@
         } else {
           setIsTranslatingCurrentChapter(false);
           setActiveTranslationMode(null);
+          if (res?.noop) {
+            // zero untranslated lines
+          } else if (typeof window !== 'undefined' && window.toast) {
+            window.toast('Healing stopped or no incomplete lines were modified.', 'warning');
+          }
         }
       } catch (err) {
         setIsTranslatingCurrentChapter(false);
@@ -958,6 +908,9 @@
         }
       } finally {
         translationAbortRef.current = null;
+        if (typeof window !== 'undefined' && window.NativeBridge) {
+          try { window.NativeBridge.releaseWakeLock?.(); window.NativeBridge.clearProgressNotification?.(false); } catch (_) {}
+        }
       }
     }, [isTranslatingCurrentChapter, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
 

@@ -2556,13 +2556,27 @@
           return { content: curBody, title: rawTitle, noop: true };
         }
 
-        const totalHealedSections = blocks.reduce((acc, b) => acc + (b.endIdx - b.startIdx + 1), 0);
+        // Split oversized blocks into <= 10 paragraphs so AI never exceeds token limits or times out
+        const safeBlocks = [];
+        blocks.forEach(b => {
+          if (b.texts.length <= 12) {
+            safeBlocks.push(b);
+          } else {
+            for (let i = 0; i < b.texts.length; i += 10) {
+              const slice = b.texts.slice(i, i + 10);
+              safeBlocks.push({ startIdx: b.startIdx + i, endIdx: b.startIdx + i + slice.length - 1, texts: slice });
+            }
+          }
+        });
+        const activeBlocks = safeBlocks.length > 0 ? safeBlocks : blocks;
+
+        const totalHealedSections = activeBlocks.reduce((acc, b) => acc + (b.endIdx - b.startIdx + 1), 0);
         if (typeof toast === 'function') {
           toast(`Healing ${totalHealedSections} untranslated section(s) in Ch. ${targetChapterIdx + 1}…`, 'info');
         }
 
         if (typeof params.onHealingScanned === 'function') {
-          params.onHealingScanned(blocks.map((b, i) => ({
+          params.onHealingScanned(activeBlocks.map((b, i) => ({
             id: i,
             startIdx: b.startIdx,
             endIdx: b.endIdx,
@@ -2571,13 +2585,13 @@
           })));
         }
 
-        for (let bIdx = 0; bIdx < blocks.length; bIdx++) {
-          const block = blocks[bIdx];
+        for (let bIdx = 0; bIdx < activeBlocks.length; bIdx++) {
+          const block = activeBlocks[bIdx];
           if (typeof onProgress === 'function') {
-            onProgress(Math.floor((bIdx / blocks.length) * 80) + 15, `Healing section ${bIdx + 1}/${blocks.length}…`);
+            onProgress(Math.floor((bIdx / activeBlocks.length) * 80) + 15, `Healing section ${bIdx + 1}/${activeBlocks.length}…`);
           }
           if (typeof params.onHealingBlockProgress === 'function') {
-            params.onHealingBlockProgress({ blockIdx: bIdx, totalBlocks: blocks.length, status: 'healing' });
+            params.onHealingBlockProgress({ blockIdx: bIdx, totalBlocks: activeBlocks.length, status: 'healing' });
           }
           const blockRawText = block.texts.join(sep);
           const healInstructions = opts.instructions || config.instructions ||

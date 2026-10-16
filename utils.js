@@ -1890,6 +1890,86 @@ function getProviderFallbackModel(provider, currentModel) {
 }
 window.getProviderFallbackModel = getProviderFallbackModel;
 
+/**
+ * Robust HTML entity decoder supporting decimal, hex, and standard entities
+ */
+function decodeEntities(str) {
+    if (!str) return '';
+    if (typeof window !== 'undefined' && window.he && typeof window.he.decode === 'function') {
+        try { return window.he.decode(String(str)); } catch(_) {}
+    }
+    return String(str)
+        .replace(/&#(\d+);/g, (_, dec) => {
+            const code = parseInt(dec, 10);
+            if (code === 8216) return "‘";
+            if (code === 8217) return "’";
+            if (code === 8220) return "“";
+            if (code === 8221) return "”";
+            if (code === 8211) return "–";
+            if (code === 8212) return "—";
+            if (code === 8230) return "…";
+            try { return String.fromCharCode(code); } catch(e) { return _; }
+        })
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;|&#039;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&nbsp;/g, ' ');
+}
+window.decodeEntities = decodeEntities;
+
+/**
+ * Intelligent pronoun swapper preserving reflexives and possessives
+ */
+function swapPronouns(text) {
+    if (!text || typeof text !== 'string') return text;
+    const nonPossessiveFollowers = /^(?:and|or|but|so|yet|that|which|who|whom|with|for|to|in|on|at|from|by|as|if|because|when|while|though|then|than|after|before|into|through|over|under|out|up|down|off|away|back|again|too|also|either|neither|now|here|there|not|is|was|are|were|has|had|have|did|does|do)\b/i;
+
+    let s = text
+        .replace(/\bhimself\b/g, '___TEMP_HERSELF___')
+        .replace(/\bHimself\b/g, '___TEMP_HERSELF_CAP___')
+        .replace(/\bherself\b/g, 'himself')
+        .replace(/\bHerself\b/g, 'Himself')
+        .replace(/\bhers\b/g, '___TEMP_HIS_ABS___')
+        .replace(/\bHers\b/g, '___TEMP_HIS_ABS_CAP___');
+
+    s = s
+        .replace(/\bhe\b/g, '___TEMP_SHE___')
+        .replace(/\bHe\b/g, '___TEMP_SHE_CAP___')
+        .replace(/\bshe\b/g, 'he')
+        .replace(/\bShe\b/g, 'He')
+        .replace(/\bhis\b/g, '___TEMP_HER_POSS___')
+        .replace(/\bHis\b/g, '___TEMP_HER_POSS_CAP___')
+        .replace(/\bhim\b/g, '___TEMP_HER_OBJ___')
+        .replace(/\bHim\b/g, '___TEMP_HER_OBJ_CAP___');
+
+    s = s.replace(/\b(her|Her)\b(\s+)?([a-zA-Z]+)?/g, (match, herWord, space, nextWord) => {
+        const isCap = herWord === 'Her';
+        if (!nextWord || nonPossessiveFollowers.test(nextWord)) {
+            return (isCap ? 'Him' : 'him') + (space || '') + (nextWord || '');
+        } else {
+            return (isCap ? 'His' : 'his') + (space || '') + (nextWord || '');
+        }
+    });
+
+    s = s
+        .replace(/___TEMP_HERSELF___/g, 'herself')
+        .replace(/___TEMP_HERSELF_CAP___/g, 'Herself')
+        .replace(/___TEMP_HIS_ABS___/g, 'his')
+        .replace(/___TEMP_HIS_ABS_CAP___/g, 'His')
+        .replace(/___TEMP_SHE___/g, 'she')
+        .replace(/___TEMP_SHE_CAP___/g, 'She')
+        .replace(/___TEMP_HER_POSS___/g, 'her')
+        .replace(/___TEMP_HER_POSS_CAP___/g, 'Her')
+        .replace(/___TEMP_HER_OBJ___/g, 'her')
+        .replace(/___TEMP_HER_OBJ_CAP___/g, 'Her');
+
+    return s;
+}
+window.swapPronouns = swapPronouns;
+window.getProviderFallbackModel = getProviderFallbackModel;
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         escapeXml,
