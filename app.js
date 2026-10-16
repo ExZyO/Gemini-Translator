@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.54';
+    let VERSION = '8.21.55';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2212,6 +2212,7 @@
       // --- Translation ---
       const getTranslateOpts = (signal) => (window.TranslationLoopEngine?.Controller || TranslationLoopEngine?.Controller)?.buildTranslateOpts({
         provider,
+        apiKeysByProvider,
         deepseekKey,
         geminiKey,
         deeplKey,

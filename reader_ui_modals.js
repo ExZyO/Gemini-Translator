@@ -1581,8 +1581,13 @@
     const [useCustomModel, setUseCustomModel] = useState(() => Boolean(resolve('useCustomModel', appSettings.useCustomModel || false)));
     const [customModel, setCustomModel] = useState(() => resolve('customModel', appSettings.customModel || ''));
     const [tgtLang, setTgtLang] = useState(() => resolve('tgtLang', appSettings.tgtLang || 'English', 'gemini_tgt_lang'));
-    const [concurrency, setConcurrency] = useState(() => parseInt(resolve('concurrency', appSettings.concurrency || 3, 'gemini_concurrency'), 10) || 3);
-    const [chunkSizePreset, setChunkSizePreset] = useState(() => resolve('chunkSizePreset', appSettings.chunkSizePreset || 'standard', 'gemini_chunk_size'));
+    const [chunkSizePreset, setChunkSizePreset] = useState(() => {
+      const v = resolve('chunkSizePreset', appSettings.chunkSizePreset || 'turbo', 'gemini_chunk_size');
+      if (v === 'generous') return 'turbo';
+      if (v === 'standard') return 'medium';
+      if (v === 'compact') return 'small';
+      return v || 'turbo';
+    });
     const [enableStreaming, setEnableStreaming] = useState(() => {
       const v = resolve('enableStreaming', appSettings.enableStreaming ?? true, 'gemini_enable_streaming');
       return v === true || v === 'true';
@@ -2079,9 +2084,10 @@
                   },
                   onChange: (e) => setChunkSizePreset(e.target.value)
                 },
-                  h('option', { value: 'compact', style: { background: '#1e293b', color: '#fff' } }, 'Compact (~1,200 chars)'),
-                  h('option', { value: 'standard', style: { background: '#1e293b', color: '#fff' } }, 'Standard (~2,500 chars)'),
-                  h('option', { value: 'generous', style: { background: '#1e293b', color: '#fff' } }, 'Generous (~4,500 chars)')
+                  h('option', { value: 'turbo', style: { background: '#1e293b', color: '#fff' } }, '⚡ Turbo (Max words/req ~4,500 chars)'),
+                  h('option', { value: 'large', style: { background: '#1e293b', color: '#fff' } }, 'Large (~3,800 chars)'),
+                  h('option', { value: 'medium', style: { background: '#1e293b', color: '#fff' } }, 'Medium (~2,800 chars)'),
+                  h('option', { value: 'small', style: { background: '#1e293b', color: '#fff' } }, 'Small (~1,800 chars)')
                 )
               )
             ),

@@ -13,94 +13,13 @@
 (function (global) {
   'use strict';
 
-  // --- XML / HTML Escaper ---
-  function escapeXml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
-  }
-
-  // --- Title Normalization Helper ---
-  function normalizeTitleKey(title) {
-    if (typeof window !== 'undefined' && window.normalizeTitleKey) return window.normalizeTitleKey(title);
-    return String(title || '')
-      .replace(/\.[^/.]+$/, '')
-      .replace(/\s*\((?:Translated|Translation)\)/gi, '')
-      .replace(/\s*[-|]\s*Lnori\s*$/i, '')
-      .trim().toLowerCase();
-  }
-
-  // --- Generic Title Detector ---
-  function isGenericTitle(title) {
-    if (typeof global !== 'undefined' && global.isGenericTitle) return global.isGenericTitle(title);
-    if (typeof window !== 'undefined' && window.isGenericTitle) return window.isGenericTitle(title);
-    if (typeof window !== 'undefined' && window.ExportEngine && window.ExportEngine.isGenericTitle) {
-      return window.ExportEngine.isGenericTitle(title);
-    }
-    return !title || !title.trim() || /^translated\s*(document|file)?$/i.test(title.trim());
-  }
-
-  // --- Safe Duration Formatter ---
-  function formatDuration(ms) {
-    if (typeof global !== 'undefined' && global.formatDuration) return global.formatDuration(ms);
-    if (typeof window !== 'undefined' && window.formatDuration) return window.formatDuration(ms);
-    if (!ms || ms <= 0) return '0.0s';
-    const totalSec = ms / 1000;
-    if (totalSec < 1) return `${totalSec.toFixed(2)}s`;
-    if (totalSec < 60) return `${totalSec.toFixed(1)}s`;
-    const totalMin = Math.floor(totalSec / 60);
-    const remSec = Math.floor(totalSec % 60);
-    if (totalMin < 60) return `${totalMin}m ${remSec}s`;
-    const totalHours = Math.floor(totalMin / 60);
-    const remMin = totalMin % 60;
-    if (totalHours < 24) return `${totalHours}h ${remMin}m ${remSec}s`;
-    const days = Math.floor(totalHours / 24);
-    const remHours = totalHours % 24;
-    return `${days}d ${remHours}h ${remMin}m`;
-  }
-
-  // --- Real Cost Calculator ---
-  function calculateRealCost(promptTokens, outputTokens, modelId = 'gemini-3.7-flash', provider = 'gemini') {
-    if (typeof global !== 'undefined' && global.calculateRealCost) return global.calculateRealCost(promptTokens, outputTokens, modelId, provider);
-    if (typeof window !== 'undefined' && window.calculateRealCost) return window.calculateRealCost(promptTokens, outputTokens, modelId, provider);
-    let inPerM = 0.075;
-    let outPerM = 0.30;
-    if (provider === 'deepseek') {
-      if (modelId === 'deepseek-reasoner') {
-        inPerM = 0.55;
-        outPerM = 2.19;
-      } else {
-        inPerM = 0.14;
-        outPerM = 0.28;
-      }
-    } else {
-      if (modelId.includes('3.1-pro') || modelId.includes('pro')) {
-        inPerM = 1.25;
-        outPerM = 5.00;
-      } else if (modelId.includes('flash-lite') || modelId.includes('8b')) {
-        inPerM = 0.0375;
-        outPerM = 0.15;
-      } else {
-        inPerM = 0.075;
-        outPerM = 0.30;
-      }
-    }
-    const cost = ((promptTokens / 1000000) * inPerM) + ((outputTokens / 1000000) * outPerM);
-    return cost < 0.0001 && cost > 0 ? '$0.0001' : `$${cost.toFixed(4)}`;
-  }
-
-  // --- Session Job ID Generator ---
-  function generateJobId(text, isFile = false) {
-    if (typeof global !== 'undefined' && global.generateJobId) return global.generateJobId(text, isFile);
-    if (typeof window !== 'undefined' && window.generateJobId) return window.generateJobId(text, isFile);
-    let hash = 0; const s = isFile ? text : (text || '').substring(0, 1000);
-    for (let i = 0; i < s.length; i++) { hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
-    return `job_${Math.abs(hash)}`;
-  }
+  // --- Centralized Helpers & Delegations ---
+  const escapeXml = (s) => (typeof window !== 'undefined' && window.escapeXml) ? window.escapeXml(s) : String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  const normalizeTitleKey = (t) => (typeof window !== 'undefined' && window.normalizeTitleKey) ? window.normalizeTitleKey(t) : String(t || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').replace(/\s*[-|]\s*Lnori\s*$/i, '').trim().toLowerCase();
+  const isGenericTitle = (t) => (typeof window !== 'undefined' && window.isGenericTitle) ? window.isGenericTitle(t) : (!t || !t.trim() || /^translated\s*(document|file)?$/i.test(t.trim()));
+  const formatDuration = (ms) => (typeof window !== 'undefined' && window.formatDuration) ? window.formatDuration(ms) : `${((ms || 0)/1000).toFixed(1)}s`;
+  const calculateRealCost = (pTok, oTok, m, prov) => (typeof window !== 'undefined' && window.calculateRealCost) ? window.calculateRealCost(pTok, oTok, m, prov) : '$0.0000';
+  const generateJobId = (t, isFile) => (typeof window !== 'undefined' && window.generateJobId) ? window.generateJobId(t, isFile) : `job_${Date.now()}`;
 
   // --- Paragraph Boundary Chunk Splitting ---
   const CHUNK_PAYLOAD_MAP = {
@@ -112,53 +31,25 @@
   const PROMPT_OVERHEAD = 350;
 
   function splitChunks(text, glossaryLen = 0, smartGlossary = true, preset = null) {
-    if (typeof global !== 'undefined' && global.splitChunks) return global.splitChunks(text, glossaryLen, smartGlossary, preset);
     if (typeof window !== 'undefined' && window.splitChunks) return window.splitChunks(text, glossaryLen, smartGlossary, preset);
     if (!text || typeof text !== 'string') return [];
     const activePreset = preset || (typeof localStorage !== 'undefined' ? localStorage.getItem('chunkSizePreset') : null) || 'turbo';
     const basePayload = CHUNK_PAYLOAD_MAP[activePreset] || 4500;
-    const effectiveGlossaryLen = smartGlossary ? Math.min(glossaryLen, 1500) : glossaryLen;
-    let max = basePayload - Math.min(PROMPT_OVERHEAD + effectiveGlossaryLen, 1800);
-    if (max > 3500) max = 3500;
-    if (max <= 0) max = 1800;
+    const max = Math.max(1800, Math.min(3500, basePayload - Math.min(PROMPT_OVERHEAD + (smartGlossary ? Math.min(glossaryLen, 1500) : glossaryLen), 1800)));
     const chunks = []; let rem = text;
     while (rem.length > 0) {
       if (rem.length <= max) { chunks.push(rem); break; }
       let sp = max;
       let idx = rem.lastIndexOf('\n\n', max);
-      if (idx !== -1 && idx >= max * 0.4) {
-        sp = idx + 2;
-      } else {
+      if (idx !== -1 && idx >= max * 0.4) sp = idx + 2;
+      else {
         idx = rem.lastIndexOf('\n', max);
-        if (idx !== -1 && idx >= max * 0.4) {
-          sp = idx + 1;
-        } else {
-          const punctIndices = [
-            rem.lastIndexOf('。\n', max), rem.lastIndexOf('。', max),
-            rem.lastIndexOf('！\n', max), rem.lastIndexOf('！', max),
-            rem.lastIndexOf('？\n', max), rem.lastIndexOf('？', max),
-            rem.lastIndexOf('”\n', max), rem.lastIndexOf('”', max),
-            rem.lastIndexOf('…\n', max), rem.lastIndexOf('…', max),
-            rem.lastIndexOf('.\n', max), rem.lastIndexOf('.', max),
-            rem.lastIndexOf('!\n', max), rem.lastIndexOf('!', max),
-            rem.lastIndexOf('?\n', max), rem.lastIndexOf('?', max)
-          ].filter(i => i >= max * 0.3);
-          if (punctIndices.length > 0) {
-            sp = Math.max(...punctIndices) + 1;
-          } else {
-            const anyPunct = [
-              rem.lastIndexOf('\n\n', max),
-              rem.lastIndexOf('\n', max),
-              rem.lastIndexOf('。', max),
-              rem.lastIndexOf('.', max)
-            ].filter(i => i > 0);
-            if (anyPunct.length > 0) {
-              sp = Math.max(...anyPunct) + 1;
-            }
-          }
+        if (idx !== -1 && idx >= max * 0.4) sp = idx + 1;
+        else {
+          const puncts = [rem.lastIndexOf('。\n', max), rem.lastIndexOf('。', max), rem.lastIndexOf('.\n', max), rem.lastIndexOf('.', max)].filter(i => i >= max * 0.3);
+          if (puncts.length > 0) sp = Math.max(...puncts) + 1;
         }
       }
-      if (sp <= 0) sp = max;
       chunks.push(rem.substring(0, sp));
       rem = rem.substring(sp);
     }
@@ -1296,51 +1187,97 @@
     const parts = [];
     let chapterCtx = '';
     const useContext = Boolean(config.contextAware && (provider === 'gemini' || provider === 'deepseek'));
+    const effectiveConcurrency = (!useContext && chunks.length > 1)
+      ? Math.max(1, Math.min(Number(config.concurrency || 3), availableKeys.length || 3))
+      : 1;
 
     let interrupted = false;
-    for (let j = 0; j < chunks.length; j++) {
-      if (config.pauseGate && typeof config.pauseGate.checkPause === 'function') {
-        await config.pauseGate.checkPause();
-      }
-      if (workerOpts.signal && workerOpts.signal.aborted) {
-        interrupted = true;
-        break;
-      }
-      const pct = Math.round(10 + ((j / chunks.length) * 85));
-      if (callbacks.onProgress) {
-        callbacks.onProgress(pct, `Translating chunk ${j + 1}/${chunks.length}${chunks.length > 1 ? ` (${pct}%)` : ''}…`);
-      }
-
-      const isLastChunk = j === chunks.length - 1;
-      const hasIncomingContext = Boolean(chapterCtx && chapterCtx.trim());
-      const shouldPassContext = useContext && (hasIncomingContext || j > 0);
-      const shouldRequestUpdate = useContext && !isLastChunk;
-
-      let translated = null;
-      try {
-        translated = await safeTranslateWithRotation(chunks[j], {
-          ...workerOpts,
-          context: shouldPassContext ? chapterCtx : undefined,
-          needContextUpdate: shouldRequestUpdate,
-          onStreamChunk: (token) => {
-            if (typeof callbacks.onStreamChunk === 'function') {
-              callbacks.onStreamChunk({ chunkIdx: j, totalChunks: chunks.length, token });
+    if (effectiveConcurrency > 1) {
+      let completedCount = 0;
+      const parallelParts = new Array(chunks.length);
+      await batchParallel(chunks, async (chunk, j, workerId) => {
+        if (config.pauseGate && typeof config.pauseGate.checkPause === 'function') {
+          await config.pauseGate.checkPause();
+        }
+        if (workerOpts.signal && workerOpts.signal.aborted) {
+          interrupted = true;
+          return;
+        }
+        const workerKey = availableKeys.length > 0 ? (typeof availableKeys[workerId % availableKeys.length] === 'string' ? availableKeys[workerId % availableKeys.length] : (availableKeys[workerId % availableKeys.length].key || opts.apiKey)) : opts.apiKey;
+        try {
+          const translated = await safeTranslateWithRotation(chunk, {
+            ...workerOpts,
+            apiKey: workerKey,
+            onStreamChunk: (token) => {
+              if (typeof callbacks.onStreamChunk === 'function') {
+                callbacks.onStreamChunk({ chunkIdx: j, totalChunks: chunks.length, token });
+              }
             }
+          });
+          const translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
+          parallelParts[j] = translatedText;
+        } catch (chunkErr) {
+          if (workerOpts.signal && workerOpts.signal.aborted) {
+            interrupted = true;
+            return;
           }
-        });
-      } catch (chunkErr) {
+          throw chunkErr;
+        }
+        completedCount++;
+        const pct = Math.round(10 + ((completedCount / chunks.length) * 85));
+        if (callbacks.onProgress) {
+          callbacks.onProgress(pct, `Translating chunk ${completedCount}/${chunks.length} (${pct}%)…`);
+        }
+      }, effectiveConcurrency, workerOpts.signal);
+
+      for (let j = 0; j < chunks.length; j++) {
+        parts.push(parallelParts[j] || chunks[j]);
+      }
+    } else {
+      for (let j = 0; j < chunks.length; j++) {
+        if (config.pauseGate && typeof config.pauseGate.checkPause === 'function') {
+          await config.pauseGate.checkPause();
+        }
         if (workerOpts.signal && workerOpts.signal.aborted) {
           interrupted = true;
           break;
         }
-        throw chunkErr;
-      }
+        const pct = Math.round(10 + ((j / chunks.length) * 85));
+        if (callbacks.onProgress) {
+          callbacks.onProgress(pct, `Translating chunk ${j + 1}/${chunks.length}${chunks.length > 1 ? ` (${pct}%)` : ''}…`);
+        }
 
-      const translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
-      if (useContext && translated?.newContext) {
-        chapterCtx = translated.newContext;
+        const isLastChunk = j === chunks.length - 1;
+        const hasIncomingContext = Boolean(chapterCtx && chapterCtx.trim());
+        const shouldPassContext = useContext && (hasIncomingContext || j > 0);
+        const shouldRequestUpdate = useContext && !isLastChunk;
+
+        let translated = null;
+        try {
+          translated = await safeTranslateWithRotation(chunks[j], {
+            ...workerOpts,
+            context: shouldPassContext ? chapterCtx : undefined,
+            needContextUpdate: shouldRequestUpdate,
+            onStreamChunk: (token) => {
+              if (typeof callbacks.onStreamChunk === 'function') {
+                callbacks.onStreamChunk({ chunkIdx: j, totalChunks: chunks.length, token });
+              }
+            }
+          });
+        } catch (chunkErr) {
+          if (workerOpts.signal && workerOpts.signal.aborted) {
+            interrupted = true;
+            break;
+          }
+          throw chunkErr;
+        }
+
+        const translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
+        if (useContext && translated?.newContext) {
+          chapterCtx = translated.newContext;
+        }
+        parts.push(translatedText);
       }
-      parts.push(translatedText);
     }
 
     // Anti-truncation safeguard: if aborted mid-chapter, merge remaining raw chunks so no chapter prose is lost
@@ -1433,8 +1370,28 @@
       ? { ...baseLocks, ...activeViewLocks }
       : baseLocks;
 
+    let availableKeys = Array.isArray(options.availableKeys) ? [...options.availableKeys] : [];
+    if (availableKeys.length === 0) {
+      const provKeys = (options.apiKeysByProvider && options.apiKeysByProvider[provider]) || null;
+      if (Array.isArray(provKeys) && provKeys.length > 0) {
+        availableKeys = provKeys;
+      } else if (typeof window !== 'undefined' && window.apiKeysByProvider && Array.isArray(window.apiKeysByProvider[provider])) {
+        availableKeys = window.apiKeysByProvider[provider];
+      } else if (typeof localStorage !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('apiKeysByProvider');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && Array.isArray(parsed[provider])) availableKeys = parsed[provider];
+          }
+        } catch (_) {}
+      }
+    }
+    availableKeys = availableKeys.filter(k => k && (typeof k === 'string' ? k.trim() : (k.key && k.key.trim())));
+
     return {
       apiKey,
+      availableKeys,
       rotateApiKey: options.rotateApiKey,
       deepseekApiKey: deepseekKey,
       deeplApiKey: deeplKey,
@@ -1478,8 +1435,8 @@
       enableThinking: Boolean(options.enableThinking),
       strictModel: Boolean(strictModel),
       contextAware: Boolean(options.contextAware),
-      concurrency: options.concurrency || 1,
-      chunkSizePreset: options.chunkSizePreset || 'turbo',
+      concurrency: Number(options.concurrency) || (typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('gemini_concurrency') || localStorage.getItem('concurrency') || '3', 10) : 3),
+      chunkSizePreset: options.chunkSizePreset || (typeof localStorage !== 'undefined' ? (localStorage.getItem('gemini_chunk_size') || localStorage.getItem('chunkSizePreset') || 'turbo') : 'turbo'),
       smartGlossary: options.smartGlossary !== false,
       enableGlossary: options.enableGlossary !== false,
       terminology: options.terminology || options.glossary || '',
@@ -2372,6 +2329,26 @@
       const userOpts = params.optionsOverride || {};
       const baseOpts = typeof getTranslateOpts === 'function' ? getTranslateOpts(ctrl.signal) : {};
       const opts = { ...baseOpts, ...userOpts, signal: ctrl.signal };
+      if (!opts.availableKeys || opts.availableKeys.length === 0) {
+        const prov = opts.provider || 'gemini';
+        const ctxKeys = translationCtx?.apiKeysByProvider?.[prov];
+        if (Array.isArray(ctxKeys) && ctxKeys.length > 0) {
+          opts.availableKeys = ctxKeys;
+        } else if (typeof window !== 'undefined' && window.apiKeysByProvider?.[prov]) {
+          opts.availableKeys = window.apiKeysByProvider[prov];
+        } else if (typeof localStorage !== 'undefined') {
+          try {
+            const raw = localStorage.getItem('apiKeysByProvider');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed && Array.isArray(parsed[prov])) opts.availableKeys = parsed[prov];
+            }
+          } catch (_) {}
+        }
+      }
+      if (Array.isArray(opts.availableKeys)) {
+        opts.availableKeys = opts.availableKeys.filter(k => k && (typeof k === 'string' ? k.trim() : (k.key && k.key.trim())));
+      }
       const config = Controller.buildTranslationConfig({
         ...translationCtx,
         ...userOpts,
@@ -2585,23 +2562,48 @@
           })));
         }
 
-        for (let bIdx = 0; bIdx < activeBlocks.length; bIdx++) {
-          const block = activeBlocks[bIdx];
-          if (typeof onProgress === 'function') {
-            onProgress(Math.floor((bIdx / activeBlocks.length) * 80) + 15, `Healing section ${bIdx + 1}/${activeBlocks.length}…`);
-          }
+        const healingConcurrency = Math.max(1, Math.min(Number(config.concurrency || userOpts.concurrency || 3), (opts.availableKeys && opts.availableKeys.length) || 3));
+        let completedHealingCount = 0;
+        await batchParallel(activeBlocks, async (block, bIdx, workerId) => {
+          if (ctrl.signal?.aborted) return;
           if (typeof params.onHealingBlockProgress === 'function') {
             params.onHealingBlockProgress({ blockIdx: bIdx, totalBlocks: activeBlocks.length, status: 'healing' });
           }
           const blockRawText = block.texts.join(sep);
           const healInstructions = opts.instructions || config.instructions ||
             `Translate accurately and fluently into ${targetLanguage}. Maintain formal novel prose style and preserve all quotes, indentation, and formatting. Output ONLY the translated prose, without commentary or markdown code fences.`;
-          const transBlock = await safeTranslateWithRotation(blockRawText, {
-            ...opts,
-            instructions: healInstructions
-          });
-          let translatedBlockText = (transBlock && typeof transBlock === 'object') ? (transBlock.text || '') : (typeof transBlock === 'string' ? transBlock : '');
-          translatedBlockText = cleanProseFn(translatedBlockText);
+          const workerKey = (opts.availableKeys && opts.availableKeys.length > 0)
+            ? (typeof opts.availableKeys[workerId % opts.availableKeys.length] === 'string' ? opts.availableKeys[workerId % opts.availableKeys.length] : (opts.availableKeys[workerId % opts.availableKeys.length].key || opts.apiKey))
+            : opts.apiKey;
+          try {
+            const transBlock = await safeTranslateWithRotation(blockRawText, {
+              ...opts,
+              apiKey: workerKey,
+              instructions: healInstructions
+            });
+            let translatedBlockText = (transBlock && typeof transBlock === 'object') ? (transBlock.text || '') : (typeof transBlock === 'string' ? transBlock : '');
+            translatedBlockText = cleanProseFn(translatedBlockText);
+            block.translatedText = translatedBlockText;
+          } catch (healErr) {
+            console.warn(`[Healing] Block ${bIdx + 1} error:`, healErr.message);
+          }
+          completedHealingCount++;
+          if (typeof onProgress === 'function') {
+            onProgress(Math.floor((completedHealingCount / activeBlocks.length) * 80) + 15, `Healing section ${completedHealingCount}/${activeBlocks.length}…`);
+          }
+          if (typeof params.onHealingBlockProgress === 'function') {
+            params.onHealingBlockProgress({
+              blockIdx: bIdx,
+              totalBlocks: activeBlocks.length,
+              healedSnippet: (block.translatedText || '').slice(0, 150),
+              status: block.translatedText ? 'healed' : 'failed'
+            });
+          }
+        }, healingConcurrency, ctrl.signal);
+
+        for (let bIdx = 0; bIdx < activeBlocks.length; bIdx++) {
+          const block = activeBlocks[bIdx];
+          const translatedBlockText = block.translatedText || '';
           if (translatedBlockText && translatedBlockText.trim()) {
             const splitTranslated = translatedBlockText.trim().split(isDoubleBreak ? /\r?\n\r?\n/ : /\r?\n/);
             if (splitTranslated.length === block.texts.length) {
@@ -2611,14 +2613,6 @@
             } else {
               paragraphs.splice(block.startIdx, block.endIdx - block.startIdx + 1, translatedBlockText.trim());
             }
-          }
-          if (typeof params.onHealingBlockProgress === 'function') {
-            params.onHealingBlockProgress({
-              blockIdx: bIdx,
-              totalBlocks: blocks.length,
-              healedSnippet: (translatedBlockText || '').slice(0, 150),
-              status: 'healed'
-            });
           }
         }
 

@@ -1054,9 +1054,29 @@ const translateClaude = async (text, { apiKey, srcLang, tgtLang, customInstructi
 const maskKey = window.maskKey;
 const KeyPool = window.KeyPool;
 
+const resolveAvailableKeys = (opts, provider = 'gemini') => {
+  let allKeys = Array.isArray(opts?.availableKeys) ? [...opts.availableKeys] : [];
+  if (allKeys.length === 0) {
+    if (opts?.apiKeysByProvider && Array.isArray(opts.apiKeysByProvider[provider])) {
+      allKeys = opts.apiKeysByProvider[provider];
+    } else if (typeof window !== 'undefined' && window.apiKeysByProvider && Array.isArray(window.apiKeysByProvider[provider])) {
+      allKeys = window.apiKeysByProvider[provider];
+    } else if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('apiKeysByProvider');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed[provider])) allKeys = parsed[provider];
+        }
+      } catch (_) {}
+    }
+  }
+  return allKeys.filter(k => k && (typeof k === 'string' ? k.trim() : (k.key && k.key.trim())));
+};
+
 const streamWithRotation = async (text, opts) => {
   let currentOpts = { ...opts };
-  const allKeys = opts?.availableKeys || [];
+  const allKeys = resolveAvailableKeys(opts, currentOpts.provider || 'gemini');
   if (!currentOpts.apiKey && allKeys.length > 0) {
     currentOpts.apiKey = typeof allKeys[0] === 'string' ? allKeys[0] : (allKeys[0].key || '');
   } else if (allKeys.length > 1) {
@@ -1131,7 +1151,7 @@ const streamWithRotation = async (text, opts) => {
 
 const translateWithRotation = async (text, opts) => {
   let currentOpts = { ...opts };
-  const allKeys = opts?.availableKeys || [];
+  const allKeys = resolveAvailableKeys(opts, currentOpts.provider || 'gemini');
   if (!currentOpts.apiKey && allKeys.length > 0) {
     currentOpts.apiKey = typeof allKeys[0] === 'string' ? allKeys[0] : (allKeys[0].key || '');
   } else if (allKeys.length > 1) {
