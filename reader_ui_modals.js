@@ -19,6 +19,10 @@
   'use strict';
   const h = (typeof React !== 'undefined' && React.createElement) ? React.createElement : (window.React ? window.React.createElement : null);
   const useState = (typeof React !== 'undefined' && React.useState) ? React.useState : (window.React ? window.React.useState : null);
+  const useCallback = (typeof React !== 'undefined' && React.useCallback) ? React.useCallback : (window.React ? window.React.useCallback : null);
+  const useRef = (typeof React !== 'undefined' && React.useRef) ? React.useRef : (window.React ? window.React.useRef : null);
+  const useMemo = (typeof React !== 'undefined' && React.useMemo) ? React.useMemo : (window.React ? window.React.useMemo : null);
+  const useEffect = (typeof React !== 'undefined' && React.useEffect) ? React.useEffect : (window.React ? window.React.useEffect : null);
   const ic = (name, size = 18, cls = 'shrink-0') => {
     if (typeof window !== 'undefined' && window.ic) return window.ic(name, size, cls);
     return h ? h('span', { className: cls }, '') : null;
@@ -2208,9 +2212,22 @@
       chunkCurrent = 1,
       chunkTotal = 1,
       titlesProgress = null,
+      hudVisible = true,
+      isPillHidden: controlledHidden,
+      onToggleHidden,
       onOpenDashboard,
       onStop
     } = props;
+
+    const [internalHidden, setInternalHidden] = useState(false);
+    const isHidden = typeof controlledHidden === 'boolean' ? controlledHidden : internalHidden;
+    const toggleHidden = useCallback(() => {
+      if (typeof onToggleHidden === 'function') {
+        onToggleHidden(!isHidden);
+      } else {
+        setInternalHidden(prev => !prev);
+      }
+    }, [isHidden, onToggleHidden]);
 
     const isActive = isTranslating || isHealing || isTranslatingTitles;
     if (!isActive) return null;
@@ -2227,14 +2244,58 @@
     const accentBorder = isHealing ? 'rgba(168, 85, 247, 0.45)' : (isTranslatingTitles ? 'rgba(56, 189, 248, 0.45)' : 'rgba(99, 102, 241, 0.45)');
     const glowShadow = isHealing ? 'rgba(168, 85, 247, 0.25)' : (isTranslatingTitles ? 'rgba(56, 189, 248, 0.25)' : 'rgba(99, 102, 241, 0.25)');
 
+    // Minimized / Hidden State: Sleek non-intrusive floating chip at the edge
+    if (isHidden) {
+      return h('div', {
+        className: 'reader-dynamic-progress-pill-mini',
+        title: `${modeLabel} in progress (${Math.round(pct)}%) · Tap to unhide progress bar`,
+        style: {
+          position: 'fixed',
+          top: hudVisible ? 'calc(58px + env(safe-area-inset-top, 0px))' : 'calc(14px + env(safe-area-inset-top, 0px))',
+          right: '16px',
+          zIndex: 60,
+          background: 'rgba(15, 23, 42, 0.94)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: `1px solid ${accentBorder}`,
+          boxShadow: `0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px ${glowShadow}`,
+          borderRadius: 9999,
+          padding: '5px 11px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          color: '#f8fafc',
+          fontSize: 11.5,
+          fontWeight: 700,
+          cursor: 'pointer',
+          userSelect: 'none',
+          transition: 'top 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease'
+        },
+        onClick: toggleHidden
+      },
+        h('div', {
+          style: {
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            background: accentColor,
+            boxShadow: `0 0 6px ${accentColor}`
+          },
+          className: 'animate-pulse'
+        }),
+        h('span', { style: { color: accentColor } }, `${Math.round(pct)}%`),
+        ic('Eye', 12, 'opacity-70')
+      );
+    }
+
     return h('div', {
       className: 'reader-dynamic-progress-pill',
       style: {
         position: 'fixed',
-        top: 'calc(14px + env(safe-area-inset-top, 0px))',
+        top: hudVisible ? 'calc(58px + env(safe-area-inset-top, 0px))' : 'calc(12px + env(safe-area-inset-top, 0px))',
         left: '50%',
         transform: 'translateX(-50%)',
-        zIndex: 10001,
+        zIndex: 60,
         background: 'rgba(15, 23, 42, 0.94)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
@@ -2247,10 +2308,10 @@
         gap: 10,
         color: '#f8fafc',
         fontSize: 12.5,
-        maxWidth: 'calc(100vw - 32px)',
+        maxWidth: 'min(460px, calc(100vw - 28px))',
         cursor: 'pointer',
         userSelect: 'none',
-        transition: 'all 0.25s ease'
+        transition: 'top 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s ease, opacity 0.25s ease'
       },
       onClick: onOpenDashboard
     },
@@ -2274,8 +2335,8 @@
         style: {
           display: 'flex',
           flexDirection: 'column',
-          minWidth: 100,
-          maxWidth: 220,
+          minWidth: 90,
+          maxWidth: 200,
           overflow: 'hidden'
         }
       },
@@ -2309,7 +2370,7 @@
       // Progress Bar
       h('div', {
         style: {
-          width: 70,
+          width: 60,
           height: 5,
           background: 'rgba(255, 255, 255, 0.12)',
           borderRadius: 3,
@@ -2329,30 +2390,63 @@
         })
       ),
 
-      // Right: Quick Stop button
-      h('button', {
-        type: 'button',
-        className: 'mini-btn ghost',
-        title: 'Stop translation',
+      // Action Buttons Container
+      h('div', {
         style: {
-          padding: '3px 8px',
-          borderRadius: 9999,
-          background: 'rgba(239, 68, 68, 0.2)',
-          color: '#fca5a5',
-          border: '1px solid rgba(239, 68, 68, 0.4)',
-          fontSize: 11,
-          fontWeight: 700,
-          display: 'inline-flex',
+          display: 'flex',
           alignItems: 'center',
-          gap: 3,
-          cursor: 'pointer',
+          gap: 5,
           flexShrink: 0
-        },
-        onClick: (e) => {
-          e.stopPropagation();
-          if (typeof onStop === 'function') onStop();
         }
-      }, ic('Square', 10), 'Stop')
+      },
+        // Hide Button
+        h('button', {
+          type: 'button',
+          className: 'mini-btn ghost',
+          title: 'Hide progress bar (keeps translation active)',
+          style: {
+            padding: '3px 8px',
+            borderRadius: 9999,
+            background: 'rgba(255, 255, 255, 0.08)',
+            color: '#cbd5e1',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            fontSize: 11,
+            fontWeight: 600,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 3,
+            cursor: 'pointer'
+          },
+          onClick: (e) => {
+            e.stopPropagation();
+            toggleHidden();
+          }
+        }, ic('EyeOff', 11), 'Hide'),
+
+        // Stop Button
+        h('button', {
+          type: 'button',
+          className: 'mini-btn ghost',
+          title: 'Stop translation',
+          style: {
+            padding: '3px 8px',
+            borderRadius: 9999,
+            background: 'rgba(239, 68, 68, 0.2)',
+            color: '#fca5a5',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            fontSize: 11,
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 3,
+            cursor: 'pointer'
+          },
+          onClick: (e) => {
+            e.stopPropagation();
+            if (typeof onStop === 'function') onStop();
+          }
+        }, ic('Square', 10), 'Stop')
+      )
     );
   }
 

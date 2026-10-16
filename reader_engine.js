@@ -2446,6 +2446,12 @@
           ic('Type', 15),
           h('span', null, 'Translate Chapter Title Only')
         ),
+        (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) && h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          style: { color: 'var(--r-accent)', fontWeight: 600 },
+          onClick: () => { setShowMoreMenu(false); setLiveStreamText(streamBufferRef.current || ''); setIsLiveDashboardOpen(true); }
+        }, ic('Activity', 15), h('span', null, 'Open Live Translation Dashboard')),
         h('button', {
           type: 'button',
           className: 'reader-more-item',
@@ -2817,6 +2823,7 @@
         chunkCurrent: chunkProgress.current,
         chunkTotal: chunkProgress.total,
         titlesProgress,
+        hudVisible,
         onOpenDashboard: () => {
           setLiveStreamText(streamBufferRef.current || '');
           setIsLiveDashboardOpen(true);
