@@ -169,7 +169,9 @@
     onOpenHealthAudit,
     onOpenDiff,
     onTranslateChapter,
-    onExportEpub
+    onExportEpub,
+    activeNovelRecord,
+    appSettings = {}
   }) => {
     if (!open) return null;
     const bookTitle = novelTitle || propBookTitle || '';
@@ -442,8 +444,60 @@
 
     const [isTranslatingCurrentChapter, setIsTranslatingCurrentChapter] = useState(false);
     const [chapterTranslateProgress, setChapterTranslateProgress] = useState({ pct: 0, msg: '' });
+    const [suiteModalChap, setSuiteModalChap] = useState(null);
+    const [isLiveDashboardOpen, setIsLiveDashboardOpen] = useState(false);
+    const [liveStreamText, setLiveStreamText] = useState('');
+    const [liveHealingBlocks, setLiveHealingBlocks] = useState([]);
+    const [translationElapsedSec, setTranslationElapsedSec] = useState(0);
+    const [activeTranslationMode, setActiveTranslationMode] = useState(null);
+    const [chunkProgress, setChunkProgress] = useState({ current: 1, total: 1 });
+    const translationAbortRef = useRef(null);
+    const translationTimerRef = useRef(null);
 
-    const handleTranslateActiveChapter = useCallback(async (targetChapterIndex = null) => {
+    // Translation elapsed timer effect
+    useEffect(() => {
+      const isAnyRunning = isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll;
+      if (isAnyRunning) {
+        if (!translationTimerRef.current) {
+          setTranslationElapsedSec(0);
+          translationTimerRef.current = setInterval(() => {
+            setTranslationElapsedSec(s => s + 1);
+          }, 1000);
+        }
+      } else {
+        if (translationTimerRef.current) {
+          clearInterval(translationTimerRef.current);
+          translationTimerRef.current = null;
+        }
+      }
+      return () => {
+        if (translationTimerRef.current) {
+          clearInterval(translationTimerRef.current);
+          translationTimerRef.current = null;
+        }
+      };
+    }, [isTranslatingCurrentChapter, isTranslatingTitles, isHealingAll]);
+
+    // Instant Stop Handler for all translation operations
+    const handleStopChapterTranslation = useCallback(() => {
+      if (translationAbortRef.current) {
+        try { translationAbortRef.current.abort(); } catch (_) {}
+        translationAbortRef.current = null;
+      }
+      if (translationTimerRef.current) {
+        clearInterval(translationTimerRef.current);
+        translationTimerRef.current = null;
+      }
+      setIsTranslatingCurrentChapter(false);
+      setIsTranslatingTitles(false);
+      setIsHealingAll(false);
+      setActiveTranslationMode(null);
+      if (typeof window !== 'undefined' && window.toast) {
+        window.toast('Translation process stopped.', 'info');
+      }
+    }, []);
+
+    const handleTranslateActiveChapter = useCallback(async (targetChapterIndex = null, optionsOverride = {}) => {
       if (isTranslatingCurrentChapter) return;
       if (typeof onTranslateChapter !== 'function') {
         if (typeof window !== 'undefined' && window.toast) {
@@ -454,11 +508,27 @@
       const idx = (typeof targetChapterIndex === 'number') ? targetChapterIndex : activeIdx;
       const targetChap = (chapters && chapters[idx]) || (safeChapters && safeChapters[idx]) || currentChapter;
       setIsTranslatingCurrentChapter(true);
+      setActiveTranslationMode('full');
+      setLiveStreamText('');
+      setLiveHealingBlocks([]);
+      setChunkProgress({ current: 1, total: 1 });
       setChapterTranslateProgress({ pct: 5, msg: 'Preparing translation…' });
+      translationAbortRef.current = new AbortController();
+
       try {
-        const res = await onTranslateChapter(idx, targetChap, (pct, msg) => {
+        const res = await onTranslateChapter(idx, targetChap, (pct, msg, chunkData) => {
           setChapterTranslateProgress({ pct, msg });
+          if (chunkData && typeof chunkData.current === 'number') {
+            setChunkProgress({ current: chunkData.current, total: chunkData.total || 1 });
+          }
+        }, 'full', {
+          optionsOverride,
+          abortController: translationAbortRef.current,
+          onStreamChunk: (chunkText) => {
+            if (chunkText) setLiveStreamText(prev => prev + chunkText);
+          }
         });
+
         if (res && res.content) {
           const newTitle = res.title || (targetChap && targetChap.title);
           const newText = res.content;
@@ -481,19 +551,24 @@
           setChapterTranslateProgress({ pct: 100, msg: 'Chapter translated successfully!' });
           setTimeout(() => {
             setIsTranslatingCurrentChapter(false);
-          }, 1800);
+            setActiveTranslationMode(null);
+          }, 1500);
         } else {
           setIsTranslatingCurrentChapter(false);
+          setActiveTranslationMode(null);
         }
       } catch (err) {
         setIsTranslatingCurrentChapter(false);
-        if (typeof window !== 'undefined' && window.toast) {
+        setActiveTranslationMode(null);
+        if (err.name !== 'AbortError' && typeof window !== 'undefined' && window.toast) {
           window.toast(err.message || 'Translation error occurred.', 'error');
         }
+      } finally {
+        translationAbortRef.current = null;
       }
     }, [isTranslatingCurrentChapter, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
 
-    const handleTranslateActiveChapterTitleOnly = useCallback(async (targetChapterIndex = null) => {
+    const handleTranslateActiveChapterTitleOnly = useCallback(async (targetChapterIndex = null, optionsOverride = {}) => {
       if (typeof onTranslateChapter !== 'function') {
         if (typeof window !== 'undefined' && window.toast) {
           window.toast('Translation handler not available in current mode.', 'error');
@@ -503,11 +578,12 @@
       const idx = (typeof targetChapterIndex === 'number') ? targetChapterIndex : activeIdx;
       const targetChap = (chapters && chapters[idx]) || (safeChapters && safeChapters[idx]) || currentChapter;
       if (!targetChap) return;
+      setActiveTranslationMode('title');
       try {
         if (typeof window !== 'undefined' && window.toast) {
           window.toast(`Translating Ch. ${idx + 1} title…`, 'info');
         }
-        const res = await onTranslateChapter(idx, targetChap, null, true);
+        const res = await onTranslateChapter(idx, targetChap, null, 'titleOnly', { optionsOverride });
         if (res && res.title) {
           if (currentChapter && idx === activeIdx) {
             currentChapter.title = res.title;
@@ -528,6 +604,8 @@
         if (typeof window !== 'undefined' && window.toast) {
           window.toast(err.message || 'Title translation failed.', 'error');
         }
+      } finally {
+        setActiveTranslationMode(null);
       }
     }, [onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
 
@@ -559,7 +637,9 @@
       }
 
       setIsTranslatingTitles(true);
+      setActiveTranslationMode('titles');
       setTitlesProgress({ done: 0, total: targets.length });
+      translationAbortRef.current = new AbortController();
       if (typeof window !== 'undefined' && window.toast) {
         window.toast(`Translating ${targets.length} chapter titles…`, 'info');
       }
@@ -570,9 +650,12 @@
       try {
         if (batchFn) {
           await batchFn(targets, async (chIdx) => {
+            if (translationAbortRef.current?.signal?.aborted) return;
             const chap = safeChapters[chIdx];
             try {
-              const res = await onTranslateChapter(chIdx, chap, null, true);
+              const res = await onTranslateChapter(chIdx, chap, null, 'titleOnly', {
+                abortController: translationAbortRef.current
+              });
               if (res && res.title) {
                 if (Array.isArray(chapters) && chapters[chIdx]) {
                   chapters[chIdx] = { ...chapters[chIdx], title: res.title, isTranslated: true };
@@ -589,12 +672,15 @@
             completedCount++;
             setTitlesProgress({ done: completedCount, total: targets.length });
             setRenderTick(t => t + 1);
-          }, 3);
+          }, 3, translationAbortRef.current?.signal);
         } else {
           for (const chIdx of targets) {
+            if (translationAbortRef.current?.signal?.aborted) break;
             const chap = safeChapters[chIdx];
             try {
-              const res = await onTranslateChapter(chIdx, chap, null, true);
+              const res = await onTranslateChapter(chIdx, chap, null, 'titleOnly', {
+                abortController: translationAbortRef.current
+              });
               if (res && res.title) {
                 if (Array.isArray(chapters) && chapters[chIdx]) {
                   chapters[chIdx] = { ...chapters[chIdx], title: res.title, isTranslated: true };
@@ -627,6 +713,8 @@
         }
       } finally {
         setIsTranslatingTitles(false);
+        setActiveTranslationMode(null);
+        translationAbortRef.current = null;
       }
     }, [isTranslatingTitles, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
 
@@ -707,7 +795,7 @@
       }
     }, [isHealingAll, isTranslatingTitles, onTranslateChapter, safeChapters, chapters, currentChapter, activeIdx, onChaptersChange]);
 
-    const handleHealActiveChapterLines = useCallback(async (targetChapterIndex = null) => {
+    const handleHealActiveChapterLines = useCallback(async (targetChapterIndex = null, optionsOverride = {}) => {
       if (isTranslatingCurrentChapter) return;
       if (typeof onTranslateChapter !== 'function') {
         if (typeof window !== 'undefined' && window.toast) {
@@ -719,11 +807,30 @@
       const targetChap = (chapters && chapters[idx]) || (safeChapters && safeChapters[idx]) || currentChapter;
       if (!targetChap) return;
       setIsTranslatingCurrentChapter(true);
-      setChapterTranslateProgress({ pct: 15, msg: 'Scanning for untranslated lines…' });
+      setActiveTranslationMode('heal');
+      setLiveStreamText('');
+      setLiveHealingBlocks([]);
+      setChunkProgress({ current: 1, total: 1 });
+      setChapterTranslateProgress({ pct: 10, msg: 'Scanning for untranslated lines…' });
+      translationAbortRef.current = new AbortController();
+
       try {
-        const res = await onTranslateChapter(idx, targetChap, (pct, msg) => {
+        const res = await onTranslateChapter(idx, targetChap, (pct, msg, chunkData) => {
           setChapterTranslateProgress({ pct, msg });
-        }, 'heal');
+          if (chunkData && typeof chunkData.current === 'number') {
+            setChunkProgress({ current: chunkData.current, total: chunkData.total || 1 });
+          }
+        }, 'heal', {
+          optionsOverride,
+          abortController: translationAbortRef.current,
+          onHealingScanned: (items) => {
+            if (Array.isArray(items)) setLiveHealingBlocks(items);
+          },
+          onHealingBlockProgress: (blockIdx, healedText) => {
+            setLiveHealingBlocks(prev => prev.map((b, i) => i === blockIdx ? { ...b, healedText, status: 'healed' } : b));
+          }
+        });
+
         if (res && res.content) {
           const newTitle = res.title || (targetChap && targetChap.title);
           const newText = res.content;
@@ -746,15 +853,20 @@
           setChapterTranslateProgress({ pct: 100, msg: 'Untranslated lines healed!' });
           setTimeout(() => {
             setIsTranslatingCurrentChapter(false);
+            setActiveTranslationMode(null);
           }, 1500);
         } else {
           setIsTranslatingCurrentChapter(false);
+          setActiveTranslationMode(null);
         }
       } catch (err) {
         setIsTranslatingCurrentChapter(false);
-        if (typeof window !== 'undefined' && window.toast) {
+        setActiveTranslationMode(null);
+        if (err.name !== 'AbortError' && typeof window !== 'undefined' && window.toast) {
           window.toast(err.message || 'Healing failed.', 'error');
         }
+      } finally {
+        translationAbortRef.current = null;
       }
     }, [isTranslatingCurrentChapter, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
 
@@ -2199,14 +2311,38 @@
         h('button', {
           type: 'button',
           className: 'reader-more-item',
-          style: { color: 'var(--r-accent)', fontWeight: 600 },
+          style: { color: 'var(--r-accent)', fontWeight: 700 },
+          onClick: () => {
+            setShowMoreMenu(false);
+            const targetChap = (chapters && chapters[activeIdx]) || (safeChapters && safeChapters[activeIdx]) || currentChapter;
+            setSuiteModalChap(targetChap || { idx: activeIdx, title: `Chapter ${activeIdx + 1}` });
+          }
+        },
+          ic('Sparkles', 15),
+          h('span', null, 'Chapter Translation Suite & Settings…')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
           onClick: () => {
             setShowMoreMenu(false);
             handleTranslateActiveChapter();
           }
         },
           ic('Sparkles', 15),
-          h('span', null, isTranslatingCurrentChapter ? 'Translating Chapter…' : 'Translate This Chapter')
+          h('span', null, isTranslatingCurrentChapter ? 'Translating Chapter…' : 'Quick Translate Chapter')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'reader-more-item',
+          style: { color: '#c084fc' },
+          onClick: () => {
+            setShowMoreMenu(false);
+            handleHealActiveChapterLines();
+          }
+        },
+          ic('Sparkles', 15),
+          h('span', null, 'Quick Heal Chapter Lines')
         ),
         h('button', {
           type: 'button',
@@ -2577,58 +2713,59 @@
         }, ic('X', 14))
       ),
 
-      // ── FLOATING IN-READER CHAPTER TRANSLATION DOCK ──
-      isTranslatingCurrentChapter && h('div', {
-        className: 'reader-translate-dock',
-        style: {
-          position: 'fixed',
-          top: 60,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 10002,
-          background: 'rgba(15, 23, 42, 0.94)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid var(--r-accent)',
-          borderRadius: 24,
-          padding: '8px 18px',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          color: '#f8fafc',
-          fontSize: 13,
-          maxWidth: '92%',
-          pointerEvents: 'auto'
-        }
-      },
-        ic('Sparkles', 16, 'animate-pulse shrink-0'),
-        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 150 } },
-          h('span', { style: { fontWeight: 700, fontSize: 12.5, color: 'var(--r-accent)' } },
-            `Translating Ch. ${activeIdx + 1} (${chapterTranslateProgress.pct}%)`
-          ),
-          h('span', { style: { fontSize: 11, color: '#94a3b8' } },
-            chapterTranslateProgress.msg || 'Translating chunks…'
-          )
-        ),
-        h('div', {
-          style: {
-            width: 60,
-            height: 4,
-            background: 'rgba(255,255,255,0.1)',
-            borderRadius: 2,
-            overflow: 'hidden'
+      // ── DYNAMIC FLOATING TRANSLATION PROGRESS PILL ──
+      h(window.ReaderDynamicProgressPill || (typeof ReaderDynamicProgressPill !== 'undefined' ? ReaderDynamicProgressPill : 'div'), {
+        isTranslating: isTranslatingCurrentChapter,
+        isHealing: isTranslatingCurrentChapter && activeTranslationMode === 'heal',
+        isTranslatingTitles: isTranslatingTitles,
+        activeMode: activeTranslationMode,
+        chapterIndex: activeIdx,
+        chapterTitle: currentChapter?.title,
+        pct: isTranslatingTitles ? ((titlesProgress.done / Math.max(1, titlesProgress.total || 1)) * 100) : chapterTranslateProgress.pct,
+        statusMsg: isTranslatingTitles ? `Translating title ${titlesProgress.done + 1} of ${titlesProgress.total}` : chapterTranslateProgress.msg,
+        chunkCurrent: chunkProgress.current,
+        chunkTotal: chunkProgress.total,
+        titlesProgress,
+        onOpenDashboard: () => setIsLiveDashboardOpen(true),
+        onStop: handleStopChapterTranslation
+      }),
+
+      // ── EXPANDABLE LIVE TRANSLATION DASHBOARD MODAL ──
+      h(window.ReaderLiveDashboardModal || (typeof ReaderLiveDashboardModal !== 'undefined' ? ReaderLiveDashboardModal : 'div'), {
+        isOpen: isLiveDashboardOpen,
+        onClose: () => setIsLiveDashboardOpen(false),
+        onStop: handleStopChapterTranslation,
+        activeMode: activeTranslationMode || (isTranslatingTitles ? 'titles' : 'full'),
+        chapterIndex: activeIdx,
+        chapterTitle: currentChapter?.title,
+        pct: isTranslatingTitles ? ((titlesProgress.done / Math.max(1, titlesProgress.total || 1)) * 100) : chapterTranslateProgress.pct,
+        statusMsg: isTranslatingTitles ? `Translating title ${titlesProgress.done + 1} of ${titlesProgress.total}` : chapterTranslateProgress.msg,
+        elapsedSeconds: translationElapsedSec,
+        tokenEstimate: Math.round((liveStreamText.length || 0) / 4),
+        streamText: liveStreamText,
+        healingBlocks: liveHealingBlocks,
+        chunkCurrent: chunkProgress.current,
+        chunkTotal: chunkProgress.total
+      }),
+
+      // ── CHAPTER TRANSLATION SUITE MODAL ──
+      h(window.ChapterTranslationSuiteModal || (typeof ChapterTranslationSuiteModal !== 'undefined' ? ChapterTranslationSuiteModal : 'div'), {
+        isOpen: Boolean(suiteModalChap),
+        onClose: () => setSuiteModalChap(null),
+        chapter: suiteModalChap,
+        novelRecord: activeNovelRecord || (typeof window !== 'undefined' && window.activeNovelRecord),
+        appSettings: appSettings || {},
+        onExecute: (chosenAction, optionsOverride) => {
+          const chapIdx = suiteModalChap?.idx ?? activeIdx;
+          if (chosenAction === 'heal') {
+            handleHealActiveChapterLines(chapIdx, optionsOverride);
+          } else if (chosenAction === 'title') {
+            handleTranslateActiveChapterTitleOnly(chapIdx, optionsOverride);
+          } else {
+            handleTranslateActiveChapter(chapIdx, optionsOverride);
           }
-        },
-          h('div', {
-            style: {
-              width: `${chapterTranslateProgress.pct}%`,
-              height: '100%',
-              background: 'var(--r-accent)',
-              transition: 'width 0.3s ease'
-            }
-          })
-        )
-      ),
+        }
+      }),
 
       // ── HIERARCHICAL ARC & VOLUME TABLE OF CONTENTS DRAWER ──
       h(window.ReaderTocDrawer || (typeof ReaderTocDrawer !== 'undefined' ? ReaderTocDrawer : 'div'), {
@@ -2640,7 +2777,8 @@
         onTranslateAllTitles: handleTranslateAllChapterTitles,
         isTranslatingTitles, titlesProgress,
         onHealAllChapters: handleHealAllChapters,
-        isHealingAll, healAllProgress
+        isHealingAll, healAllProgress,
+        onOpenSuiteModal: (c) => setSuiteModalChap(c)
       }),
 
       // ── TYPOGRAPHY & THEMES SETTINGS MODAL ──

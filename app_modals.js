@@ -2649,7 +2649,25 @@
           }
         },
         onTranslateChapter: props.handleTranslateSingleChapter,
-        onExportEpub: props.handleDownloadEPUB
+        onExportEpub: props.handleDownloadEPUB,
+        activeNovelRecord: props.activeNovelRecord,
+        appSettings: {
+          provider: props.provider,
+          geminiModel: props.geminiModel,
+          deepseekModel: props.deepseekModel,
+          customModel: props.customModel,
+          useCustomModel: props.useCustomModel,
+          tgtLang: props.tgtLang,
+          concurrency: props.concurrency,
+          chunkSizePreset: props.chunkSizePreset,
+          enableStreaming: props.enableStreaming,
+          enableThinking: props.enableThinking,
+          strictModel: props.strictModel,
+          terminology: props.terminology,
+          customInstructions: props.customInstructions,
+          savedGlossaries: props.savedGlossaries,
+          activeGlossaryId: props.activeGlossaryId
+        }
       }),
 
       // 10. Library Novel Action Sheet

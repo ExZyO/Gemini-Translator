@@ -1277,24 +1277,15 @@
 
     // 1. Translate Title (if CJK or non-English)
     let finalTitle = rawTitle;
-    const hasCjk = /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(rawTitle);
-    if (hasCjk && rawTitle.trim()) {
+    if (rawTitle && rawTitle.trim()) {
       try {
         if (callbacks.onProgress) callbacks.onProgress(5, 'Translating chapter title…');
-        const titleWorkerOpts = {
-          ...workerOpts,
-          context: undefined,
-          needContextUpdate: false,
-          glossary: '',
-          smartGlossary: false,
-          instructions: 'Translate this novel chapter title accurately and concisely into English. Output ONLY the translated title, without quotes or markdown formatting.'
-        };
-        const tRes = await safeTranslateWithRotation(rawTitle, titleWorkerOpts);
-        const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
-        if (trans && trans.trim()) {
-          const cleanT = (typeof window !== 'undefined' && window.sanitizeChapterTitle) ? window.sanitizeChapterTitle(trans.trim()) : trans.trim();
-          finalTitle = cleanT;
-        }
+        finalTitle = await translateChapterTitle({
+          rawTitle,
+          opts: workerOpts,
+          config,
+          callbacks
+        });
       } catch (tErr) {
         console.warn('Single chapter title translation error:', tErr);
       }
@@ -1319,7 +1310,12 @@
       const translated = await safeTranslateWithRotation(chunks[j], {
         ...workerOpts,
         context: shouldPassContext ? chapterCtx : undefined,
-        needContextUpdate: shouldRequestUpdate
+        needContextUpdate: shouldRequestUpdate,
+        onStreamChunk: (token) => {
+          if (typeof callbacks.onStreamChunk === 'function') {
+            callbacks.onStreamChunk({ chunkIdx: j, totalChunks: chunks.length, token });
+          }
+        }
       });
 
       const translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
@@ -2347,10 +2343,13 @@
 
       const rawText = (rawChap && (rawChap.content || rawChap.text)) || (chapterData && (chapterData.text || chapterData.content)) || '';
 
-      const ctrl = new AbortController();
-      const opts = typeof getTranslateOpts === 'function' ? getTranslateOpts(ctrl.signal) : {};
+      const ctrl = params.abortController || new AbortController();
+      const userOpts = params.optionsOverride || {};
+      const baseOpts = typeof getTranslateOpts === 'function' ? getTranslateOpts(ctrl.signal) : {};
+      const opts = { ...baseOpts, ...userOpts, signal: ctrl.signal };
       const config = Controller.buildTranslationConfig({
         ...translationCtx,
+        ...userOpts,
         bookTitle: readerNovelTitle || (novelRec && novelRec.title) || 'Translated Novel'
       });
 
@@ -2496,15 +2495,39 @@
           return null;
         }
 
+        const targetLanguage = opts.tgtLang || config.tgtLang || 'English';
         const isDoubleBreak = /\r?\n\r?\n/.test(curBody);
         const sep = isDoubleBreak ? '\n\n' : '\n';
         const paragraphs = curBody.split(isDoubleBreak ? /\r?\n\r?\n/ : /\r?\n/);
-        const hasCjkOrError = (p) => /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(p) || /\[Error:.*?\]/i.test(p);
+
+        const hasUntranslatedOrError = (p) => {
+          if (!p || typeof p !== 'string') return false;
+          if (/\[Error:.*?\]/i.test(p)) return true;
+          // CJK characters (Chinese, Japanese Kanji/Kana)
+          if (/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(p)) return true;
+          // Korean Hangul
+          if (/[\uac00-\ud7af]/.test(p)) return true;
+          // Cyrillic (if target is not Russian/Ukrainian/Bulgarian/Serbian)
+          if (!/^(?:Russian|Ukrainian|Bulgarian|Serbian|Cyrillic)/i.test(targetLanguage) && /[\u0400-\u04ff]/.test(p)) return true;
+          // Thai (if target is not Thai)
+          if (!/^Thai/i.test(targetLanguage) && /[\u0e00-\u0e7f]/.test(p)) return true;
+          // Arabic (if target is not Arabic)
+          if (!/^Arabic/i.test(targetLanguage) && /[\u0600-\u06ff]/.test(p)) return true;
+          return false;
+        };
+
+        const cleanHealedProse = (str) => {
+          if (!str) return '';
+          let s = str.trim();
+          s = s.replace(/^```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+          s = s.replace(/^(?:Here(?:\s+is|\s*'s)?\s+(?:the\s+)?translation[:\s]*|Translation[:\s]*)/i, '');
+          return s.trim();
+        };
 
         const blocks = [];
         let curBlock = null;
         paragraphs.forEach((p, idx) => {
-          if (hasCjkOrError(p)) {
+          if (hasUntranslatedOrError(p)) {
             if (!curBlock) {
               curBlock = { startIdx: idx, endIdx: idx, texts: [p] };
             } else {
@@ -2530,17 +2553,33 @@
           toast(`Healing ${totalHealedSections} untranslated section(s) in Ch. ${targetChapterIdx + 1}…`, 'info');
         }
 
+        if (typeof params.onHealingScanned === 'function') {
+          params.onHealingScanned(blocks.map((b, i) => ({
+            id: i,
+            startIdx: b.startIdx,
+            endIdx: b.endIdx,
+            originalSnippet: b.texts.join(' ').slice(0, 150),
+            status: 'pending'
+          })));
+        }
+
         for (let bIdx = 0; bIdx < blocks.length; bIdx++) {
           const block = blocks[bIdx];
           if (typeof onProgress === 'function') {
             onProgress(Math.floor((bIdx / blocks.length) * 80) + 15, `Healing section ${bIdx + 1}/${blocks.length}…`);
           }
+          if (typeof params.onHealingBlockProgress === 'function') {
+            params.onHealingBlockProgress({ blockIdx: bIdx, totalBlocks: blocks.length, status: 'healing' });
+          }
           const blockRawText = block.texts.join(sep);
+          const healInstructions = opts.instructions || config.instructions ||
+            `Translate accurately and fluently into ${targetLanguage}. Maintain formal novel prose style and preserve all quotes, indentation, and formatting. Output ONLY the translated prose, without commentary or markdown code fences.`;
           const transBlock = await safeTranslateWithRotation(blockRawText, {
             ...opts,
-            instructions: config.instructions || 'Translate accurately and fluently into English. Retain novel prose style and formatting.'
+            instructions: healInstructions
           });
-          const translatedBlockText = (transBlock && typeof transBlock === 'object') ? (transBlock.text || '') : (typeof transBlock === 'string' ? transBlock : '');
+          let translatedBlockText = (transBlock && typeof transBlock === 'object') ? (transBlock.text || '') : (typeof transBlock === 'string' ? transBlock : '');
+          translatedBlockText = cleanHealedProse(translatedBlockText);
           if (translatedBlockText && translatedBlockText.trim()) {
             const splitTranslated = translatedBlockText.trim().split(isDoubleBreak ? /\r?\n\r?\n/ : /\r?\n/);
             if (splitTranslated.length === block.texts.length) {
@@ -2550,6 +2589,14 @@
             } else {
               paragraphs.splice(block.startIdx, block.endIdx - block.startIdx + 1, translatedBlockText.trim());
             }
+          }
+          if (typeof params.onHealingBlockProgress === 'function') {
+            params.onHealingBlockProgress({
+              blockIdx: bIdx,
+              totalBlocks: blocks.length,
+              healedSnippet: (translatedBlockText || '').slice(0, 150),
+              status: 'healed'
+            });
           }
         }
 

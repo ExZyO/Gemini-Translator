@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.49';
+    let VERSION = '8.21.50';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2266,9 +2266,12 @@
       const handleTranslateText = async (resume = false) => translationDispatcher?.translateText(resume);
       const handleTranslateEbook = async (chapters, resume = false, isEpubParam = false, originalZipParam = null) => translationDispatcher?.translateEbook(chapters, resume, isEpubParam, originalZipParam);
 
-      const handleTranslateSingleChapter = async (targetChapterIdx, chapterData, onProgress, modeParam = false) => {
-        const titleOnly = modeParam === true || modeParam === 'titleOnly';
-        const healOnly = modeParam === 'heal' || modeParam === 'healOnly';
+      const handleTranslateSingleChapter = async (targetChapterIdx, chapterData, onProgress, modeParam = false, extraParams = {}) => {
+        const isObj = modeParam && typeof modeParam === 'object';
+        const mode = isObj ? modeParam.mode : modeParam;
+        const mergedExtra = isObj ? { ...modeParam, ...extraParams } : extraParams;
+        const titleOnly = mode === true || mode === 'titleOnly';
+        const healOnly = mode === 'heal' || mode === 'healOnly';
         return await (window.TranslationLoopEngine || TranslationLoopEngine)?.Controller?.executeTranslateSingleChapter({
           targetChapterIdx,
           chapterData,
@@ -2290,7 +2293,8 @@
           saveNovelToHistory,
           currentOriginalZip,
           currentIsEpub,
-          toast
+          toast,
+          ...mergedExtra
         });
       };
 

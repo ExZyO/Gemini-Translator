@@ -216,7 +216,8 @@
       toggleArcCollapse, activeIdx, activeTocItemRef, changeChapter,
       onTranslateChapter, onTranslateChapterTitle, onHealChapterLines,
       onTranslateAllTitles, isTranslatingTitles, titlesProgress,
-      onHealAllChapters, isHealingAll, healAllProgress
+      onHealAllChapters, isHealingAll, healAllProgress,
+      onOpenSuiteModal
     } = props;
     const [actionMenuChap, setActionMenuChap] = useState(null);
     const [filterUntranslatedOnly, setFilterUntranslatedOnly] = useState(false);
@@ -405,7 +406,11 @@
                           },
                           onClick: (e) => {
                             e.stopPropagation();
-                            setActionMenuChap(c);
+                            if (typeof onOpenSuiteModal === 'function') {
+                              onOpenSuiteModal(c);
+                            } else {
+                              setActionMenuChap(c);
+                            }
                           }
                         }, ic('Sparkles', 12))
                       )
@@ -526,6 +531,29 @@
                   }
                 }
               }, ic('Type', 13), 'Translate Title Only'),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: {
+                  border: '1px solid var(--r-accent, #6366f1)',
+                  color: 'var(--r-accent, #6366f1)',
+                  fontWeight: 600,
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  fontSize: 12.5
+                },
+                onClick: () => {
+                  const chap = actionMenuChap;
+                  setActionMenuChap(null);
+                  if (typeof onOpenSuiteModal === 'function') {
+                    onOpenSuiteModal(chap);
+                  }
+                }
+              }, ic('Settings', 13), 'Translation Suite & Settings…'),
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
@@ -1518,6 +1546,1093 @@
       );
   }
 
+  // ── 8. CHAPTER TRANSLATION SUITE MODAL ──
+  function ChapterTranslationSuiteModal(props) {
+    const {
+      isOpen,
+      onClose,
+      chapter,
+      novelRecord,
+      appSettings = {},
+      onExecute
+    } = props;
+
+    if (!isOpen || !chapter) return null;
+
+    // Scope: 'app' | 'novel' | 'chapter'
+    const [scope, setScope] = useState('app');
+    const [action, setAction] = useState('full');
+
+    const initProvider = () => novelRecord?.translationSettings?.provider || appSettings.provider || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_provider') : null) || 'gemini';
+    const initGeminiModel = () => novelRecord?.translationSettings?.geminiModel || appSettings.geminiModel || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_model') : null) || 'gemini-3.8-flash';
+    const initDeepseekModel = () => novelRecord?.translationSettings?.deepseekModel || appSettings.deepseekModel || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_deepseek_model') : null) || 'deepseek-chat';
+    const initTgtLang = () => novelRecord?.translationSettings?.tgtLang || appSettings.tgtLang || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_tgt_lang') : null) || 'English';
+    const initConcurrency = () => novelRecord?.translationSettings?.concurrency || appSettings.concurrency || (typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('gemini_concurrency'), 10) : null) || 3;
+    const initChunkSize = () => novelRecord?.translationSettings?.chunkSizePreset || appSettings.chunkSizePreset || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_chunk_size') : null) || 'standard';
+    const initStreaming = () => {
+      const v = novelRecord?.translationSettings?.enableStreaming ?? appSettings.enableStreaming ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_enable_streaming') : null);
+      return v !== null && v !== undefined ? (v === true || v === 'true') : true;
+    };
+    const initThinking = () => {
+      const v = novelRecord?.translationSettings?.enableThinking ?? appSettings.enableThinking ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_enable_thinking') : null);
+      return v !== null && v !== undefined ? (v === true || v === 'true') : false;
+    };
+    const initStrictModel = () => {
+      const v = novelRecord?.translationSettings?.strictModel ?? appSettings.strictModel ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_strict_model') : null);
+      return v !== null && v !== undefined ? (v === true || v === 'true') : false;
+    };
+
+    const [provider, setProvider] = useState(initProvider);
+    const [geminiModel, setGeminiModel] = useState(initGeminiModel);
+    const [deepseekModel, setDeepseekModel] = useState(initDeepseekModel);
+    const [useCustomModel, setUseCustomModel] = useState(Boolean(novelRecord?.translationSettings?.useCustomModel ?? appSettings.useCustomModel));
+    const [customModel, setCustomModel] = useState(novelRecord?.translationSettings?.customModel || appSettings.customModel || '');
+    const [tgtLang, setTgtLang] = useState(initTgtLang);
+    const [concurrency, setConcurrency] = useState(initConcurrency);
+    const [chunkSizePreset, setChunkSizePreset] = useState(initChunkSize);
+    const [enableStreaming, setEnableStreaming] = useState(initStreaming);
+    const [enableThinking, setEnableThinking] = useState(initThinking);
+    const [strictModel, setStrictModel] = useState(initStrictModel);
+    const [customInstructions, setCustomInstructions] = useState(novelRecord?.translationSettings?.customInstructions || appSettings.customInstructions || '');
+    const [terminology, setTerminology] = useState(novelRecord?.translationSettings?.terminology || appSettings.terminology || '');
+    const [selectedGlossaryId, setSelectedGlossaryId] = useState(novelRecord?.translationSettings?.glossaryId || appSettings.activeGlossaryId || 'default');
+    const [showAdvanced, setShowAdvanced] = useState(false);
+
+    const targetLanguages = (typeof window !== 'undefined' && window.TARGET_LANGUAGES) || [
+      'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Russian', 'Japanese', 'Chinese', 'Korean', 'Vietnamese', 'Thai', 'Indonesian', 'Arabic'
+    ];
+    const geminiModels = (typeof window !== 'undefined' && window.DEFAULT_GEMINI_MODELS) || [
+      { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Fast & Literary)' },
+      { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash' },
+      { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash' },
+      { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro' }
+    ];
+    const deepseekModels = (typeof window !== 'undefined' && window.DEFAULT_DEEPSEEK_MODELS) || [
+      { id: 'deepseek-chat', name: 'DeepSeek Chat (V3)' },
+      { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner (R1 Thinking)' }
+    ];
+
+    const cleanTitle = (typeof window !== 'undefined' && window.cleanRawChapterTitle)
+      ? window.cleanRawChapterTitle(chapter.title)
+      : (chapter.title || `Chapter ${chapter.idx + 1}`);
+
+    const handleExecuteAction = (chosenAction) => {
+      const act = chosenAction || action;
+      const optionsOverride = {
+        provider,
+        geminiModel,
+        deepseekModel,
+        customModel: useCustomModel ? customModel.trim() : '',
+        useCustomModel,
+        tgtLang,
+        concurrency: Number(concurrency) || 3,
+        chunkSizePreset,
+        enableStreaming: Boolean(enableStreaming),
+        enableThinking: Boolean(enableThinking),
+        strictModel: Boolean(strictModel),
+        customInstructions,
+        terminology,
+        glossaryId: selectedGlossaryId
+      };
+
+      if (scope === 'app' && typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('gemini_provider', provider);
+          localStorage.setItem('gemini_model', geminiModel);
+          localStorage.setItem('gemini_deepseek_model', deepseekModel);
+          localStorage.setItem('gemini_tgt_lang', tgtLang);
+          localStorage.setItem('gemini_concurrency', String(concurrency));
+          localStorage.setItem('gemini_chunk_size', chunkSizePreset);
+          localStorage.setItem('gemini_enable_streaming', enableStreaming ? 'true' : 'false');
+          localStorage.setItem('gemini_enable_thinking', enableThinking ? 'true' : 'false');
+          localStorage.setItem('gemini_strict_model', strictModel ? 'true' : 'false');
+        } catch (e) {}
+      } else if (scope === 'novel' && novelRecord) {
+        novelRecord.translationSettings = { ...optionsOverride };
+        if (typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
+          window.GeminiNovelDB.updateNovel(novelRecord).catch(() => {});
+        }
+      }
+
+      if (typeof onExecute === 'function') {
+        onExecute(act, optionsOverride, scope, chapter);
+      }
+      onClose();
+    };
+
+    return h('div', {
+      style: {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 10005,
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px 12px'
+      },
+      onClick: onClose
+    },
+      h('div', {
+        style: {
+          width: '100%',
+          maxWidth: 540,
+          maxHeight: '92vh',
+          background: 'var(--r-card, #1e293b)',
+          border: '1px solid var(--r-border, rgba(255,255,255,0.12))',
+          borderRadius: 16,
+          boxShadow: '0 25px 60px rgba(0,0,0,0.8)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          color: 'var(--r-text, #f8fafc)'
+        },
+        onClick: (e) => e.stopPropagation()
+      },
+        // Modal Header
+        h('div', {
+          style: {
+            padding: '16px 20px',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }
+        },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 } },
+            h('div', {
+              style: {
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: 'rgba(99, 102, 241, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--r-accent, #818cf8)',
+                flexShrink: 0
+              }
+            }, ic('Sparkles', 18)),
+            h('div', { style: { minWidth: 0 } },
+              h('div', { style: { fontWeight: 700, fontSize: 14.5 } }, `Translate Chapter ${chapter.idx + 1}`),
+              h('div', {
+                style: {
+                  fontSize: 11.5,
+                  color: 'var(--r-muted, #94a3b8)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }
+              }, cleanTitle)
+            )
+          ),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { padding: '4px 8px', borderRadius: 6, color: '#94a3b8', fontSize: 18, border: 'none' },
+            onClick: onClose
+          }, '✕')
+        ),
+
+        // Scrollable Body
+        h('div', {
+          style: {
+            padding: '16px 20px',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16
+          }
+        },
+          // 1. Persistence Scope Selector
+          h('div', {
+            style: {
+              background: 'rgba(0,0,0,0.25)',
+              borderRadius: 10,
+              padding: '10px 12px',
+              border: '1px solid rgba(255,255,255,0.06)'
+            }
+          },
+            h('div', { style: { fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' } }, 'Save Settings Scope'),
+            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 } },
+              [
+                { id: 'app', label: 'App Defaults', hint: 'Sync with app' },
+                { id: 'novel', label: 'This Novel', hint: 'Book-specific' },
+                { id: 'chapter', label: 'This Run Only', hint: 'Temporary' }
+              ].map(item => {
+                const isSel = scope === item.id;
+                return h('button', {
+                  key: item.id,
+                  type: 'button',
+                  className: 'mini-btn' + (isSel ? ' active' : ' ghost'),
+                  style: {
+                    padding: '8px 4px',
+                    borderRadius: 8,
+                    border: '1px solid ' + (isSel ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,255,0.1)'),
+                    background: isSel ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,254,0.04)',
+                    color: isSel ? '#fff' : 'var(--r-text)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 2,
+                    cursor: 'pointer'
+                  },
+                  onClick: () => setScope(item.id)
+                },
+                  h('span', { style: { fontWeight: 700, fontSize: 11.5 } }, item.label),
+                  h('span', { style: { fontSize: 9.5, opacity: 0.8 } }, item.hint)
+                );
+              })
+            )
+          ),
+
+          // 2. Quick Action Buttons
+          h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+            h('div', { style: { fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' } }, 'Quick Execution Actions'),
+            h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: {
+                  background: 'var(--r-accent, #6366f1)',
+                  color: '#fff',
+                  padding: '11px 12px',
+                  borderRadius: 10,
+                  fontWeight: 700,
+                  fontSize: 12.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                },
+                onClick: () => handleExecuteAction('full')
+              }, ic('Sparkles', 14), 'Translate Full Chapter'),
+
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: {
+                  background: 'rgba(168, 85, 247, 0.16)',
+                  color: '#c084fc',
+                  border: '1px solid rgba(168, 85, 247, 0.45)',
+                  padding: '11px 12px',
+                  borderRadius: 10,
+                  fontWeight: 700,
+                  fontSize: 12.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6
+                },
+                onClick: () => handleExecuteAction('heal')
+              }, ic('Sparkles', 14), 'Heal Untranslated Lines')
+            ),
+
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: {
+                border: '1px solid rgba(255,255,255,0.12)',
+                color: 'var(--r-text)',
+                padding: '9px 12px',
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6
+              },
+              onClick: () => handleExecuteAction('title')
+            }, ic('Sparkles', 12), 'Translate Title Only')
+          ),
+
+          // 3. Core Translation Settings (Target Language, Provider, Model)
+          h('div', {
+            style: {
+              background: 'rgba(0,0,0,0.2)',
+              borderRadius: 10,
+              padding: '14px',
+              border: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12
+            }
+          },
+            h('div', { style: { fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' } }, 'Translation Configuration'),
+
+            // Target Language
+            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+              h('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--r-text)' } }, 'Target Language'),
+              h('select', {
+                value: tgtLang,
+                style: {
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  color: 'inherit',
+                  fontSize: 12.5,
+                  outline: 'none'
+                },
+                onChange: (e) => setTgtLang(e.target.value)
+              },
+                targetLanguages.map(l => h('option', { key: l, value: l, style: { background: '#1e293b', color: '#fff' } }, l))
+              )
+            ),
+
+            // Provider & Model Row
+            h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 } },
+              // Provider Selector
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+                h('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--r-text)' } }, 'AI Provider'),
+                h('div', { style: { display: 'flex', gap: 4 } },
+                  ['gemini', 'deepseek'].map(p => {
+                    const isSel = provider === p;
+                    return h('button', {
+                      key: p,
+                      type: 'button',
+                      className: 'mini-btn' + (isSel ? ' active' : ' ghost'),
+                      style: {
+                        flex: 1,
+                        padding: '8px 0',
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        borderRadius: 6,
+                        border: '1px solid ' + (isSel ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,255,0.1)'),
+                        background: isSel ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,255,0.04)',
+                        color: isSel ? '#fff' : 'var(--r-text)',
+                        textTransform: 'capitalize'
+                      },
+                      onClick: () => setProvider(p)
+                    }, p);
+                  })
+                )
+              ),
+
+              // Model Selector
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+                h('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--r-text)' } }, 'AI Model'),
+                useCustomModel ? (
+                  h('input', {
+                    type: 'text',
+                    placeholder: 'Custom model ID',
+                    value: customModel,
+                    style: {
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'inherit',
+                      fontSize: 12,
+                      outline: 'none'
+                    },
+                    onChange: (e) => setCustomModel(e.target.value)
+                  })
+                ) : (
+                  h('select', {
+                    value: provider === 'deepseek' ? deepseekModel : geminiModel,
+                    style: {
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: 'inherit',
+                      fontSize: 12,
+                      outline: 'none'
+                    },
+                    onChange: (e) => {
+                      if (provider === 'deepseek') setDeepseekModel(e.target.value);
+                      else setGeminiModel(e.target.value);
+                    }
+                  },
+                    (provider === 'deepseek' ? deepseekModels : geminiModels).map(m => (
+                      h('option', { key: m.id, value: m.id, style: { background: '#1e293b', color: '#fff' } }, m.name)
+                    ))
+                  )
+                )
+              )
+            ),
+
+            // Custom Model Toggle
+            h('label', {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 11.5,
+                color: 'var(--r-muted)',
+                cursor: 'pointer',
+                userSelect: 'none'
+              }
+            },
+              h('input', {
+                type: 'checkbox',
+                checked: useCustomModel,
+                onChange: (e) => setUseCustomModel(e.target.checked)
+              }),
+              'Use Custom Model Identifier'
+            )
+          ),
+
+          // 4. Advanced Settings Accordion Toggle
+          h('div', {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 12px',
+              borderRadius: 8,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+              color: 'var(--r-accent)'
+            },
+            onClick: () => setShowAdvanced(!showAdvanced)
+          },
+            h('span', null, `${showAdvanced ? '▾' : '▸'} Advanced Translation Controls (Speed, Prompts, Glossaries)`),
+            h('span', { style: { fontSize: 10.5, color: 'var(--r-muted)' } }, showAdvanced ? 'Collapse' : 'Expand')
+          ),
+
+          // 5. Advanced Settings Drawer Content
+          showAdvanced && h('div', {
+            style: {
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              padding: '12px 14px',
+              borderRadius: 10,
+              background: 'rgba(0,0,0,0.3)',
+              border: '1px solid rgba(255,255,255,0.08)'
+            }
+          },
+            // Concurrency & Chunk Size Row
+            h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 } },
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+                h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--r-text)' } }, `Concurrency (${concurrency}x parallel)`),
+                h('select', {
+                  value: concurrency,
+                  style: {
+                    padding: '7px 10px',
+                    borderRadius: 6,
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: 'inherit',
+                    fontSize: 12
+                  },
+                  onChange: (e) => setConcurrency(parseInt(e.target.value, 10))
+                },
+                  [1, 2, 3, 4, 5].map(n => h('option', { key: n, value: n, style: { background: '#1e293b', color: '#fff' } }, `${n} parallel stream${n > 1 ? 's' : ''}`))
+                )
+              ),
+
+              h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+                h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--r-text)' } }, 'Chunk Size Preset'),
+                h('select', {
+                  value: chunkSizePreset,
+                  style: {
+                    padding: '7px 10px',
+                    borderRadius: 6,
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: 'inherit',
+                    fontSize: 12
+                  },
+                  onChange: (e) => setChunkSizePreset(e.target.value)
+                },
+                  h('option', { value: 'compact', style: { background: '#1e293b', color: '#fff' } }, 'Compact (~1,200 chars)'),
+                  h('option', { value: 'standard', style: { background: '#1e293b', color: '#fff' } }, 'Standard (~2,500 chars)'),
+                  h('option', { value: 'generous', style: { background: '#1e293b', color: '#fff' } }, 'Generous (~4,500 chars)')
+                )
+              )
+            ),
+
+            // Toggles: Streaming, Thinking, Strict Model
+            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 4 } },
+              h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--r-text)', cursor: 'pointer' } },
+                h('input', { type: 'checkbox', checked: enableStreaming, onChange: (e) => setEnableStreaming(e.target.checked) }),
+                'Enable Real-Time Prose Streaming'
+              ),
+              h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--r-text)', cursor: 'pointer' } },
+                h('input', { type: 'checkbox', checked: enableThinking, onChange: (e) => setEnableThinking(e.target.checked) }),
+                'Enable Deep Thinking / AI Reasoning'
+              ),
+              h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--r-text)', cursor: 'pointer' } },
+                h('input', { type: 'checkbox', checked: strictModel, onChange: (e) => setStrictModel(e.target.checked) }),
+                'Strict Model (Do not auto-fallback on error)'
+              )
+            ),
+
+            // Custom Instructions & Quick Style Presets
+            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 } },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--r-text)' } }, 'Custom Translation Instructions'),
+                h('div', { style: { display: 'flex', gap: 4 } },
+                  [
+                    { label: 'Literary', text: 'Translate in an immersive literary style with rich prose and natural flow.' },
+                    { label: 'Dialogue', text: 'Prioritize punchy, natural character dialogue and distinct vocal tone.' },
+                    { label: 'Action', text: 'Translate fast-paced combat and martial arts scenes with dynamic impact.' }
+                  ].map(p => h('button', {
+                    key: p.label,
+                    type: 'button',
+                    className: 'mini-btn ghost',
+                    style: { fontSize: 9.5, padding: '2px 6px', borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)' },
+                    onClick: () => setCustomInstructions(prev => prev ? `${prev}\n${p.text}` : p.text)
+                  }, `+ ${p.label}`))
+                )
+              ),
+              h('textarea', {
+                rows: 2,
+                placeholder: 'e.g. Preserve honorifics (-san, -sama), maintain atmospheric prose...',
+                value: customInstructions,
+                style: {
+                  width: '100%',
+                  padding: '7px 10px',
+                  borderRadius: 6,
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: 'inherit',
+                  fontSize: 11.5,
+                  outline: 'none',
+                  resize: 'vertical'
+                },
+                onChange: (e) => setCustomInstructions(e.target.value)
+              })
+            ),
+
+            // Glossary Terms
+            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+              h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--r-text)' } }, 'Glossary Terms & Names'),
+              h('textarea', {
+                rows: 2,
+                placeholder: 'Original = Translation (one per line)',
+                value: terminology,
+                style: {
+                  width: '100%',
+                  padding: '7px 10px',
+                  borderRadius: 6,
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: 'inherit',
+                  fontSize: 11.5,
+                  outline: 'none',
+                  resize: 'vertical'
+                },
+                onChange: (e) => setTerminology(e.target.value)
+              })
+            )
+          )
+        ),
+
+        // Modal Footer
+        h('div', {
+          style: {
+            padding: '14px 20px',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 10
+          }
+        },
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: { padding: '8px 16px', borderRadius: 8, fontWeight: 600, fontSize: 12.5 },
+            onClick: onClose
+          }, 'Cancel'),
+
+          h('button', {
+            type: 'button',
+            className: 'mini-btn',
+            style: {
+              padding: '8px 20px',
+              borderRadius: 8,
+              background: 'var(--r-accent, #6366f1)',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: 12.5
+            },
+            onClick: () => handleExecuteAction(action)
+          }, 'Start Translation')
+        )
+      )
+    );
+  }
+
+  // ── 9. DYNAMIC FLOATING PROGRESS PILL ──
+  function ReaderDynamicProgressPill(props) {
+    const {
+      isTranslating,
+      isHealing,
+      isTranslatingTitles,
+      activeMode,
+      chapterIndex,
+      chapterTitle,
+      pct = 0,
+      statusMsg = '',
+      chunkCurrent = 1,
+      chunkTotal = 1,
+      titlesProgress = null,
+      onOpenDashboard,
+      onStop
+    } = props;
+
+    const isActive = isTranslating || isHealing || isTranslatingTitles;
+    if (!isActive) return null;
+
+    const cleanTitle = (typeof window !== 'undefined' && window.cleanRawChapterTitle)
+      ? window.cleanRawChapterTitle(chapterTitle || '')
+      : (chapterTitle || '');
+
+    const modeLabel = isHealing
+      ? 'Healing Prose'
+      : (isTranslatingTitles ? 'Batch Titles' : 'Translating');
+
+    const accentColor = isHealing ? '#c084fc' : (isTranslatingTitles ? '#38bdf8' : '#818cf8');
+    const accentBorder = isHealing ? 'rgba(168, 85, 247, 0.45)' : (isTranslatingTitles ? 'rgba(56, 189, 248, 0.45)' : 'rgba(99, 102, 241, 0.45)');
+    const glowShadow = isHealing ? 'rgba(168, 85, 247, 0.25)' : (isTranslatingTitles ? 'rgba(56, 189, 248, 0.25)' : 'rgba(99, 102, 241, 0.25)');
+
+    return h('div', {
+      className: 'reader-dynamic-progress-pill',
+      style: {
+        position: 'fixed',
+        top: 'calc(14px + env(safe-area-inset-top, 0px))',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 10001,
+        background: 'rgba(15, 23, 42, 0.94)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: `1px solid ${accentBorder}`,
+        boxShadow: `0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 16px ${glowShadow}`,
+        borderRadius: 9999,
+        padding: '7px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        color: '#f8fafc',
+        fontSize: 12.5,
+        maxWidth: 'calc(100vw - 32px)',
+        cursor: 'pointer',
+        userSelect: 'none',
+        transition: 'all 0.25s ease'
+      },
+      onClick: onOpenDashboard
+    },
+      // Left: Animated pulsing icon
+      h('div', {
+        style: {
+          width: 24,
+          height: 24,
+          borderRadius: '50%',
+          background: `rgba(${isHealing ? '168, 85, 247' : (isTranslatingTitles ? '56, 189, 248' : '99, 102, 241')}, 0.2)`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: accentColor,
+          flexShrink: 0
+        }
+      }, ic('Sparkles', 13, 'animate-pulse')),
+
+      // Center Info
+      h('div', {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          minWidth: 100,
+          maxWidth: 220,
+          overflow: 'hidden'
+        }
+      },
+        h('div', {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontWeight: 700,
+            fontSize: 12,
+            color: accentColor,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }
+        },
+          h('span', null, isTranslatingTitles ? `Titles (${titlesProgress?.done || 0}/${titlesProgress?.total || '…'})` : `Ch. ${(chapterIndex ?? 0) + 1} · ${modeLabel}`),
+          h('span', { style: { fontSize: 11, color: '#94a3b8', fontWeight: 600 } }, `${Math.round(pct)}%`)
+        ),
+        h('div', {
+          style: {
+            fontSize: 10.5,
+            color: '#cbd5e1',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }
+        }, statusMsg || cleanTitle || 'Tap for Live Dashboard')
+      ),
+
+      // Progress Bar
+      h('div', {
+        style: {
+          width: 70,
+          height: 5,
+          background: 'rgba(255, 255, 255, 0.12)',
+          borderRadius: 3,
+          overflow: 'hidden',
+          flexShrink: 0
+        }
+      },
+        h('div', {
+          style: {
+            width: `${Math.min(100, Math.max(0, pct))}%`,
+            height: '100%',
+            background: isHealing
+              ? 'linear-gradient(90deg, #a855f7, #ec4899)'
+              : (isTranslatingTitles ? 'linear-gradient(90deg, #38bdf8, #6366f1)' : 'linear-gradient(90deg, #6366f1, #a855f7)'),
+            transition: 'width 0.3s ease'
+          }
+        })
+      ),
+
+      // Right: Quick Stop button
+      h('button', {
+        type: 'button',
+        className: 'mini-btn ghost',
+        title: 'Stop translation',
+        style: {
+          padding: '3px 8px',
+          borderRadius: 9999,
+          background: 'rgba(239, 68, 68, 0.2)',
+          color: '#fca5a5',
+          border: '1px solid rgba(239, 68, 68, 0.4)',
+          fontSize: 11,
+          fontWeight: 700,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 3,
+          cursor: 'pointer',
+          flexShrink: 0
+        },
+        onClick: (e) => {
+          e.stopPropagation();
+          if (typeof onStop === 'function') onStop();
+        }
+      }, ic('Square', 10), 'Stop')
+    );
+  }
+
+  // ── 10. EXPANDABLE LIVE TRANSLATION DASHBOARD ──
+  function ReaderLiveDashboardModal(props) {
+    const {
+      isOpen,
+      onClose,
+      isPaused = false,
+      onPause,
+      onResume,
+      onStop,
+      activeMode = 'full',
+      chapterIndex = 0,
+      chapterTitle = '',
+      pct = 0,
+      statusMsg = '',
+      elapsedSeconds = 0,
+      tokenEstimate = 0,
+      streamText = '',
+      healingBlocks = [],
+      chunkCurrent = 1,
+      chunkTotal = 1
+    } = props;
+
+    if (!isOpen) return null;
+
+    const formatTime = (totalSec) => {
+      const mins = Math.floor(totalSec / 60);
+      const secs = totalSec % 60;
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    };
+
+    const isHealing = activeMode === 'heal';
+    const isTitles = activeMode === 'titles';
+    const accentColor = isHealing ? '#c084fc' : (isTitles ? '#38bdf8' : '#818cf8');
+    const accentBorder = isHealing ? 'rgba(168, 85, 247, 0.4)' : (isTitles ? 'rgba(56, 189, 248, 0.4)' : 'rgba(99, 102, 241, 0.4)');
+
+    return h('div', {
+      style: {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 10006,
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16
+      },
+      onClick: onClose
+    },
+      h('div', {
+        style: {
+          width: '100%',
+          maxWidth: 620,
+          maxHeight: '90vh',
+          background: 'var(--r-card, #0f172a)',
+          border: `1px solid ${accentBorder}`,
+          borderRadius: 16,
+          padding: '20px 22px',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.7)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+          color: '#f8fafc',
+          overflow: 'hidden'
+        },
+        onClick: (e) => e.stopPropagation()
+      },
+        // Header Row
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 12 } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+            h('div', {
+              style: {
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: `rgba(${isHealing ? '168, 85, 247' : (isTitles ? '56, 189, 248' : '99, 102, 241')}, 0.2)`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: accentColor
+              }
+            }, ic('Sparkles', 18)),
+            h('div', null,
+              h('div', { style: { fontWeight: 700, fontSize: 15 } }, 'Live Translation Dashboard'),
+              h('div', { style: { fontSize: 11.5, color: '#94a3b8' } },
+                isTitles
+                  ? 'Batch Title Translation in Progress'
+                  : `Chapter ${(chapterIndex ?? 0) + 1}: ${chapterTitle || 'Active Chapter'}`
+              )
+            )
+          ),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            h('span', {
+              style: {
+                padding: '3px 8px',
+                borderRadius: 6,
+                fontSize: 11,
+                fontWeight: 700,
+                background: isPaused ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                color: isPaused ? '#fbbf24' : '#34d399',
+                border: `1px solid ${isPaused ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`
+              }
+            }, isPaused ? 'Paused ⏸' : 'Running ⚡'),
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { padding: '4px 8px', borderRadius: 6, color: '#94a3b8', fontSize: 18, border: 'none' },
+              onClick: onClose
+            }, '✕')
+          )
+        ),
+
+        // 4 Metric Cards Grid
+        h('div', {
+          style: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 10
+          }
+        },
+          // Card 1: Progress
+          h('div', { style: { background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)' } },
+            h('div', { style: { fontSize: 10.5, color: '#94a3b8', fontWeight: 600 } }, 'Progress'),
+            h('div', { style: { fontSize: 18, fontWeight: 700, color: accentColor, marginTop: 2 } }, `${Math.round(pct)}%`)
+          ),
+          // Card 2: Chunk / Step
+          h('div', { style: { background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)' } },
+            h('div', { style: { fontSize: 10.5, color: '#94a3b8', fontWeight: 600 } }, isTitles ? 'Titles' : 'Chunk'),
+            h('div', { style: { fontSize: 18, fontWeight: 700, color: '#f8fafc', marginTop: 2 } }, `${chunkCurrent || 1}/${chunkTotal || 1}`)
+          ),
+          // Card 3: Elapsed Time
+          h('div', { style: { background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)' } },
+            h('div', { style: { fontSize: 10.5, color: '#94a3b8', fontWeight: 600 } }, 'Elapsed'),
+            h('div', { style: { fontSize: 18, fontWeight: 700, color: '#f8fafc', marginTop: 2 } }, formatTime(elapsedSeconds))
+          ),
+          // Card 4: Tokens Streamed
+          h('div', { style: { background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.06)' } },
+            h('div', { style: { fontSize: 10.5, color: '#94a3b8', fontWeight: 600 } }, 'Tokens'),
+            h('div', { style: { fontSize: 18, fontWeight: 700, color: '#38bdf8', marginTop: 2 } }, `~${(tokenEstimate || Math.round((streamText.length || 0) / 4)).toLocaleString()}`)
+          )
+        ),
+
+        // Status Bar
+        h('div', {
+          style: {
+            padding: '8px 12px',
+            borderRadius: 8,
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            fontSize: 11.5,
+            color: '#cbd5e1',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }
+        },
+          ic('Info', 13, 'shrink-0 text-indigo-400'),
+          h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, statusMsg || 'Translating prose chunks…')
+        ),
+
+        // Main Live Content Box: Healing Inspector OR Streaming Preview
+        isHealing ? (
+          // Healing Inspector
+          h('div', {
+            style: {
+              flex: 1,
+              overflowY: 'auto',
+              maxHeight: 280,
+              borderRadius: 10,
+              background: 'rgba(0,0,0,0.3)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              padding: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8
+            }
+          },
+            h('div', { style: { fontSize: 12, fontWeight: 700, color: '#c084fc', marginBottom: 4 } },
+              `Detected Untranslated Lines (${healingBlocks.length})`
+            ),
+            healingBlocks.length === 0
+              ? h('div', { style: { fontSize: 12, color: '#94a3b8', textAlign: 'center', padding: '24px 0' } }, 'Scanning chapter for untranslated or foreign lines…')
+              : healingBlocks.map((block, bIdx) => (
+                h('div', {
+                  key: bIdx,
+                  style: {
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid ' + (block.status === 'healed' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255,255,255,0.06)'),
+                    fontSize: 11.5,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4
+                  }
+                },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: 10.5 } },
+                    h('span', null, `Line #${(block.lineIdx ?? bIdx) + 1}`),
+                    h('span', {
+                      style: {
+                        color: block.status === 'healed' ? '#34d399' : '#fbbf24',
+                        fontWeight: 600
+                      }
+                    }, block.status === 'healed' ? '✓ Healed' : 'Scanning / Healing…')
+                  ),
+                  h('div', { style: { color: '#fca5a5', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'pre-wrap' } },
+                    block.foreignText || block.rawText || ''
+                  ),
+                  block.healedText && h('div', { style: { color: '#86efac', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'pre-wrap', borderTop: '1px dashed rgba(255,255,255,0.08)', paddingTop: 4, marginTop: 2 } },
+                    block.healedText
+                  )
+                )
+              ))
+          )
+        ) : (
+          // Streaming Text Preview
+          h('div', {
+            style: {
+              flex: 1,
+              overflowY: 'auto',
+              maxHeight: 280,
+              borderRadius: 10,
+              background: 'rgba(0,0,0,0.4)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              padding: 12,
+              fontFamily: 'monospace',
+              fontSize: 11.5,
+              color: '#e2e8f0',
+              lineHeight: 1.5,
+              whiteSpace: 'pre-wrap'
+            }
+          },
+            streamText
+              ? streamText
+              : h('span', { style: { color: '#64748b', fontStyle: 'italic' } }, 'Waiting for first stream tokens from AI…')
+          )
+        ),
+
+        // Footer Controls Bar
+        h('div', {
+          style: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            paddingTop: 12
+          }
+        },
+          h('button', {
+            type: 'button',
+            className: 'mini-btn ghost',
+            style: {
+              padding: '7px 14px',
+              borderRadius: 8,
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#fca5a5',
+              fontWeight: 700,
+              fontSize: 12.5,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6
+            },
+            onClick: () => {
+              if (typeof onStop === 'function') onStop();
+              onClose();
+            }
+          }, ic('Square', 12), 'Stop Translation'),
+
+          h('div', { style: { display: 'flex', gap: 10 } },
+            typeof onPause === 'function' && typeof onResume === 'function' && h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: {
+                padding: '7px 14px',
+                borderRadius: 8,
+                border: '1px solid rgba(255,255,255,0.15)',
+                color: '#f8fafc',
+                fontWeight: 600,
+                fontSize: 12.5,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
+              },
+              onClick: isPaused ? onResume : onPause
+            }, ic(isPaused ? 'Play' : 'Pause', 12), isPaused ? 'Resume' : 'Pause'),
+
+            h('button', {
+              type: 'button',
+              className: 'mini-btn',
+              style: {
+                padding: '7px 18px',
+                borderRadius: 8,
+                background: accentColor,
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 12.5
+              },
+              onClick: onClose
+            }, 'Minimize (Keep Running)')
+          )
+        )
+      )
+    );
+  }
+
   return {
     ReaderTtsPlayerBar,
     ReaderTocDrawer,
@@ -1525,6 +2640,9 @@
     ReaderVoiceModal,
     ReaderTtsOptionsModal,
     ReaderCharsFilterModal,
-    ReaderGestureGuideModal
+    ReaderGestureGuideModal,
+    ChapterTranslationSuiteModal,
+    ReaderDynamicProgressPill,
+    ReaderLiveDashboardModal
   };
 }));
