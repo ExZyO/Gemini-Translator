@@ -610,6 +610,28 @@
         transform: scale(1.18);
         border-color: #fff;
       }
+
+      /* In-Chapter Selection Toolbar & Multi-Chapter Batch Selector */
+      @keyframes toolbarPopIn {
+        from { opacity: 0; transform: translateY(6px) scale(0.96); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .reader-sel-btn {
+        transition: transform 0.12s ease, background 0.15s ease, opacity 0.12s ease;
+      }
+      .reader-sel-btn:active {
+        transform: scale(0.95);
+      }
+      .reader-sel-btn:hover {
+        opacity: 0.92;
+      }
+      .chapter-batch-scroll-list::-webkit-scrollbar {
+        width: 5px;
+      }
+      .chapter-batch-scroll-list::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+      }
     `;
     document.head.appendChild(styleEl);
   }

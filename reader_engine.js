@@ -2826,9 +2826,34 @@
         isOpen: Boolean(suiteModalChap),
         onClose: () => setSuiteModalChap(null),
         chapter: suiteModalChap,
+        chapters: safeChapters,
         novelRecord: activeNovelRecord || (typeof window !== 'undefined' && window.activeNovelRecord),
         appSettings: appSettings || {},
-        onExecute: (chosenAction, optionsOverride) => {
+        onExecute: (chosenAction, optionsOverride, scope, chap, selectedIndices) => {
+          if (Array.isArray(selectedIndices) && selectedIndices.length > 1) {
+            window.ReaderBatchTranslationOrchestrator?.executeBatch({
+              chapterIndices: selectedIndices,
+              action: chosenAction,
+              optionsOverride,
+              chapters,
+              safeChapters,
+              activeIdx,
+              currentChapter,
+              onTranslateChapter,
+              onChaptersChange,
+              activeNovelRecord: activeNovelRecord || (typeof window !== 'undefined' && window.activeNovelRecord),
+              setChapterTranslateProgress,
+              setChunkProgress,
+              setIsTranslatingCurrentChapter,
+              setActiveTranslationMode,
+              streamBufferRef,
+              isLiveDashboardOpenRef,
+              setLiveStreamText,
+              translationAbortRef,
+              toast: window.toast
+            });
+            return;
+          }
           const chapIdx = suiteModalChap?.idx ?? activeIdx;
           if (chosenAction === 'heal') {
             handleHealActiveChapterLines(chapIdx, optionsOverride);
@@ -2838,6 +2863,18 @@
             handleTranslateActiveChapter(chapIdx, optionsOverride);
           }
         }
+      }),
+
+      // ── IN-CHAPTER SELECTION TRANSLATOR (FLOATING PILL) ──
+      h(window.ReaderSelectionTranslator || 'div', {
+        currentChapter,
+        activeIdx,
+        chapters,
+        safeChapters,
+        onChaptersChange,
+        novelRecord: activeNovelRecord || (typeof window !== 'undefined' && window.activeNovelRecord),
+        appSettings: appSettings || {},
+        onRenderTrigger: () => setRenderTick(t => t + 1)
       }),
 
       // ── HIERARCHICAL ARC & VOLUME TABLE OF CONTENTS DRAWER ──

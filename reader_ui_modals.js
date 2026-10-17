@@ -1567,6 +1567,7 @@
       isOpen,
       onClose,
       chapter,
+      chapters = [],
       novelRecord,
       appSettings = {},
       onExecute
@@ -1578,6 +1579,8 @@
     const defaultScope = (nSettings && Object.keys(nSettings).length > 0) ? 'novel' : 'app';
     const [scope, setScope] = useState(defaultScope);
     const [action, setAction] = useState('full');
+    const [batchMode, setBatchMode] = useState(false);
+    const [selectedIndices, setSelectedIndices] = useState(() => [typeof chapter.idx === 'number' ? chapter.idx : 0]);
 
     const resolve = (key, fallback, storageKey) => {
       if (typeof window !== 'undefined' && window.resolveSetting) {
@@ -1677,7 +1680,7 @@
       }
 
       if (typeof onExecute === 'function') {
-        onExecute(act, optionsOverride, scope, chapter);
+        onExecute(act, optionsOverride, scope, chapter, selectedIndices);
       }
       onClose();
     };
@@ -1810,9 +1813,40 @@
             )
           ),
 
+          // 1b. Target Chapters (Single vs Multi-Chapter Selection)
+          h('div', {
+            style: {
+              background: 'rgba(0,0,0,0.25)',
+              borderRadius: 10,
+              padding: '10px 12px',
+              border: '1px solid rgba(255,255,255,0.06)'
+            }
+          },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+              h('div', { style: { fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' } },
+                selectedIndices.length > 1 ? `Target Chapters (${selectedIndices.length} Selected)` : `Target: Chapter ${chapter.idx + 1}`
+              ),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn ghost',
+                style: { fontSize: 11, padding: '3px 8px', color: 'var(--r-accent, #818cf8)', fontWeight: 600, border: 'none' },
+                onClick: () => setBatchMode(b => !b)
+              }, batchMode ? 'Hide Chapter Picker' : (selectedIndices.length > 1 ? `Change (${selectedIndices.length})` : 'Select Specific Chapters…'))
+            ),
+            batchMode && (typeof window !== 'undefined' && window.ChapterBatchSelector) && h(window.ChapterBatchSelector, {
+              chapters,
+              activeIdx: typeof chapter.idx === 'number' ? chapter.idx : 0,
+              selectedIndices,
+              onSelectionChange: setSelectedIndices,
+              currentArc: chapter.arc || ''
+            })
+          ),
+
           // 2. Quick Action Buttons
           h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-            h('div', { style: { fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' } }, 'Quick Execution Actions'),
+            h('div', { style: { fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' } },
+              selectedIndices.length > 1 ? `Execute on ${selectedIndices.length} Selected Chapters` : 'Quick Execution Actions'
+            ),
             h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
               h('button', {
                 type: 'button',
@@ -1831,7 +1865,10 @@
                   boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
                 },
                 onClick: () => handleExecuteAction('full')
-              }, ic('Sparkles', 14), 'Translate Full Chapter'),
+              },
+                ic('Sparkles', 14),
+                selectedIndices.length > 1 ? `Translate ${selectedIndices.length} Chapters` : 'Translate Full Chapter'
+              ),
 
               h('button', {
                 type: 'button',
@@ -1850,7 +1887,10 @@
                   gap: 6
                 },
                 onClick: () => handleExecuteAction('heal')
-              }, ic('Sparkles', 14), 'Heal Untranslated Lines')
+              },
+                ic('Sparkles', 14),
+                selectedIndices.length > 1 ? `Heal ${selectedIndices.length} Chapters` : 'Heal Untranslated Lines'
+              )
             ),
 
             h('button', {
@@ -1869,7 +1909,10 @@
                 gap: 6
               },
               onClick: () => handleExecuteAction('title')
-            }, ic('Sparkles', 12), 'Translate Title Only')
+            },
+              ic('Sparkles', 12),
+              selectedIndices.length > 1 ? `Translate ${selectedIndices.length} Titles Only` : 'Translate Title Only'
+            )
           ),
 
           // 3. Core Translation Settings (Target Language, Provider, Model)
