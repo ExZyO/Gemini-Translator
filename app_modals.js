@@ -1618,7 +1618,7 @@
                 toast('Cover generator engine not ready.', 'warning');
                 return;
               }
-              const newCover = genCoverFn(bookTitle, bookAuthor);
+              const newCover = await genCoverFn(bookTitle, bookAuthor);
               if (!newCover) {
                 toast('Could not generate cover image.', 'error');
                 return;
@@ -1636,6 +1636,15 @@
               if (typeof setHist === 'function') {
                 setHist(prev => (prev || []).map(b => b.id === item.id ? { ...b, cover: newCover } : b));
               }
+              if (props.setCurrentDocCover && (item.id === props.activeNovelRecord?.id || item.title === props.currentDocTitle)) {
+                props.setCurrentDocCover(newCover);
+              }
+              if (typeof window !== 'undefined' && (item.id === window.activeNovelRecord?.id || item.title === window.currentDocTitle)) {
+                window.currentDocCover = newCover;
+              }
+              if (typeof localStorage !== 'undefined' && (item.id === props.activeNovelRecord?.id || item.title === props.currentDocTitle)) {
+                localStorage.setItem('gemini_current_doc_cover', newCover);
+              }
               toast(`Generated smart typography cover for "${bookTitle}"!`, 'success');
             } catch (err) {
               toast('Failed to generate cover: ' + (err.message || err), 'error');
@@ -1645,17 +1654,19 @@
             const full = loadFullNovel ? await loadFullNovel(item) : null;
             if (!full) { toast('Novel data not found in local store.', 'error'); return; }
             const chs = (full.translatedChapters && full.translatedChapters.length > 0) ? full.translatedChapters : (full.chapters || []);
-            if (typeof props.onExportEpub === 'function') {
+            const exportOpts = {
+              chaptersToExport: chs,
+              rawBaseTitle: full.title || item.title,
+              author: full.author || item.author,
+              resolvedCover: full.cover || item.cover,
+              fileName: full.title || item.title
+            };
+            if (typeof props.handleDownloadEPUB === 'function') {
+              props.handleDownloadEPUB(chs, exportOpts);
+            } else if (typeof props.onExportEpub === 'function') {
               props.onExportEpub(chs);
-            } else if (typeof props.handleDownloadEPUB === 'function') {
-              props.handleDownloadEPUB(chs);
             } else if (typeof window !== 'undefined' && window.ExportEngine?.Controller?.export) {
-              window.ExportEngine.Controller.export('epub', {
-                chaptersToExport: chs,
-                rawBaseTitle: full.title,
-                author: full.author,
-                resolvedCover: full.cover
-              }, { toast });
+              window.ExportEngine.Controller.export('epub', exportOpts, { toast });
             }
           }),
           menuRow('BookOpen', 'Edit in Ebook Studio', 'Edit chapters, prose, covers, and table of contents', async () => {

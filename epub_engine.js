@@ -636,6 +636,64 @@
 </svg>`;
     };
 
+    /**
+     * Helper to rasterize SVG markup or SVG data URI to a crisp JPEG ArrayBuffer
+     * Guarantees 100% compatibility with Android e-readers (Moon+ Reader, Kindle, etc.)
+     */
+    const rasterizeSvgToJpegBuffer = async (svgStringOrDataUri, width = 1200, height = 1600) => {
+      if (typeof document === 'undefined' || typeof Image === 'undefined') return null;
+      try {
+        let src = String(svgStringOrDataUri || '').trim();
+        if (!src) return null;
+        let objectUrl = null;
+        if (!src.startsWith('data:')) {
+          const blob = new Blob([src], { type: 'image/svg+xml;charset=utf-8' });
+          objectUrl = URL.createObjectURL(blob);
+          src = objectUrl;
+        }
+        const img = new Image();
+        const loaded = await new Promise((resolve) => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          img.src = src;
+        });
+        if (objectUrl) {
+          try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+        }
+        if (!loaded) return null;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        if (canvas.toBlob) {
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+          if (blob && blob.arrayBuffer) {
+            return await blob.arrayBuffer();
+          }
+        }
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+        if (dataUrl && dataUrl.startsWith('data:')) {
+          const b64 = dataUrl.split(',')[1];
+          if (b64) {
+            const bin = atob(b64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return bytes.buffer;
+          }
+        }
+        return null;
+      } catch (_) {
+        return null;
+      }
+    };
+
     const generateEpubFromChapters = async (chaptersList, bookTitle = 'Web Novel', bookAuthor = 'Author', bookLang = 'en', onProgress = null, options = {}) => {
       const fflateLib = (typeof window !== 'undefined' && window.fflate) ? window.fflate : (typeof fflate !== 'undefined' ? fflate : null);
       const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
@@ -1250,20 +1308,44 @@ hr {
               downloadUrl = downloadUrl.split('#th=')[0];
             }
 
-            // Directly decode base64 data URIs without network fetch
+            // Directly decode data URIs (base64 or URL-encoded) without network fetch
             if (downloadUrl && downloadUrl.startsWith('data:')) {
               try {
-                const parts = downloadUrl.split(',');
-                const mimeMatch = parts[0].match(/:(.*?);/);
-                detectedMime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-                const b64 = parts[1];
-                const binaryStr = atob(b64);
-                const len = binaryStr.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                  bytes[i] = binaryStr.charCodeAt(i);
+                const commaIdx = downloadUrl.indexOf(',');
+                if (commaIdx !== -1) {
+                  const metaPart = downloadUrl.substring(0, commaIdx);
+                  const dataPart = downloadUrl.substring(commaIdx + 1);
+                  const mimeMatch = metaPart.match(/data:([^;,]+)/i);
+                  detectedMime = mimeMatch ? mimeMatch[1].toLowerCase() : 'image/jpeg';
+                  const isBase64 = /;base64/i.test(metaPart);
+
+                  if (isBase64) {
+                    const binaryStr = atob(dataPart);
+                    const len = binaryStr.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {
+                      bytes[i] = binaryStr.charCodeAt(i);
+                    }
+                    buffer = bytes.buffer;
+                  } else {
+                    const decodedText = decodeURIComponent(dataPart);
+                    const bytes = new TextEncoder().encode(decodedText);
+                    buffer = bytes.buffer;
+                  }
+
+                  // If this data URI is an SVG cover, rasterize it to JPEG for e-reader bookshelf compatibility
+                  const isCover = coverUrl && (url === coverUrl || downloadUrl === coverUrl || url.split('?')[0] === coverUrl.split('?')[0]);
+                  if (isCover && (detectedMime.includes('svg') || (buffer && new TextDecoder().decode(new Uint8Array(buffer).slice(0, 100)).includes('<svg')))) {
+                    if (typeof rasterizeSvgToJpegBuffer === 'function') {
+                      const svgText = new TextDecoder().decode(buffer);
+                      const jpgBuf = await rasterizeSvgToJpegBuffer(svgText);
+                      if (jpgBuf) {
+                        buffer = jpgBuf;
+                        detectedMime = 'image/jpeg';
+                      }
+                    }
+                  }
                 }
-                buffer = bytes.buffer;
               } catch (_) {}
             }
 
@@ -1294,14 +1376,15 @@ hr {
               }
             } catch(_) {}
 
-            // Rapid resilient image download (max 2 fast attempts, never hangs EPUB packaging)
-            for (let attempt = 1; attempt <= 2; attempt++) {
-              if (buffer && buffer.byteLength > 500) break;
-              if (attempt > 1) {
-                await new Promise(r => setTimeout(r, 300));
-              }
+            // Rapid resilient image download (skip network attempts if already decoded from data URI)
+            if (!downloadUrl.startsWith('data:') || !buffer || buffer.byteLength <= 20) {
+              for (let attempt = 1; attempt <= 2; attempt++) {
+                if (buffer && buffer.byteLength > 20) break;
+                if (attempt > 1) {
+                  await new Promise(r => setTimeout(r, 300));
+                }
 
-              // Strategy 1: Android NativeBridge (Strict 5s timeout)
+                // Strategy 1: Android NativeBridge (Strict 5s timeout)
               if (window.NativeBridge && window.NativeBridge.downloadBinary) {
                 try {
                   buffer = await Promise.race([
@@ -1411,8 +1494,9 @@ hr {
                 }
               } catch (_) {}
             }
+          }
 
-            if (buffer && buffer.byteLength > 50) {
+            if (buffer && buffer.byteLength > 20) {
               imgSeq++;
               const sniffed = sniffMime(buffer);
               let ext = 'jpg';
@@ -1422,13 +1506,28 @@ hr {
                 mime = sniffed.mime;
               } else if (detectedMime) {
                 mime = detectedMime;
-                ext = mime.includes('png') ? 'png' : (mime.includes('bmp') ? 'bmp' : (mime.includes('webp') ? 'webp' : (mime.includes('gif') ? 'gif' : (mime.includes('avif') ? 'avif' : 'jpg'))));
+                ext = mime.includes('svg') ? 'svg' : (mime.includes('png') ? 'png' : (mime.includes('bmp') ? 'bmp' : (mime.includes('webp') ? 'webp' : (mime.includes('gif') ? 'gif' : (mime.includes('avif') ? 'avif' : 'jpg')))));
               } else {
-                ext = downloadUrl.includes('.png') ? 'png' : (downloadUrl.includes('.bmp') ? 'bmp' : (downloadUrl.includes('.webp') ? 'webp' : (downloadUrl.includes('.gif') ? 'gif' : (downloadUrl.includes('.avif') ? 'avif' : 'jpg'))));
-                mime = ext === 'png' ? 'image/png' : (ext === 'bmp' ? 'image/bmp' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : (ext === 'avif' ? 'image/avif' : 'image/jpeg'))));
+                ext = downloadUrl.includes('.svg') ? 'svg' : (downloadUrl.includes('.png') ? 'png' : (downloadUrl.includes('.bmp') ? 'bmp' : (downloadUrl.includes('.webp') ? 'webp' : (downloadUrl.includes('.gif') ? 'gif' : (downloadUrl.includes('.avif') ? 'avif' : 'jpg')))));
+                mime = ext === 'svg' ? 'image/svg+xml' : (ext === 'png' ? 'image/png' : (ext === 'bmp' ? 'image/bmp' : (ext === 'webp' ? 'image/webp' : (ext === 'gif' ? 'image/gif' : (ext === 'avif' ? 'image/avif' : 'image/jpeg')))));
               }
 
               const isCoverImg = coverUrl && (url === coverUrl || downloadUrl === coverUrl || url.split('?')[0] === coverUrl.split('?')[0]);
+              // Guaranteed e-reader bookshelf compatibility: convert SVG cover to JPEG
+              if (isCoverImg && (mime.includes('svg') || ext === 'svg')) {
+                if (typeof rasterizeSvgToJpegBuffer === 'function') {
+                  try {
+                    const svgText = new TextDecoder().decode(buffer);
+                    const jpgBuf = await rasterizeSvgToJpegBuffer(svgText);
+                    if (jpgBuf) {
+                      buffer = jpgBuf;
+                      mime = 'image/jpeg';
+                      ext = 'jpg';
+                    }
+                  } catch (_) {}
+                }
+              }
+
               const imgFilename = isCoverImg ? `cover.${ext}` : `img_${imgSeq}.${ext}`;
               const manifestId = isCoverImg ? 'cover-image' : `img_${imgSeq}`;
               imgFolder.file(imgFilename, buffer, { compression: 'STORE' });
@@ -1437,7 +1536,7 @@ hr {
               } else {
                 manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="${mime}"/>`);
               }
-              const entry = { localHref: `images/${imgFilename}`, manifestId, mime, ext };
+              const entry = { localHref: `images/${imgFilename}`, manifestId, mime, ext, buffer };
               imageCache.set(url, entry);
               if (buffer) {
                 memCache.set(url, { buffer, mime, ext });
@@ -1495,16 +1594,50 @@ hr {
           coverCached = imageCache.get(firstImgUrl);
         }
 
-        // Guaranteed universal fallback: synthesize elegant SVG typographic cover if none exists or downloaded
+        // If cover is an SVG, rasterize it to JPEG for 100% Android e-reader compatibility
+        if (coverCached && (coverCached.mime === 'image/svg+xml' || coverCached.ext === 'svg') && coverCached.buffer) {
+          try {
+            const svgText = new TextDecoder().decode(coverCached.buffer);
+            if (svgText && typeof rasterizeSvgToJpegBuffer === 'function') {
+              const jpgBuf = await rasterizeSvgToJpegBuffer(svgText);
+              if (jpgBuf) {
+                const imgFilename = 'cover.jpg';
+                const manifestId = 'cover-image';
+                imgFolder.file(imgFilename, jpgBuf, { compression: 'STORE' });
+                manifestItems = manifestItems.filter(i => !i.includes(`id="${coverCached.manifestId}"`));
+                manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="image/jpeg" properties="cover-image"/>`);
+                coverCached = { localHref: `images/${imgFilename}`, manifestId, mime: 'image/jpeg', ext: 'jpg', buffer: jpgBuf };
+                imageCache.set('__cover_cached__', coverCached);
+              }
+            }
+          } catch (_) {}
+        }
+
+        // Guaranteed universal fallback: synthesize elegant photo-grade typography cover if none exists
         if (!coverCached && options.generateFallbackCover !== false) {
           const coverSvgContent = generateDefaultCoverSvg(bookTitle, bookAuthor);
-          const coverSvgBuf = new TextEncoder().encode(coverSvgContent).buffer;
-          const imgFilename = 'cover.svg';
-          const manifestId = 'cover-image';
-          imgFolder.file(imgFilename, coverSvgBuf, { compression: 'STORE' });
-          manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="image/svg+xml" properties="cover-image"/>`);
-          coverCached = { localHref: `images/${imgFilename}`, manifestId, mime: 'image/svg+xml', ext: 'svg' };
-          imageCache.set('__fallback_cover__', coverCached);
+          let coverJpgBuf = null;
+          if (typeof rasterizeSvgToJpegBuffer === 'function') {
+            try {
+              coverJpgBuf = await rasterizeSvgToJpegBuffer(coverSvgContent);
+            } catch (_) {}
+          }
+          if (coverJpgBuf) {
+            const imgFilename = 'cover.jpg';
+            const manifestId = 'cover-image';
+            imgFolder.file(imgFilename, coverJpgBuf, { compression: 'STORE' });
+            manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="image/jpeg" properties="cover-image"/>`);
+            coverCached = { localHref: `images/${imgFilename}`, manifestId, mime: 'image/jpeg', ext: 'jpg', buffer: coverJpgBuf };
+            imageCache.set('__fallback_cover__', coverCached);
+          } else {
+            const coverSvgBuf = new TextEncoder().encode(coverSvgContent).buffer;
+            const imgFilename = 'cover.svg';
+            const manifestId = 'cover-image';
+            imgFolder.file(imgFilename, coverSvgBuf, { compression: 'STORE' });
+            manifestItems.push(`<item id="${manifestId}" href="images/${imgFilename}" media-type="image/svg+xml" properties="cover-image"/>`);
+            coverCached = { localHref: `images/${imgFilename}`, manifestId, mime: 'image/svg+xml', ext: 'svg', buffer: coverSvgBuf };
+            imageCache.set('__fallback_cover__', coverCached);
+          }
         }
 
         if (coverCached) {
@@ -2222,6 +2355,34 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
             return null;
           };
 
+          if (targetUrl.startsWith('data:')) {
+            try {
+              const commaIdx = targetUrl.indexOf(',');
+              if (commaIdx !== -1) {
+                const metaPart = targetUrl.substring(0, commaIdx);
+                const dataPart = targetUrl.substring(commaIdx + 1);
+                const mimeMatch = metaPart.match(/data:([^;,]+)/i);
+                let detectedMime = mimeMatch ? mimeMatch[1].toLowerCase() : 'image/jpeg';
+                const isBase64 = /;base64/i.test(metaPart);
+                let buffer = null;
+                if (isBase64) {
+                  const bin = atob(dataPart);
+                  const bytes = new Uint8Array(bin.length);
+                  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                  buffer = bytes.buffer;
+                } else {
+                  buffer = new TextEncoder().encode(decodeURIComponent(dataPart)).buffer;
+                }
+                if (buffer && buffer.byteLength > 20) {
+                  const sniffed = sniffBytes(buffer);
+                  let ext = sniffed ? sniffed.ext : (detectedMime.includes('svg') ? 'svg' : (detectedMime.includes('png') ? 'png' : (detectedMime.includes('webp') ? 'webp' : 'jpg')));
+                  let mime = sniffed ? sniffed.mime : detectedMime;
+                  return { data: new Uint8Array(buffer), ext, mime };
+                }
+              }
+            } catch (_) {}
+          }
+
           if (targetUrl.startsWith('http')) {
             let buffer = null;
             let detectedMime = null;
@@ -2651,9 +2812,27 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
       };
     };
 
-    function generateCoverDataUrl(title, author) {
+    async function generateCoverDataUrl(title, author) {
       const svg = generateDefaultCoverSvg(title, author);
-      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      if (typeof rasterizeSvgToJpegBuffer === 'function') {
+        try {
+          const jpgBuf = await rasterizeSvgToJpegBuffer(svg);
+          if (jpgBuf && typeof btoa !== 'undefined') {
+            const bytes = new Uint8Array(jpgBuf);
+            let binary = '';
+            const chunk = 8192;
+            for (let i = 0; i < bytes.length; i += chunk) {
+              binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+            }
+            return 'data:image/jpeg;base64,' + btoa(binary);
+          }
+        } catch (_) {}
+      }
+      // Universal fallback: base64 SVG data URI
+      const b64 = (typeof btoa !== 'undefined')
+        ? btoa(unescape(encodeURIComponent(svg)))
+        : (typeof Buffer !== 'undefined' ? Buffer.from(svg).toString('base64') : '');
+      return 'data:image/svg+xml;base64,' + b64;
     }
 
     window.cleanBookTitle = cleanBookTitle;
