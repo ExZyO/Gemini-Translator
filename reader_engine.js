@@ -1322,6 +1322,32 @@
     const [showTtsOptionsModal, setShowTtsOptionsModal] = useState(false);
     const [showCharsFilterModal, setShowCharsFilterModal] = useState(false);
     const [showGestureGuideModal, setShowGestureGuideModal] = useState(false);
+    const [showQuickFont, setShowQuickFont] = useState(false);
+    const [bookmarks, setBookmarks] = useState(() => {
+      try {
+        const k = novelId || (typeof window !== 'undefined' && window.activeNovelRecord?.id) || 'default';
+        return JSON.parse(localStorage.getItem('gemini_reader_bookmarks_' + k) || '[]');
+      } catch (e) {
+        return [];
+      }
+    });
+
+    const handleToggleBookmark = useCallback(() => {
+      const k = novelId || (typeof window !== 'undefined' && window.activeNovelRecord?.id) || 'default';
+      setBookmarks(prev => {
+        const exists = prev.some(b => b.chapterIdx === activeIdx);
+        let next;
+        if (exists) {
+          next = prev.filter(b => b.chapterIdx !== activeIdx);
+          if (typeof window !== 'undefined' && window.toast) window.toast(`Bookmark removed from Chapter ${activeIdx + 1}`);
+        } else {
+          next = [...prev, { chapterIdx: activeIdx, chapterTitle: currentChapter?.title || `Chapter ${activeIdx + 1}`, pct: Math.round(chapterScrollPct || 0), time: Date.now() }];
+          if (typeof window !== 'undefined' && window.toast) window.toast(`Bookmark saved for Chapter ${activeIdx + 1}`);
+        }
+        try { localStorage.setItem('gemini_reader_bookmarks_' + k, JSON.stringify(next)); } catch (_) {}
+        return next;
+      });
+    }, [novelId, activeIdx, currentChapter, chapterScrollPct]);
 
     const sentencesRef = useRef([]);
     const utteranceRef = useRef(null);
@@ -2256,72 +2282,13 @@
       className: `reader-v2-shell ${themeClass} ${fontClass}`,
       style: { fontSize: `${fontSize}px`, lineHeight: lineHeight }
     },
-      // ── TOP HUD ──
-      h('div', { className: `reader-v2-hud-top ${hudVisible ? '' : 'reader-v2-hud-hidden'}` },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 } },
-          h('button', {
-            type: 'button',
-            className: 'reader-top-btn',
-            style: { minWidth: 40, minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-            onClick: () => { stopTts(); onClose(); },
-            title: 'Close Reader'
-          }, ic('X', 18)),
-          h('div', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, fontSize: 13.5 } },
-            (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(currentChapter.title) : currentChapter.title
-          )
-        ),
-        h('div', { className: 'reader-top-btn-group' },
-          // 1. Table of Contents
-          h('button', {
-            type: 'button',
-            className: 'reader-top-btn',
-            onClick: () => { setShowMoreMenu(false); setShowToc(true); },
-            title: 'Table of Contents'
-          },
-            ic('List', 16),
-            h('span', { className: 'reader-top-btn-text' }, ' TOC')
-          ),
-          // 2. Read Aloud (TTS)
-          h('button', {
-            type: 'button',
-            className: `reader-top-btn ${ttsActive ? 'active' : ''}`,
-            onClick: () => { setShowMoreMenu(false); toggleTts(); },
-            title: ttsActive ? (ttsPaused ? 'Resume Read Aloud' : 'Pause Read Aloud') : 'Read Aloud (TTS)'
-          },
-            ttsActive ? (ttsPaused ? ic('Play', 16) : ic('Pause', 16)) : ic('Headphones', 16),
-            h('span', { className: 'reader-top-btn-text' }, ' TTS')
-          ),
-          // 2b. Voice & Engine Selector
-          h('button', {
-            type: 'button',
-            className: 'reader-top-btn',
-            onClick: () => { setShowMoreMenu(false); setShowVoiceModal(true); },
-            title: 'Change Voice & Speech Engine (SherpaTTS / Piper / Android Settings)'
-          },
-            ic('Volume2', 16),
-            h('span', { className: 'reader-top-btn-text' }, ' Voice')
-          ),
-          // 3. Settings (Typography & Themes)
-          h('button', {
-            type: 'button',
-            className: 'reader-top-btn',
-            onClick: () => { setShowMoreMenu(false); setShowSettings(true); },
-            title: 'Typography & Appearance'
-          },
-            ic('Settings', 16),
-            h('span', { className: 'reader-top-btn-text' }, ' Settings')
-          ),
-          // 4. More Actions Menu (...)
-          h('button', {
-            type: 'button',
-            className: `reader-top-btn ${showMoreMenu ? 'active' : ''}`,
-            onClick: (e) => { e.stopPropagation(); setShowMoreMenu(s => !s); },
-            title: 'More Actions'
-          },
-            h('span', { style: { fontSize: 16, fontWeight: 900, letterSpacing: 1 } }, '···')
-          )
-        )
-      ),
+      // ── MOON+ READER 1:1 TOP BAR (Screenshot 1) ──
+      h(window.MoonReaderEngine?.Controls?.TopBar || 'div', {
+        bookTitle,
+        hudVisible,
+        onClose: () => { stopTts(); onClose(); },
+        onToggleMore: () => setShowMoreMenu(s => !s)
+      }),
 
       // ── MORE ACTIONS POPUP MENU (...) ──
       showMoreMenu && h('div', {
@@ -2618,14 +2585,18 @@
             }
           },
             h('div', { className: `reader-v2-content-box ${widthClass} ${paragraphIndent ? 'reader-v2-indent' : ''}`, style: { textAlign: justify ? 'justify' : 'left' } },
-          // Chapter Title Header
-          h('div', { style: { borderBottom: '1px solid var(--r-border)', paddingBottom: 16, marginBottom: 24 } },
-            currentChapter.arc && h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--r-accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 } }, currentChapter.arc),
-            h('h2', { style: { margin: 0, fontSize: '1.4em', fontWeight: 700, lineHeight: 1.3 } }, (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(currentChapter.title) : currentChapter.title),
-            h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)', marginTop: 6 } },
-              `Chapter ${activeIdx + 1} of ${safeChapters.length} · ~${currentChapter.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words`
-            )
-          ),
+          // Moon+ Reader Centered Bold Chapter Header (Screenshot 1)
+          (() => {
+            const rawT = (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(currentChapter.title) : (currentChapter.title || '');
+            const match = rawT.match(/^(?:chapter|ch|c)?\s*(\d+(?:\.\d+)?)\s*[:：\-_.]\s*(.*)$/i);
+            const numPart = match ? `Chapter ${match[1]}:` : `Chapter ${activeIdx + 1}:`;
+            const namePart = match ? match[2].trim() : rawT.replace(/^(?:chapter|ch|c)?\s*\d+\s*/i, '').trim();
+            return h('div', { className: 'moon-chapter-header' },
+              currentChapter.arc && h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--r-accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 } }, currentChapter.arc),
+              h('div', { className: 'moon-chapter-header-number' }, numPart),
+              namePart && h('div', { className: 'moon-chapter-header-title' }, namePart)
+            );
+          })(),
 
           // Chapter Paragraphs & Illustrations with Footnotes & Search
           (() => {
@@ -2663,92 +2634,40 @@
         chapters: safeChapters, currentChapter, currentPage, totalPages, viewMode
       }),
 
-      // ── BOTTOM HUD ──
-      h('div', { className: `reader-v2-hud-bottom ${hudVisible ? '' : 'reader-v2-hud-hidden'}` },
-        // Progress Scrubber Slider with Live Chapter Tooltip
-        h('div', { style: { position: 'relative', width: '100%', marginBottom: 4 } },
-          isScrubbing && h('div', {
-            style: {
-              position: 'absolute',
-              bottom: '100%',
-              left: `${Math.min(90, Math.max(10, ((scrubberIdx + 1) / Math.max(1, safeChapters.length)) * 100))}%`,
-              transform: 'translateX(-50%)',
-              marginBottom: 10,
-              background: 'var(--r-card, #1e293b)',
-              color: 'var(--r-text, #fff)',
-              border: '1px solid var(--r-border, rgba(255,255,255,0.15))',
-              borderRadius: 8,
-              padding: '6px 12px',
-              fontSize: 12,
-              fontWeight: 600,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-              whiteSpace: 'nowrap',
-              pointerEvents: 'none',
-              zIndex: 100
-            }
-          },
-            `Ch. ${scrubberIdx + 1}: ${(safeChapters[scrubberIdx]?.title || `Chapter ${scrubberIdx + 1}`).slice(0, 32)}`
-          ),
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-            h('span', { style: { fontSize: 11, color: 'var(--r-muted)', minWidth: 38, textAlign: 'right' } }, `${(isScrubbing ? scrubberIdx : activeIdx) + 1}`),
-            h('input', {
-              type: 'range',
-              min: 0,
-              max: Math.max(0, safeChapters.length - 1),
-              value: isScrubbing ? scrubberIdx : activeIdx,
-              style: { flex: 1, accentColor: 'var(--r-accent)', cursor: 'pointer' },
-              onPointerDown: () => setIsScrubbing(true),
-              onTouchStart: () => setIsScrubbing(true),
-              onInput: (e) => {
-                setIsScrubbing(true);
-                setScrubberIdx(parseInt(e.target.value, 10));
-              },
-              onChange: (e) => {
-                const target = parseInt(e.target.value, 10);
-                setScrubberIdx(target);
-                setIsScrubbing(false);
-                changeChapter(target);
-              },
-              onPointerUp: () => {
-                if (isScrubbing) {
-                  setIsScrubbing(false);
-                  changeChapter(scrubberIdx);
-                }
-              },
-              onTouchEnd: () => {
-                if (isScrubbing) {
-                  setIsScrubbing(false);
-                  changeChapter(scrubberIdx);
-                }
-              }
-            }),
-            h('span', { style: { fontSize: 11, color: 'var(--r-muted)', minWidth: 38 } }, `${safeChapters.length}`)
-          )
-        ),
-
-        // Clean Navigation Toolbar
-        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 4px' } },
-          h('button', {
-            type: 'button',
-            className: 'mini-btn ghost',
-            disabled: activeIdx <= 0,
-            style: { padding: '7px 14px', fontWeight: 600, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 4 },
-            onClick: () => changeChapter(activeIdx - 1)
-          }, ic('SkipBack', 14), 'Previous'),
-
-          h('div', { style: { fontSize: 12, color: 'var(--r-muted)', fontWeight: 600 } },
-            `Chapter ${activeIdx + 1} of ${safeChapters.length} • ${Math.round(((activeIdx + 1) / safeChapters.length) * 100)}%`
-          ),
-
-          h('button', {
-            type: 'button',
-            className: 'mini-btn ghost',
-            disabled: activeIdx >= safeChapters.length - 1,
-            style: { padding: '7px 14px', fontWeight: 600, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 4 },
-            onClick: () => changeChapter(activeIdx + 1)
-          }, 'Next', ic('SkipForward', 14))
-        )
-      ),
+      // ── MOON+ READER 1:1 BOTTOM CONTROLS DOCK (Screenshots 1 & 2) ──
+      h(window.MoonReaderEngine?.Controls?.BottomHud || 'div', {
+        hudVisible,
+        activeIdx,
+        safeChapters,
+        changeChapter,
+        isScrubbing,
+        setIsScrubbing,
+        scrubberIdx,
+        setScrubberIdx,
+        chapterScrollPct,
+        fontSize,
+        setFontSize,
+        showQuickFont,
+        setShowQuickFont,
+        onToggleSearch: () => setShowSearch(s => !s),
+        onOpenSuite: () => {
+          const targetChap = (chapters && chapters[activeIdx]) || (safeChapters && safeChapters[activeIdx]) || currentChapter;
+          setSuiteModalChap(targetChap || { idx: activeIdx, title: `Chapter ${activeIdx + 1}` });
+        },
+        onOpenDashboard: () => {
+          setLiveStreamText(streamBufferRef.current || '');
+          setIsLiveDashboardOpen(true);
+        },
+        onToggleMore: () => setShowMoreMenu(s => !s),
+        ttsActive,
+        toggleTts,
+        onOpenSettings: () => setShowSettings(true),
+        autoScroll,
+        onToggleAutoScroll: () => setAutoScroll(s => !s),
+        onToggleBookmark: handleToggleBookmark,
+        isCurrentBookmarked: bookmarks.some(b => b.chapterIdx === activeIdx),
+        onOpenToc: () => setShowToc(true)
+      }),
 
       // ── MOON+ READER FLOATING TTS PLAYER (Screenshots 1 & 3) ──
       h(window.ReaderTtsPlayerBar || (typeof ReaderTtsPlayerBar !== 'undefined' ? ReaderTtsPlayerBar : 'div'), {

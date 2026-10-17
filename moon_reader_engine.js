@@ -1895,6 +1895,309 @@
           }
         }))
       );
+    },
+
+    Controls: {
+      TopBar: function MoonReaderTopBar(props) {
+        const {
+          bookTitle = '',
+          hudVisible = true,
+          onClose = () => {},
+          onToggleMore = () => {}
+        } = props;
+        const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
+        const ic = typeof window !== 'undefined' && window.ic ? window.ic : () => null;
+
+        return h('div', {
+          className: `moon-reader-hud-top ${hudVisible ? '' : 'reader-v2-hud-hidden'}`
+        },
+          h('button', {
+            type: 'button',
+            className: 'moon-hud-back-btn',
+            title: 'Back to Library',
+            onClick: (e) => { e.stopPropagation(); onClose(); }
+          }, ic('ChevronLeft', 22) || ic('ArrowLeft', 20) || '<'),
+
+          h('div', {
+            className: 'moon-hud-title',
+            title: bookTitle
+          }, bookTitle || 'Web Novel'),
+
+          h('button', {
+            type: 'button',
+            className: 'moon-hud-menu-btn',
+            title: 'More Actions',
+            onClick: (e) => { e.stopPropagation(); onToggleMore(); }
+          }, ic('MoreVertical', 20) || '⋮')
+        );
+      },
+
+      QuickFontPopup: function MoonReaderQuickFontPopup(props) {
+        const { fontSize = 18, setFontSize } = props;
+        const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
+
+        return h('div', {
+          className: 'moon-quick-font-popup',
+          onClick: (e) => e.stopPropagation()
+        },
+          h('button', {
+            type: 'button',
+            className: 'moon-font-step-btn',
+            title: 'Decrease Font Size',
+            onClick: () => { if (typeof setFontSize === 'function') setFontSize(s => Math.max(11, s - 1)); }
+          }, 'A–'),
+          h('input', {
+            type: 'range',
+            className: 'moon-font-slider',
+            min: 11,
+            max: 36,
+            value: fontSize,
+            onChange: (e) => {
+              const val = parseInt(e.target.value, 10);
+              if (typeof setFontSize === 'function') setFontSize(val);
+            }
+          }),
+          h('button', {
+            type: 'button',
+            className: 'moon-font-step-btn',
+            title: 'Increase Font Size',
+            onClick: () => { if (typeof setFontSize === 'function') setFontSize(s => Math.min(36, s + 1)); }
+          }, 'A+'),
+          h('span', { className: 'moon-font-val' }, `${fontSize}px`)
+        );
+      },
+
+      BottomHud: function MoonReaderBottomHud(props) {
+        const {
+          hudVisible = true,
+          activeIdx = 0,
+          safeChapters = [],
+          changeChapter = () => {},
+          isScrubbing = false,
+          setIsScrubbing = () => {},
+          scrubberIdx = 0,
+          setScrubberIdx = () => {},
+          chapterScrollPct = 0,
+          fontSize = 18,
+          setFontSize = () => {},
+          showQuickFont = false,
+          setShowQuickFont = () => {},
+          onToggleSearch = () => {},
+          onOpenSuite = () => {},
+          onOpenDashboard = () => {},
+          onToggleMore = () => {},
+          ttsActive = false,
+          toggleTts = () => {},
+          onOpenSettings = () => {},
+          autoScroll = false,
+          onToggleAutoScroll = () => {},
+          onToggleBookmark = () => {},
+          isCurrentBookmarked = false,
+          onOpenToc = () => {}
+        } = props;
+        const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
+        const ic = typeof window !== 'undefined' && window.ic ? window.ic : () => null;
+
+        const totalChs = Math.max(1, safeChapters.length);
+        const calcPct = Math.min(100, Math.max(0, Math.round(((activeIdx + Math.max(0, Math.min(1, (chapterScrollPct || 0) / 100))) / totalChs) * 100)));
+
+        return h('div', {
+          className: `moon-reader-hud-bottom ${hudVisible ? '' : 'reader-v2-hud-hidden'}`,
+          onClick: (e) => e.stopPropagation()
+        },
+          // Quick Font Size Floating Slider
+          showQuickFont && h(MoonReaderEngine.Controls.QuickFontPopup, {
+            fontSize,
+            setFontSize,
+            onClose: () => setShowQuickFont(false)
+          }),
+
+          // Row 1: Moon+ Reader Scrubber (<, slider with live tooltip, 42% >)
+          h('div', { className: 'moon-hud-scrubber-row' },
+            h('button', {
+              type: 'button',
+              className: 'moon-hud-scrub-btn',
+              disabled: activeIdx <= 0,
+              title: 'Previous Chapter',
+              onClick: () => changeChapter(activeIdx - 1)
+            }, ic('ChevronLeft', 18) || '<'),
+
+            h('div', { style: { position: 'relative', flex: 1, display: 'flex', alignItems: 'center' } },
+              isScrubbing && h('div', {
+                style: {
+                  position: 'absolute',
+                  bottom: 'calc(100% + 8px)',
+                  left: `${Math.min(90, Math.max(10, ((scrubberIdx + 1) / totalChs) * 100))}%`,
+                  transform: 'translateX(-50%)',
+                  background: '#181a20',
+                  color: '#fff',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 8,
+                  padding: '5px 10px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+                  pointerEvents: 'none',
+                  zIndex: 100
+                }
+              }, `Ch. ${scrubberIdx + 1}: ${(safeChapters[scrubberIdx]?.title || `Chapter ${scrubberIdx + 1}`).slice(0, 30)}`),
+
+              h('input', {
+                type: 'range',
+                className: 'moon-hud-range-slider',
+                min: 0,
+                max: totalChs - 1,
+                value: isScrubbing ? scrubberIdx : activeIdx,
+                onPointerDown: () => setIsScrubbing(true),
+                onTouchStart: () => setIsScrubbing(true),
+                onInput: (e) => {
+                  setIsScrubbing(true);
+                  setScrubberIdx(parseInt(e.target.value, 10));
+                },
+                onChange: (e) => {
+                  const target = parseInt(e.target.value, 10);
+                  setScrubberIdx(target);
+                  setIsScrubbing(false);
+                  changeChapter(target);
+                },
+                onPointerUp: () => {
+                  if (isScrubbing) {
+                    setIsScrubbing(false);
+                    changeChapter(scrubberIdx);
+                  }
+                },
+                onTouchEnd: () => {
+                  if (isScrubbing) {
+                    setIsScrubbing(false);
+                    changeChapter(scrubberIdx);
+                  }
+                }
+              })
+            ),
+
+            h('span', { className: 'moon-hud-pct-text' }, `${calcPct}%`),
+
+            h('button', {
+              type: 'button',
+              className: 'moon-hud-scrub-btn',
+              disabled: activeIdx >= totalChs - 1,
+              title: 'Next Chapter',
+              onClick: () => changeChapter(activeIdx + 1)
+            }, ic('ChevronRight', 18) || '>')
+          ),
+
+          // Row 2: Secondary Tool Dock (···, Cloud Down, Cloud Up, A±, Search)
+          h('div', { className: 'moon-hud-tools-row' },
+            // 1. More / Chapter Tools
+            h('button', {
+              type: 'button',
+              className: 'moon-hud-tool-btn',
+              title: 'More Actions',
+              onClick: (e) => { e.stopPropagation(); onToggleMore(); }
+            }, h('span', { style: { fontSize: 20, fontWeight: 900, letterSpacing: 1 } }, '···')),
+
+            // 2. Cloud Down: Chapter Translation Suite Shortcut
+            h('button', {
+              type: 'button',
+              className: 'moon-hud-tool-btn',
+              title: 'Chapter Translation Suite & Line Healing',
+              onClick: (e) => { e.stopPropagation(); onOpenSuite(); }
+            },
+              h('svg', { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' },
+                h('path', { d: 'M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242' }),
+                h('path', { d: 'M12 12v9' }),
+                h('path', { d: 'm8 17 4 4 4-4' })
+              )
+            ),
+
+            // 3. Cloud Up: Live Translation Dashboard Shortcut
+            h('button', {
+              type: 'button',
+              className: 'moon-hud-tool-btn',
+              title: 'Live Translation Dashboard',
+              onClick: (e) => { e.stopPropagation(); onOpenDashboard(); }
+            },
+              h('svg', { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' },
+                h('path', { d: 'M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242' }),
+                h('path', { d: 'M12 21v-9' }),
+                h('path', { d: 'm8 16 4-4 4 4' })
+              )
+            ),
+
+            // 4. A±: Quick Font Size
+            h('button', {
+              type: 'button',
+              className: `moon-hud-tool-btn ${showQuickFont ? 'active' : ''}`,
+              title: 'Font Size',
+              onClick: (e) => { e.stopPropagation(); setShowQuickFont(s => !s); }
+            },
+              h('span', { className: 'moon-font-badge' }, 'A', h('sup', { style: { fontSize: 10, marginLeft: 1 } }, '±'))
+            ),
+
+            // 5. Search: Find in Chapter
+            h('button', {
+              type: 'button',
+              className: 'moon-hud-tool-btn',
+              title: 'Search in Chapter',
+              onClick: (e) => { e.stopPropagation(); onToggleSearch(); }
+            }, ic('Search', 20))
+          ),
+
+          // Row 3: Primary Dock (Speak, Options, Autoscroll, Bookmarks, Chapters)
+          h('div', { className: 'moon-hud-tools-row' },
+            // 1. Speak (TTS)
+            h('button', {
+              type: 'button',
+              className: `moon-hud-tool-btn ${ttsActive ? 'active' : ''}`,
+              title: ttsActive ? 'Pause Read Aloud' : 'Read Aloud (Speak)',
+              onClick: (e) => { e.stopPropagation(); toggleTts(); }
+            }, ic(ttsActive ? 'VolumeX' : 'Volume2', 21)),
+
+            // 2. Options (Typography & Themes modal)
+            h('button', {
+              type: 'button',
+              className: 'moon-hud-tool-btn',
+              title: 'Visual & Typography Options',
+              onClick: (e) => { e.stopPropagation(); onOpenSettings(); }
+            },
+              h('svg', { width: 21, height: 21, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' },
+                h('line', { x1: '3', y1: '6', x2: '21', y2: '6' }),
+                h('line', { x1: '3', y1: '12', x2: '15', y2: '12' }),
+                h('line', { x1: '3', y1: '18', x2: '18', y2: '18' })
+              )
+            ),
+
+            // 3. Autoscroll (Hands-free continuous reading)
+            h('button', {
+              type: 'button',
+              className: `moon-hud-tool-btn ${autoScroll ? 'active' : ''}`,
+              title: autoScroll ? 'Stop Auto-Scroll' : 'Start Auto-Scroll',
+              onClick: (e) => { e.stopPropagation(); onToggleAutoScroll(); }
+            }, ic('ArrowUpDown', 20)),
+
+            // 4. Bookmarks (Bookmark current chapter)
+            h('button', {
+              type: 'button',
+              className: `moon-hud-tool-btn ${isCurrentBookmarked ? 'active' : ''}`,
+              title: isCurrentBookmarked ? 'Remove Bookmark' : 'Add Bookmark',
+              onClick: (e) => { e.stopPropagation(); onToggleBookmark(); }
+            },
+              h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: isCurrentBookmarked ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' },
+                h('path', { d: 'm19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z' })
+              )
+            ),
+
+            // 5. Chapters (Table of Contents Drawer)
+            h('button', {
+              type: 'button',
+              className: 'moon-hud-tool-btn',
+              title: 'Table of Contents (Chapters)',
+              onClick: (e) => { e.stopPropagation(); onOpenToc(); }
+            }, ic('List', 21))
+          )
+        );
+      }
     }
   };
 

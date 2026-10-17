@@ -669,6 +669,232 @@
         background: rgba(255, 255, 255, 0.2);
         border-radius: 4px;
       }
+
+      /* ── MOON+ READER 1:1 OVERLAY HUD BARS (Screenshots 1 & 2) ── */
+      .moon-reader-hud-top {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 52px;
+        background: #000000;
+        z-index: 900;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.7);
+        transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+      }
+      .moon-reader-hud-top.reader-v2-hud-hidden {
+        transform: translateY(-100%);
+        opacity: 0;
+        pointer-events: none;
+      }
+      .moon-hud-back-btn, .moon-hud-menu-btn {
+        background: none;
+        border: none;
+        color: #f3f4f6;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        flex-shrink: 0;
+      }
+      .moon-hud-back-btn:active, .moon-hud-menu-btn:active {
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .moon-hud-title {
+        flex: 1;
+        margin: 0 8px;
+        font-size: 15px;
+        font-weight: 700;
+        color: #f3f4f6;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+      }
+
+      /* Moon+ Reader Bottom HUD Container */
+      .moon-reader-hud-bottom {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #000000;
+        z-index: 900;
+        display: flex;
+        flex-direction: column;
+        padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+        box-shadow: 0 -4px 22px rgba(0, 0, 0, 0.75);
+        transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+        gap: 2px;
+      }
+      .moon-reader-hud-bottom.reader-v2-hud-hidden {
+        transform: translateY(100%);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* Row 1: Scrubber Row (<, slider, 42% >) */
+      .moon-hud-scrubber-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 2px 4px 6px;
+      }
+      .moon-hud-scrub-btn {
+        background: none;
+        border: none;
+        color: #9ca3af;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: color 0.15s ease, background 0.15s ease;
+      }
+      .moon-hud-scrub-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+      .moon-hud-scrub-btn:not(:disabled):active {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .moon-hud-range-slider {
+        flex: 1;
+        height: 3px;
+        accent-color: #38bdf8;
+        background: rgba(255, 255, 255, 0.25);
+        border-radius: 2px;
+        cursor: pointer;
+        outline: none;
+      }
+      .moon-hud-pct-text {
+        font-size: 13px;
+        font-weight: 700;
+        color: #e5e7eb;
+        min-width: 44px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
+      }
+
+      /* Rows 2 & 3: 5-Button Tool & Primary Docks */
+      .moon-hud-tools-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        padding: 3px 0;
+      }
+      .moon-hud-tool-btn {
+        flex: 1;
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        color: #d1d5db;
+        cursor: pointer;
+        border-radius: 8px;
+        position: relative;
+        transition: color 0.12s ease, background 0.12s ease, transform 0.1s ease;
+      }
+      .moon-hud-tool-btn:active {
+        transform: scale(0.92);
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .moon-hud-tool-btn.active {
+        color: #38bdf8;
+      }
+      .moon-font-badge {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-weight: 800;
+        font-size: 14px;
+        letter-spacing: -0.5px;
+        line-height: 1;
+      }
+
+      /* Quick Font Size Pop-up Slider */
+      .moon-quick-font-popup {
+        position: absolute;
+        bottom: 104px;
+        right: 18px;
+        width: 250px;
+        background: rgba(18, 20, 26, 0.96);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 12px;
+        padding: 10px 14px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 1000;
+        animation: toolbarPopIn 0.15s ease-out;
+      }
+      .moon-font-step-btn {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #fff;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .moon-font-step-btn:active {
+        background: #38bdf8;
+        color: #000;
+      }
+      .moon-font-slider {
+        flex: 1;
+        accent-color: #38bdf8;
+        cursor: pointer;
+      }
+      .moon-font-val {
+        font-size: 12px;
+        font-weight: 700;
+        color: #38bdf8;
+        min-width: 38px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Moon+ Reader Centered Bold Chapter Header */
+      .moon-chapter-header {
+        text-align: center;
+        padding: 28px 12px 32px;
+        margin-bottom: 24px;
+      }
+      .moon-chapter-header-number {
+        font-size: 1.85em;
+        font-weight: 900;
+        line-height: 1.2;
+        letter-spacing: -0.3px;
+        margin-bottom: 6px;
+      }
+      .moon-chapter-header-title {
+        font-size: 1.65em;
+        font-weight: 800;
+        line-height: 1.28;
+        opacity: 0.95;
+      }
     `;
     document.head.appendChild(styleEl);
   }
