@@ -314,6 +314,13 @@
         return 'builtin';
       }
     });
+    const [isFlatChapterView, setIsFlatChapterView] = useState(() => {
+      try {
+        return localStorage.getItem('gemini_flat_chapter_view') === 'true';
+      } catch (_) {
+        return false;
+      }
+    });
     const toggleCrawlerSpeedMode = () => {
       const next = crawlerSpeedMode === 'builtin' ? 'recipe' : 'builtin';
       setCrawlerSpeedMode(next);
@@ -1848,7 +1855,7 @@
                   });
 
                   const distinctNamedVolumes = volumeGroups.filter(g => g.hasRealVolume);
-                  const isMultiVolume = distinctNamedVolumes.length >= 2 || (volumeGroups.length >= 2 && distinctNamedVolumes.length >= 1);
+                  const isMultiVolume = (distinctNamedVolumes.length >= 2 || (volumeGroups.length >= 2 && distinctNamedVolumes.length >= 1)) && !isFlatChapterView;
 
                   const isVolCollapsed = (volKey, idx) => {
                     if (collapsedVolumes[volKey] !== undefined) return collapsedVolumes[volKey];
@@ -1870,12 +1877,24 @@
                     h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: '8px' } },
                       h('span', null, isMultiVolume ? `Chapters (${chs.length} in ${distinctNamedVolumes.length || volumeGroups.length} Volumes)` : `Chapters (${chs.length})`),
                       h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },
+                        (distinctNamedVolumes.length >= 2 || volumeGroups.length >= 2) && h('button', {
+                          type: 'button',
+                          className: 'chip-act',
+                          title: isFlatChapterView ? 'Group chapters into volume and arc sections' : 'Display chapters as a single continuous flat list',
+                          onClick: () => {
+                            setIsFlatChapterView(prev => {
+                              const next = !prev;
+                              try { localStorage.setItem('gemini_flat_chapter_view', String(next)); } catch (_) {}
+                              return next;
+                            });
+                          }
+                        }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 5 } }, ic(isFlatChapterView ? 'Layers' : 'List', 13), isFlatChapterView ? 'Group by Arcs' : 'Flat List')),
                         isMultiVolume && h('button', {
                           type: 'button',
                           className: 'chip-act',
                           title: areAllCollapsed ? 'Expand all volumes' : 'Collapse all volumes',
                           onClick: toggleExpandAllVolumes
-                        }, areAllCollapsed ? '▼ Expand All' : '▲ Collapse All'),
+                        }, areAllCollapsed ? 'Expand All' : 'Collapse All'),
                         h('button', {
                           type: 'button',
                           className: 'chip-act',

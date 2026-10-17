@@ -1628,14 +1628,35 @@
               if (full) {
                 full.cover = newCover;
                 full.epubBlob = undefined;
-                if (typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
-                  await window.GeminiNovelDB.updateNovel(full);
+              }
+              if (typeof window !== 'undefined' && window.GeminiNovelDB) {
+                try {
+                  const dbRec = full || (item.id ? await window.GeminiNovelDB.getNovel(item.id) : null);
+                  if (dbRec) {
+                    dbRec.cover = newCover;
+                    dbRec.epubBlob = undefined;
+                    await (window.GeminiNovelDB.updateNovel ? window.GeminiNovelDB.updateNovel(dbRec) : window.GeminiNovelDB.saveNovel(dbRec));
+                  } else if (item.id) {
+                    await window.GeminiNovelDB.saveNovel({ ...item, cover: newCover });
+                  }
+                } catch (dbErr) {
+                  console.warn('[SmartCover] IndexedDB save warning:', dbErr);
                 }
               }
               const setHist = setWebImportHistory || props.setWebImportHistory;
               if (typeof setHist === 'function') {
-                setHist(prev => (prev || []).map(b => b.id === item.id ? { ...b, cover: newCover } : b));
+                setHist(prev => (prev || []).map(b => (b.id === item.id || b.title === item.title) ? { ...b, cover: newCover } : b));
               }
+              try {
+                const rawMeta = localStorage.getItem('gemini_web_import_history_meta');
+                if (rawMeta) {
+                  const mList = JSON.parse(rawMeta);
+                  if (Array.isArray(mList)) {
+                    const uList = mList.map(b => (b.id === item.id || (b.title && item.title && b.title.trim().toLowerCase() === item.title.trim().toLowerCase())) ? { ...b, cover: newCover } : b);
+                    localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(uList));
+                  }
+                }
+              } catch (_) {}
               if (props.setCurrentDocCover && (item.id === props.activeNovelRecord?.id || item.title === props.currentDocTitle)) {
                 props.setCurrentDocCover(newCover);
               }

@@ -150,6 +150,33 @@
       }
     },
 
+    async updateNovel(idOrNovel, changes) {
+      if (!idOrNovel) return false;
+      const id = typeof idOrNovel === 'string' ? idOrNovel : (idOrNovel.id || null);
+      const updateData = changes || (typeof idOrNovel === 'object' ? idOrNovel : {});
+      if (!id) return false;
+      try {
+        if (novelDB) {
+          if (changes) {
+            await novelDB.novels.update(id, changes);
+          } else {
+            await novelDB.novels.put(updateData);
+          }
+          notifyChange('updateNovel', { id, ...updateData });
+          return true;
+        }
+      } catch (err) {
+        console.warn('[db_engine] Dexie updateNovel fallback to native:', err);
+      }
+      try {
+        const existing = await this.getNovel(id);
+        const merged = existing ? { ...existing, ...updateData } : updateData;
+        return await this.saveNovel(merged);
+      } catch (e) {
+        return false;
+      }
+    },
+
     async getNovel(id) {
       if (!id) return null;
       try {

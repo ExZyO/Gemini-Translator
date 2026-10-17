@@ -1672,7 +1672,11 @@
                 if (item && item.id) {
                   const existing = combined.find(c => c.id === item.id || (item.title && c.title && c.title.trim().toLowerCase() === item.title.trim().toLowerCase()));
                   if (existing) {
-                    if (!existing.cover && item.cover) existing.cover = item.cover;
+                    if (item.cover && (item.cover.startsWith('data:image/') || !existing.cover)) {
+                      existing.cover = item.cover;
+                    } else if (!existing.cover && item.cover) {
+                      existing.cover = item.cover;
+                    }
                     if (!existing.folderPath && item.folderPath) existing.folderPath = item.folderPath;
                     if (!existing.folderTreeUri && item.folderTreeUri) existing.folderTreeUri = item.folderTreeUri;
                     if (item.inSavedSpace) existing.inSavedSpace = true;

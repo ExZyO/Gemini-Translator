@@ -149,53 +149,66 @@
       const idMatch = cleanChUrl.match(/wattpad\.com\/(\d+)/i);
       const chapterId = idMatch ? idMatch[1] : null;
 
-      const html = await fetchHtml(cleanChUrl);
-
-      // Extract chapter title
       let title = options.title || '';
-      if (!title) {
-        const titleMatch = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || html.match(/<meta\s+property="og:title"\s+content="([^"]*)"/i);
-        if (titleMatch) {
-          title = this.decodeHtml(titleMatch[1].replace(/<[^>]+>/g, '').trim());
-        }
-      }
-      if (!title) title = 'Chapter';
+      let rawContent = '';
 
-      // Detect page count
-      const pagesMatch = html.match(/"pages":\s*(\d+)/);
-      const pageCount = pagesMatch ? parseInt(pagesMatch[1], 10) : 1;
-
-      // Method 1: Fetch clean story text via Wattpad apiv2
-      const pageHtmls = [];
+      // Method 1: Fast direct text fetch via Wattpad apiv2
       if (chapterId) {
-        for (let p = 1; p <= pageCount; p++) {
-          try {
-            const pageRes = await fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`);
-            if (pageRes && pageRes.includes('<p')) {
-              pageHtmls.push(pageRes);
+        try {
+          const page1 = await fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=1`);
+          if (page1 && page1.includes('<p')) {
+            const pageHtmls = [page1];
+            for (let p = 2; p <= 8; p++) {
+              try {
+                const nextP = await fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`);
+                if (nextP && nextP.includes('<p') && !nextP.includes('not found') && !nextP.includes('{"error"')) {
+                  pageHtmls.push(nextP);
+                } else {
+                  break;
+                }
+              } catch (_) {
+                break;
+              }
             }
-          } catch (_) {}
-        }
+            rawContent = pageHtmls.join('\n');
+          }
+        } catch (_) {}
       }
 
-      let rawContent = pageHtmls.join('\n');
+      // Method 2: Fallback to full chapter HTML if apiv2 missed or title is unknown
+      if (!rawContent || !title) {
+        let html = '';
+        try {
+          html = await fetchHtml(cleanChUrl);
+        } catch (_) {}
 
-      // Method 2: Fallback to DOM paragraphs from chapter HTML
-      if (!rawContent || !rawContent.includes('<p')) {
-        const pMatches = [...html.matchAll(/<p\s+data-p-id="[^"]*"[^>]*>([\s\S]*?)<\/p>/gi)];
-        if (pMatches.length > 0) {
-          rawContent = pMatches.map(m => `<p>${m[1]}</p>`).join('\n');
-        } else {
-          const doc = new DOMParser().parseFromString(html, 'text/html');
-          const ps = doc.querySelectorAll('p[data-p-id], .story-part-text p, .panel-reading p');
-          if (ps.length > 0) {
-            rawContent = Array.from(ps).map(p => `<p>${p.innerHTML}</p>`).join('\n');
+        if (html) {
+          if (!title) {
+            const titleMatch = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || html.match(/<meta\s+property="og:title"\s+content="([^"]*)"/i);
+            if (titleMatch) {
+              title = this.decodeHtml(titleMatch[1].replace(/<[^>]+>/g, '').trim());
+            }
+          }
+
+          if (!rawContent) {
+            const pMatches = [...html.matchAll(/<p\s+data-p-id="[^"]*"[^>]*>([\s\S]*?)<\/p>/gi)];
+            if (pMatches.length > 0) {
+              rawContent = pMatches.map(m => `<p>${m[1]}</p>`).join('\n');
+            } else {
+              const doc = new DOMParser().parseFromString(html, 'text/html');
+              const ps = doc.querySelectorAll('p[data-p-id], .story-part-text p, .panel-reading p');
+              if (ps.length > 0) {
+                rawContent = Array.from(ps).map(p => `<p>${p.innerHTML}</p>`).join('\n');
+              }
+            }
           }
         }
       }
 
+      if (!title) title = 'Chapter';
+
       // Clean up internal metadata attributes while preserving inline formatting and illustrations
-      const cleanContent = rawContent
+      const cleanContent = (rawContent || '')
         .replace(/\s*data-p-id="[^"]*"/gi, '')
         .replace(/<p>\s*<\/p>/gi, '')
         .trim();

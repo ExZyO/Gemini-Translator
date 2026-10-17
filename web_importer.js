@@ -1862,10 +1862,10 @@
                     volume: ch.volume || item.volume
                 };
             },
-            options.concurrency || 4,
+            options.concurrency || 6,
             progressCb,
             { title: details.title, author: details.author, summary: details.summary, cover: details.cover, chapterList: chapterLinks },
-            { delayMs: options.delayMs !== undefined ? options.delayMs : 250 }
+            { delayMs: options.delayMs !== undefined ? options.delayMs : 40 }
         );
 
         return {
