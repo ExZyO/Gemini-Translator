@@ -99,6 +99,16 @@
     }
 
     /**
+     * Get an installed plugin instance by ID
+     * @param {string} pluginId
+     * @returns {BaseSourcePlugin|null}
+     */
+    getPlugin(pluginId) {
+      if (!pluginId) return null;
+      return this.plugins.get(pluginId) || (this.universalPlugin && this.universalPlugin.id === pluginId ? this.universalPlugin : null) || null;
+    }
+
+    /**
      * Check if a plugin ID is installed/active
      * @param {string} pluginId
      */
@@ -390,6 +400,8 @@
   SourceRegistry.getAll = () => defaultRegistry.listPlugins();
   SourceRegistry.listPlugins = () => defaultRegistry.listPlugins();
   SourceRegistry.isInstalled = (id) => defaultRegistry.isInstalled(id);
+  SourceRegistry.getPlugin = (id) => defaultRegistry.getPlugin(id);
+  SourceRegistry.findPlugin = (url) => defaultRegistry.findPlugin(url);
   SourceRegistry.unregister = (id) => defaultRegistry.unregister(id);
   SourceRegistry.loadPluginById = (id) => defaultRegistry.loadPluginById(id);
   SourceRegistry.loadPluginFromUrl = (url, meta) => defaultRegistry.loadPluginFromUrl(url, meta);

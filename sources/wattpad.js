@@ -29,7 +29,7 @@
       const fetchHtml = (window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
       if (!fetchHtml) throw new Error('HTML fetcher not initialized');
 
-      let targetUrl = url;
+      let targetUrl = (url || '').split('?')[0].split('#')[0].trim();
       let storyData = null;
       let initialHtml = '';
 
@@ -145,10 +145,11 @@
       const fetchHtml = (window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
       if (!fetchHtml) throw new Error('HTML fetcher not initialized');
 
-      const idMatch = chapterUrl.match(/wattpad\.com\/(\d+)/i);
+      const cleanChUrl = (chapterUrl || '').split('?')[0].split('#')[0].trim();
+      const idMatch = cleanChUrl.match(/wattpad\.com\/(\d+)/i);
       const chapterId = idMatch ? idMatch[1] : null;
 
-      const html = await fetchHtml(chapterUrl);
+      const html = await fetchHtml(cleanChUrl);
 
       // Extract chapter title
       let title = options.title || '';

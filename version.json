@@ -1,9 +1,9 @@
 {
-  "version": "8.21.72",
-  "versionCode": 8483,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.72/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.72/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.72",
-  "releaseDate": "2026-10-17",
-  "releaseNotes": "v8.21.72: Added full Wattpad story scraping and discovery support with multi-page chapter assembling, clean paragraph formatting, illustration preservation, and discover chip integration."
+  "version": "8.21.73",
+  "versionCode": 8484,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.73/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.73/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.73",
+  "releaseDate": "2026-10-18",
+  "releaseNotes": "v8.21.73: Resilient source plugin resolution guarding against undefined method crashes, clean URL query stripping for Wattpad stories, and static delegation parity across all plugin registries."
 }

@@ -800,15 +800,22 @@
     async function searchWattpad(query) {
         if (!query || !query.trim()) return [];
         try {
-            if (typeof window !== 'undefined' && window.sourceRegistry) {
-                const plugin = window.sourceRegistry.getPlugin('wattpad');
-                if (plugin && typeof plugin.search === 'function') {
-                    return await plugin.search(query);
+            if (typeof window !== 'undefined') {
+                const reg = window.sourceRegistry || window.SourceRegistry;
+                if (reg) {
+                    if (typeof reg.getPlugin === 'function') {
+                        const plugin = reg.getPlugin('wattpad');
+                        if (plugin && typeof plugin.search === 'function') return await plugin.search(query);
+                    }
+                    if (typeof reg.findPlugin === 'function') {
+                        const plugin = reg.findPlugin('https://www.wattpad.com');
+                        if (plugin && typeof plugin.search === 'function') return await plugin.search(query);
+                    }
                 }
-            }
-            if (typeof window !== 'undefined' && window.WattpadPlugin) {
-                const p = new window.WattpadPlugin();
-                return await p.search(query);
+                if (typeof window.WattpadPlugin === 'function') {
+                    const p = new window.WattpadPlugin();
+                    return await p.search(query);
+                }
             }
         } catch (e) {
             console.warn('[Search] Wattpad search error:', e);

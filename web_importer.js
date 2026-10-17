@@ -1897,17 +1897,46 @@
         else if (type === 'lofter') return await crawlLofter(url, progressCb, options);
         else if (type === 'pixiv') return await crawlPixiv(url, progressCb, options);
         else if (type === 'novelarchive') {
-            const plugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
+            let plugin = null;
+            if (typeof window !== 'undefined') {
+                const reg = window.sourceRegistry || window.SourceRegistry;
+                if (reg && typeof reg.findPlugin === 'function') {
+                    plugin = reg.findPlugin(url);
+                }
+                if (!plugin && typeof window.NovelArchivePlugin === 'function') {
+                    plugin = new window.NovelArchivePlugin();
+                }
+            }
             if (plugin) return await crawlWithPlugin(plugin, url, progressCb, options);
             return await crawlUniversal(url, progressCb, options);
         }
         else if (type === 'wattpad') {
-            const plugin = (typeof window !== 'undefined' && window.sourceRegistry) ? (window.sourceRegistry.getPlugin('wattpad') || window.sourceRegistry.findPlugin(url)) : null;
+            let plugin = null;
+            if (typeof window !== 'undefined') {
+                const reg = window.sourceRegistry || window.SourceRegistry;
+                if (reg) {
+                    if (typeof reg.getPlugin === 'function') {
+                        plugin = reg.getPlugin('wattpad');
+                    }
+                    if (!plugin && typeof reg.findPlugin === 'function') {
+                        plugin = reg.findPlugin(url);
+                    }
+                }
+                if (!plugin && typeof window.WattpadPlugin === 'function') {
+                    plugin = new window.WattpadPlugin();
+                }
+            }
             if (plugin) return await crawlWithPlugin(plugin, url, progressCb, options);
             return await crawlUniversal(url, progressCb, options);
         }
         else {
-            const registeredPlugin = (typeof window !== 'undefined' && window.sourceRegistry) ? window.sourceRegistry.findPlugin(url) : null;
+            let registeredPlugin = null;
+            if (typeof window !== 'undefined') {
+                const reg = window.sourceRegistry || window.SourceRegistry;
+                if (reg && typeof reg.findPlugin === 'function') {
+                    registeredPlugin = reg.findPlugin(url);
+                }
+            }
             if (registeredPlugin && registeredPlugin.id !== 'universal') {
                 console.log(`[LNCrawl Engine] Routing to active source plugin: ${registeredPlugin.name} (${registeredPlugin.id})`);
                 return await crawlWithPlugin(registeredPlugin, url, progressCb, options);
