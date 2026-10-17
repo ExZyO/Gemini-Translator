@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.60';
+    let VERSION = '8.21.61';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1235,10 +1235,11 @@
           } else {
             setChapters(cleanedChs);
             setInputText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
-            setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
-            setTranslatedChapters(cleanedChs);
+            setAssembledText('');
+            setTranslatedChapters([]);
           }
         }
+        setReaderChapters(cleanedChs);
         setReaderChapterIdx(Math.max(0, iss?.chapterIdx || 0));
         setReaderOpen(true);
         setQaModalOpen(false);
@@ -1410,6 +1411,7 @@
           loadFullNovel,
           onRouteNovel: (target, cleanedChs, targetIdx) => {
             setChapters(cleanedChs);
+            if (typeof setReaderChapters === 'function') setReaderChapters(cleanedChs);
             setReaderChapterIdx(targetIdx);
             setReaderOpen(true);
             toast(`Deep link routed to "${target.title}" (Ch ${targetIdx + 1})`, 'success');

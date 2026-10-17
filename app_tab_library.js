@@ -253,9 +253,17 @@
       if (typeof setActiveNovelRecord === 'function') {
         setActiveNovelRecord(full);
       }
-      let chs = (full.translatedChapters && full.translatedChapters.length > 0)
-        ? full.translatedChapters
-        : (full.rawChapters || full.chapters || []);
+      const isTrans = !!item.isTranslated || !!full.isTranslated || (item.title || '').includes('(Translated)');
+      let chs = [];
+      if (isTrans && Array.isArray(full.translatedChapters) && full.translatedChapters.length > 0) {
+        chs = full.translatedChapters;
+      } else {
+        chs = (Array.isArray(full.rawChapters) && full.rawChapters.length > 0)
+          ? full.rawChapters
+          : ((Array.isArray(full.chapters) && full.chapters.length > 0)
+            ? full.chapters
+            : (full.translatedChapters || []));
+      }
       if (chs.length === 0 && (full.epubBlob || item.epubBlob)) {
         try {
           toast('Unpacking book for reader...', 'info');
@@ -277,7 +285,6 @@
         const raw = c?.text || c?.content || '';
         return (typeof stripFn === 'function' && c?.title) ? stripFn(raw, c.title, c.originalTitle) : raw;
       };
-      const isTrans = !!item.isTranslated || (item.title || '').includes('(Translated)');
       const cleanedChs = chs.map(c => ({
         title: c.title,
         content: cleanCh(c),
@@ -300,10 +307,10 @@
           setChapters(cleanedChs);
         }
       } else {
+        setAssembledText('');
+        setTranslatedChapters([]);
+        setInputText(cleanedChs.map(c => `# ${c.title}\n\n${cleanCh(c)}`).join('\n\n\n'));
         setChapters(cleanedChs);
-        setInputText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n\n'));
-        setAssembledText(cleanedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n\n'));
-        setTranslatedChapters(cleanedChs);
       }
       const novelKey = item.id || item.title;
       setReaderNovelId(novelKey);

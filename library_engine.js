@@ -493,14 +493,18 @@
         wordCount: totalWords,
         timestamp: new Date().toISOString(),
         isEpub: !!novelData.isEpub,
-        epubBlob: (novelData.isEdited || existingMeta?.isEdited) ? (novelData.epubBlob || undefined) : (novelData.epubBlob || existingMeta?.epubBlob || undefined),
+        epubBlob: novelData.isEpub
+          ? ((novelData.isEdited || existingMeta?.isEdited) ? (novelData.epubBlob || undefined) : (novelData.epubBlob || existingMeta?.epubBlob || undefined))
+          : (isTranslated ? (novelData.epubBlob || existingMeta?.epubBlob || undefined) : undefined),
         sourceUrl: detectedSourceUrl,
         chapterList: novelData.chapterList || [],
         chapters: cleanChapters,
         rawChapters: cleanChapters,
         originalChapters: cleanOriginalChapters,
         originalText: novelData.originalText || '',
-        translatedChapters: Array.isArray(novelData.translatedChapters) ? novelData.translatedChapters : (cleanChapters && isTranslated ? cleanChapters : null),
+        translatedChapters: (Array.isArray(novelData.translatedChapters) && novelData.translatedChapters.length > 0)
+          ? novelData.translatedChapters
+          : (cleanChapters && isTranslated ? cleanChapters : null),
         targetLang: novelData.targetLang || (isTranslated ? 'en' : null),
         folderTreeUri,
         folderPath

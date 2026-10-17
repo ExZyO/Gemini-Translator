@@ -288,6 +288,7 @@
       setReaderNovelTitle,
       setReaderChapterIdx,
       setReaderOpen,
+      setReaderChapters,
       setCurrentDocCover,
       setCurrentDocTitle,
       setFileName,
@@ -584,9 +585,22 @@
                       onClick: () => {
                         const chs = getSafeChapters(activeCrawlSession);
                         if (chs.length === 0) return toast('No chapters downloaded yet to read.', 'warning');
-                        setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
+                        const mappedChs = chs.map((c, idx) => ({
+                          title: c.title || `Chapter ${idx + 1}`,
+                          text: c.text || c.content || '',
+                          content: c.text || c.content || '',
+                          originalTitle: c.originalTitle || c.title || `Chapter ${idx + 1}`,
+                          isTranslated: false
+                        }));
+                        setChapters(mappedChs);
                         setTranslatedChapters([]);
                         setAssembledText('');
+                        if (typeof setReaderChapters === 'function') {
+                          setReaderChapters(mappedChs);
+                        }
+                        if (typeof setActiveNovelRecord === 'function') {
+                          setActiveNovelRecord(activeCrawlSession);
+                        }
                         const novelKey = activeCrawlSession?.id || activeCrawlSession?.title || 'web_crawl_novel';
                         setReaderNovelId(novelKey);
                         setReaderNovelTitle(activeCrawlSession?.title || 'Web Novel');
@@ -1330,7 +1344,7 @@
                         const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(full.title || activeNovelView.title, chs) : (full.title || activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(full.author || activeNovelView.author) : (full.author || activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
-                          if (full && full.epubBlob && !full.isEdited && !activeNovelView?.isEdited) {
+                          if (full && full.epubBlob && !full.isEdited && !activeNovelView?.isEdited && (full.isEpub || full.isTranslated)) {
                             const isInc = full.isIncomplete || (full.totalChapterCount && chs.length < full.totalChapterCount);
                             const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
                             await saveUniversalBlob(full.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(full || activeNovelView));
@@ -1361,9 +1375,23 @@
                         const full = (typeof loadFullNovel === 'function' ? await loadFullNovel(activeNovelView) : null) || activeNovelView;
                         const chs = getSafeChapters(full);
                         if (chs.length === 0) return toast('No chapters downloaded yet to read.', 'warning');
-                        setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
-                        setTranslatedChapters([]);
-                        setAssembledText('');
+                        const isTrans = !!full?.isTranslated || !!activeNovelView?.isTranslated;
+                        const mappedChs = chs.map((c, idx) => ({
+                          title: c.title || `Chapter ${idx + 1}`,
+                          text: c.text || c.content || '',
+                          content: c.text || c.content || '',
+                          originalTitle: c.originalTitle || c.title || `Chapter ${idx + 1}`,
+                          isTranslated: Boolean(c.isTranslated || isTrans)
+                        }));
+                        setChapters(mappedChs);
+                        setTranslatedChapters(isTrans ? mappedChs : []);
+                        setAssembledText(isTrans ? mappedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n\n') : '');
+                        if (typeof setReaderChapters === 'function') {
+                          setReaderChapters(mappedChs);
+                        }
+                        if (typeof setActiveNovelRecord === 'function') {
+                          setActiveNovelRecord(full);
+                        }
                         const novelKey = full?.id || activeNovelView?.id || activeNovelView?.title || 'web_import_novel';
                         setReaderNovelId(novelKey);
                         setReaderNovelTitle(full?.title || activeNovelView?.title || 'Web Novel');
@@ -1628,9 +1656,23 @@
                         const full = (typeof loadFullNovel === 'function' ? await loadFullNovel(activeNovelView) : null) || activeNovelView;
                         const chs = getSafeChapters(full);
                         if (chs.length === 0) return toast('No chapters available to read.', 'warning');
-                        setChapters(chs.map(c => ({ title: c.title, text: c.text || c.content, content: c.text || c.content })));
-                        setTranslatedChapters([]);
-                        setAssembledText('');
+                        const isTrans = !!full?.isTranslated || !!activeNovelView?.isTranslated;
+                        const mappedChs = chs.map((c, idx) => ({
+                          title: c.title || `Chapter ${idx + 1}`,
+                          text: c.text || c.content || '',
+                          content: c.text || c.content || '',
+                          originalTitle: c.originalTitle || c.title || `Chapter ${idx + 1}`,
+                          isTranslated: Boolean(c.isTranslated || isTrans)
+                        }));
+                        setChapters(mappedChs);
+                        setTranslatedChapters(isTrans ? mappedChs : []);
+                        setAssembledText(isTrans ? mappedChs.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n\n') : '');
+                        if (typeof setReaderChapters === 'function') {
+                          setReaderChapters(mappedChs);
+                        }
+                        if (typeof setActiveNovelRecord === 'function') {
+                          setActiveNovelRecord(full);
+                        }
                         const novelKey = full?.id || activeNovelView?.id || activeNovelView?.title || 'web_import_novel';
                         setReaderNovelId(novelKey);
                         setReaderNovelTitle(full?.title || activeNovelView?.title || 'Web Novel');
