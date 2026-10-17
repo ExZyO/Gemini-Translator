@@ -797,6 +797,25 @@
         });
     }
 
+    async function searchWattpad(query) {
+        if (!query || !query.trim()) return [];
+        try {
+            if (typeof window !== 'undefined' && window.sourceRegistry) {
+                const plugin = window.sourceRegistry.getPlugin('wattpad');
+                if (plugin && typeof plugin.search === 'function') {
+                    return await plugin.search(query);
+                }
+            }
+            if (typeof window !== 'undefined' && window.WattpadPlugin) {
+                const p = new window.WattpadPlugin();
+                return await p.search(query);
+            }
+        } catch (e) {
+            console.warn('[Search] Wattpad search error:', e);
+        }
+        return [];
+    }
+
     async function searchNovels(query, source = 'all', onPartialResults = null) {
         if (!query || !query.trim()) return [];
         const cleanQ = query.trim();
@@ -886,6 +905,9 @@
         if (src === 'all' || src === 'lnori') {
             registerRunner(searchLnori(cleanQ));
         }
+        if (src === 'all' || src === 'wattpad') {
+            registerRunner(searchWattpad(cleanQ));
+        }
 
         await Promise.allSettled(runners);
         sortResults(aggregated);
@@ -904,6 +926,7 @@
     searchBoxNovel,
     searchReadNovelFull,
     searchLnori,
+    searchWattpad,
     searchNovels
   };
 }));

@@ -1061,6 +1061,24 @@
                   ),
                   h('button', {
                     type: 'button',
+                    className: `discover-source-card ${novelSearchFilter === 'Wattpad' ? 'active' : ''}`,
+                    onClick: () => {
+                      setImportCategoryTab('wn');
+                      setIsBookSearchMode(false);
+                      setIsSwiftAudioMode(false);
+                      setNovelSearchFilter('Wattpad');
+                      if (webImportUrl.trim()) handleSearchNovels(webImportUrl.trim(), 'Wattpad');
+                      else toast('Wattpad: community stories, web novels, and original fiction.', 'info');
+                    }
+                  },
+                    ic('Globe', 16),
+                    h('div', { style: { textAlign: 'left' } },
+                      h('div', { style: { fontSize: 12, fontWeight: 700, color: '#ff6122' } }, 'Wattpad'),
+                      h('div', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Stories & Fiction')
+                    )
+                  ),
+                  h('button', {
+                    type: 'button',
                     className: `discover-source-card ${isSwiftAudioMode ? 'active' : ''}`,
                     onClick: () => {
                       setImportCategoryTab('audio');
@@ -2083,7 +2101,7 @@
                           item.source && h('span', {
                             className: 'discover-grid-source-badge',
                             style: {
-                              background: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.9)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.9)' : (item.source === 'Lnori' ? 'rgba(168, 85, 247, 0.9)' : 'rgba(236, 72, 153, 0.9)')),
+                              background: item.source === 'NovelBuddy' ? 'rgba(16, 185, 129, 0.9)' : (item.source === 'RoyalRoad' ? 'rgba(59, 130, 246, 0.9)' : (item.source === 'Lnori' ? 'rgba(168, 85, 247, 0.9)' : (item.source === 'Wattpad' ? 'rgba(255, 97, 34, 0.95)' : 'rgba(236, 72, 153, 0.9)'))),
                               color: '#fff'
                             }
                           }, item.source)

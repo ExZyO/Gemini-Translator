@@ -11,12 +11,13 @@
   const NovelFirePlugin = isNode ? require('./novelfire').NovelFirePlugin : window.NovelFirePlugin;
   const NovelArchivePlugin = isNode ? require('./novelarchive').NovelArchivePlugin : window.NovelArchivePlugin;
   const UniversalPlugin = isNode ? require('./universal').UniversalPlugin : window.UniversalPlugin;
+  const WattpadPlugin = isNode ? require('./wattpad').WattpadPlugin : window.WattpadPlugin;
 
   class SourceRegistry {
     constructor() {
       this.plugins = new Map();
       this.universalPlugin = null;
-      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'novelfire', 'novelarchive', 'universal']);
+      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'novelfire', 'novelarchive', 'universal', 'wattpad']);
       this.initBuiltins();
       this.loadPersistedPlugins();
     }
@@ -27,6 +28,7 @@
       if (RoyalRoadPlugin) this.register(new RoyalRoadPlugin());
       if (NovelFirePlugin) this.register(new NovelFirePlugin());
       if (NovelArchivePlugin) this.register(new NovelArchivePlugin());
+      if (WattpadPlugin) this.register(new WattpadPlugin());
       if (UniversalPlugin) {
         this.universalPlugin = new UniversalPlugin();
       }

@@ -1,9 +1,9 @@
 {
-  "version": "8.21.71",
-  "versionCode": 8482,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.71/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.71/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.71",
+  "version": "8.21.72",
+  "versionCode": 8483,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.72/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.72/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.72",
   "releaseDate": "2026-10-17",
-  "releaseNotes": "v8.21.71: Complete Poweramp-grade UI overhaul for audiobook player with thumb-friendly controls, responsive artwork sizing, collapsible chapter queue drawer, and resilient mini-player dock floating above navbar."
+  "releaseNotes": "v8.21.72: Added full Wattpad story scraping and discovery support with multi-page chapter assembling, clean paragraph formatting, illustration preservation, and discover chip integration."
 }
