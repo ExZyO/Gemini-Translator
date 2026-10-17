@@ -43,6 +43,7 @@
     const toast = getToast();
     const ReactComp = typeof React !== 'undefined' ? React : window.React;
     const [scrubTime, setScrubTime] = (ReactComp?.useState || window.React?.useState)(null);
+    const [isChapterQueueOpen, setIsChapterQueueOpen] = (ReactComp?.useState || window.React?.useState)(false);
 
     const hasMini = !!(audioPlayerState?.currentBook);
     const hasFull = !!(isFullPlayerOpen && audioPlayerState?.currentBook);
@@ -73,21 +74,23 @@
         className: 'swift-mini-player',
         style: {
           position: 'fixed',
-          bottom: 'calc(58px + env(safe-area-inset-bottom, 0px))',
-          left: 0,
-          right: 0,
-          height: 62,
-          background: glassCardBg,
+          bottom: 'calc(88px + env(safe-area-inset-bottom, 16px))',
+          left: 16,
+          right: 16,
+          maxWidth: 480,
+          margin: '0 auto',
+          height: 64,
+          background: amoledMode ? '#000000' : 'rgba(15, 23, 42, 0.95)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.10)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          borderRadius: 16,
           display: 'flex',
           alignItems: 'center',
           padding: '0 12px',
-          gap: 10,
+          gap: 12,
           zIndex: 995,
-          boxShadow: '0 -6px 24px rgba(0, 0, 0, 0.55)',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.65), 0 0 20px rgba(99, 102, 241, 0.15)',
           cursor: 'pointer',
           overflow: 'hidden'
         },
@@ -115,7 +118,7 @@
           })
         ),
 
-        // Cover Thumbnail or Fallback Icon
+        // Cover Thumbnail
         currentBook.cover ? h('img', {
           src: currentBook.cover,
           alt: 'Cover',
@@ -124,7 +127,7 @@
           style: {
             width: 44,
             height: 44,
-            borderRadius: 8,
+            borderRadius: 10,
             objectFit: 'cover',
             flexShrink: 0,
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.45)',
@@ -134,7 +137,7 @@
           style: {
             width: 44,
             height: 44,
-            borderRadius: 8,
+            borderRadius: 10,
             background: 'rgba(255, 255, 255, 0.05)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             display: 'flex',
@@ -148,7 +151,7 @@
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('div', {
             style: {
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: 700,
               color: 'var(--paper)',
               whiteSpace: 'nowrap',
@@ -177,87 +180,79 @@
           )
         ),
 
-        // Controls
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 5 }, onClick: e => e.stopPropagation() },
+        // Clean, spacious, un-crowded action controls
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }, onClick: e => e.stopPropagation() },
           // Fine -5s Skip Button
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
             style: {
-              padding: '5px 8px',
+              padding: '6px 9px',
               fontSize: 11,
-              fontWeight: 700,
+              fontWeight: 800,
               borderRadius: 8,
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.10)',
               color: 'var(--paper)'
             },
             title: 'Skip back 5 seconds',
             onClick: () => window.SwiftAudioEngine?.Player?.skipBackward5()
           }, '-5s'),
 
-          // Instant Play/Pause Button
+          // Big, thumb-friendly Play/Pause Button
           h('button', {
             type: 'button',
             className: 'mini-btn',
             style: {
               background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
               color: '#fff',
-              width: 38,
-              height: 38,
+              width: 44,
+              height: 44,
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               padding: 0,
               border: 'none',
-              boxShadow: '0 0 14px rgba(99, 102, 241, 0.45)'
+              boxShadow: '0 0 16px rgba(99, 102, 241, 0.5)'
             },
             title: isPlaying ? 'Pause' : 'Play',
             onClick: () => window.SwiftAudioEngine?.Player?.togglePlay()
-          }, isPlaying ? ic('Pause', 18) : ic('Play', 18)),
+          }, isPlaying ? ic('Pause', 20) : ic('Play', 20)),
 
           // Fine +5s Skip Button
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
             style: {
-              padding: '5px 8px',
+              padding: '6px 9px',
               fontSize: 11,
-              fontWeight: 700,
+              fontWeight: 800,
               borderRadius: 8,
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.10)',
               color: 'var(--paper)'
             },
             title: 'Skip forward 5 seconds',
             onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
           }, '+5s'),
 
-          // Next Chapter
+          // Clean Close Button
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { padding: '6px 7px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--paper)' },
-            title: 'Next Chapter',
-            onClick: () => window.SwiftAudioEngine?.Player?.nextTrack()
-          }, ic('SkipForward', 15)),
-
-          // Expand Full Player
-          h('button', {
-            type: 'button',
-            className: 'mini-btn ghost',
-            style: { padding: '6px 7px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--slate)' },
-            title: 'Open full audiobook player',
-            onClick: () => setIsFullPlayerOpen(true)
-          }, ic('ChevronUp', 16)),
-
-          // Close
-          h('button', {
-            type: 'button',
-            className: 'mini-btn ghost',
-            style: { padding: '6px 7px', color: 'var(--slate)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-            title: 'Close and stop player',
+            style: {
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              padding: 0,
+              color: 'var(--slate)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(255, 255, 255, 0.04)'
+            },
+            title: 'Close player',
             onClick: (e) => {
               e.stopPropagation();
               window.SwiftAudioEngine?.Player?.close();
@@ -425,26 +420,35 @@
           ),
 
           // Scrollable Body
-          h('div', { style: { padding: '16px 20px', overflowY: 'auto', overflowX: 'hidden', flex: 1, boxSizing: 'border-box' } },
-            // Large Cover Art Card with Subtle Glow Finish
+          h('div', {
+            style: {
+              padding: isPlayerFullscreen ? '16px 20px 24px' : '10px 18px 20px',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              flex: 1,
+              boxSizing: 'border-box'
+            }
+          },
+            // Responsive Cover Art Card with Ambient Glow
             h('div', {
               style: {
                 position: 'relative',
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                padding: isPlayerFullscreen ? '22px 0 16px' : '12px 0 16px'
+                padding: isPlayerFullscreen ? '14px 0 10px' : '6px 0 8px',
+                flexShrink: 0
               }
             },
               // Ambient soft glow behind cover
               h('div', {
                 style: {
                   position: 'absolute',
-                  width: isPlayerFullscreen ? 210 : 180,
-                  height: isPlayerFullscreen ? 290 : 250,
+                  width: 'clamp(110px, 20vh, 170px)',
+                  height: 'clamp(110px, 20vh, 170px)',
                   borderRadius: 24,
-                  background: 'radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, rgba(99, 102, 241, 0.05) 60%, transparent 80%)',
-                  filter: 'blur(22px)',
+                  background: 'radial-gradient(circle, rgba(99, 102, 241, 0.45) 0%, rgba(99, 102, 241, 0.08) 60%, transparent 80%)',
+                  filter: 'blur(20px)',
                   pointerEvents: 'none',
                   zIndex: 0
                 }
@@ -455,19 +459,21 @@
                 referrerPolicy: 'no-referrer',
                 onError: (e) => { e.target.style.display = 'none'; },
                 style: {
-                  width: isPlayerFullscreen ? 190 : 165,
-                  height: isPlayerFullscreen ? 270 : 235,
+                  width: 'auto',
+                  maxHeight: isPlayerFullscreen ? '26vh' : '18vh',
+                  maxWidth: '52vw',
+                  aspectRatio: '1 / 1',
                   borderRadius: 16,
                   objectFit: 'cover',
-                  boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65), 0 0 24px rgba(99, 102, 241, 0.25)',
-                  border: '1px solid rgba(255, 255, 255, 0.14)',
+                  boxShadow: '0 12px 28px rgba(0, 0, 0, 0.65), 0 0 20px rgba(99, 102, 241, 0.25)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
                   position: 'relative',
                   zIndex: 1
                 }
               }) : h('div', {
                 style: {
-                  width: isPlayerFullscreen ? 190 : 165,
-                  height: isPlayerFullscreen ? 270 : 235,
+                  width: 'clamp(110px, 18vh, 150px)',
+                  height: 'clamp(110px, 18vh, 150px)',
                   borderRadius: 16,
                   background: 'rgba(255, 255, 255, 0.04)',
                   border: '1px solid rgba(255, 255, 255, 0.10)',
@@ -476,27 +482,34 @@
                   justifyContent: 'center',
                   position: 'relative',
                   zIndex: 1,
-                  boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65)'
+                  boxShadow: '0 12px 28px rgba(0, 0, 0, 0.65)'
                 }
-              }, ic('Headphones', 52, 'text-indigo-400'))
+              }, ic('Headphones', 44, 'text-indigo-400'))
             ),
 
             // Novel Title, Author & Chapter Badge
-            h('div', { style: { textAlign: 'center', marginBottom: 16 } },
+            h('div', { style: { textAlign: 'center', marginBottom: 12, flexShrink: 0 } },
               h('div', {
                 style: {
-                  fontSize: 16.5,
+                  fontSize: 16,
                   fontWeight: 800,
                   color: 'var(--paper)',
-                  lineHeight: 1.3,
-                  letterSpacing: '-0.02em'
+                  lineHeight: 1.25,
+                  letterSpacing: '-0.02em',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  padding: '0 8px'
                 }
               }, currentBook.title),
               h('div', {
                 style: {
-                  fontSize: 12.5,
+                  fontSize: 12,
                   color: 'var(--slate)',
-                  marginTop: 4
+                  marginTop: 3,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }
               }, currentBook.author ? `by ${currentBook.author}` : 'SwiftAudiobooks'),
               h('div', {
@@ -511,7 +524,7 @@
                   color: '#a5b4fc',
                   fontSize: 12,
                   fontWeight: 700,
-                  marginTop: 8,
+                  marginTop: 6,
                   maxWidth: '92%',
                   overflow: 'hidden'
                 }
@@ -527,7 +540,7 @@
             ),
 
             // Precision Time Scrubber Bar with Countdown Time
-            h('div', { style: { marginBottom: 14 } },
+            h('div', { style: { marginBottom: 12, flexShrink: 0 } },
               h('input', {
                 type: 'range',
                 min: 0,
@@ -554,7 +567,7 @@
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  fontSize: 11,
+                  fontSize: 11.5,
                   color: 'var(--slate)',
                   fontFamily: "'IBM Plex Mono', monospace",
                   marginTop: 4
@@ -563,7 +576,7 @@
                 // Elapsed Time
                 h('span', null, window.SwiftAudioEngine?.formatDuration(displayTime) || '0:00'),
                 // Center percentage
-                h('span', { style: { opacity: 0.5, fontSize: 10 } },
+                h('span', { style: { opacity: 0.55, fontSize: 10.5 } },
                   `${duration > 0 ? Math.round((displayTime / duration) * 100) : 0}%`
                 ),
                 // Remaining Countdown Time
@@ -571,123 +584,128 @@
               )
             ),
 
-            // Fine Playback Controls (Previous, -5s, Play/Pause, +5s, Next)
+            // Poweramp-Grade Primary Transport Controls
             h('div', {
               style: {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 12,
-                marginBottom: 16
+                marginBottom: 14,
+                flexShrink: 0
               }
             },
-              // Previous Chapter
+              // Previous Chapter Button (46x46)
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
                 style: {
-                  width: 42,
-                  height: 42,
+                  width: 46,
+                  height: 46,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: 0,
                   color: 'var(--paper)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)'
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)'
                 },
                 title: 'Previous Chapter',
                 onClick: () => window.SwiftAudioEngine?.Player?.previousTrack()
-              }, ic('SkipBack', 19)),
+              }, ic('SkipBack', 20)),
 
-              // Fine 5-Second Rewind
+              // Fine 5-Second Rewind Button (50x50, Bold)
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
                 style: {
-                  width: 44,
-                  height: 44,
+                  width: 50,
+                  height: 50,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: 0,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  fontSize: 13,
+                  fontWeight: 900,
+                  background: 'rgba(255, 255, 255, 0.07)',
+                  border: '1px solid rgba(255, 255, 255, 0.16)',
                   color: 'var(--paper)',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)'
                 },
                 title: 'Rewind 5 seconds',
                 onClick: () => window.SwiftAudioEngine?.Player?.skipBackward5()
               }, '-5s'),
 
-              // Instant Play / Pause Button with Glow Accent
+              // Instant Play / Pause Hero Button (68x68, Glowing)
               h('button', {
                 type: 'button',
                 className: 'mini-btn',
                 style: {
-                  background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                  color: '#fff',
-                  width: 60,
-                  height: 60,
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  color: '#ffffff',
+                  width: 68,
+                  height: 68,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: 0,
                   border: 'none',
-                  boxShadow: '0 4px 22px rgba(99, 102, 241, 0.55), 0 0 16px rgba(99, 102, 241, 0.3)'
+                  boxShadow: '0 6px 26px rgba(99, 102, 241, 0.6), 0 0 18px rgba(99, 102, 241, 0.4)'
                 },
                 title: isPlaying ? 'Pause' : 'Play',
                 onClick: () => window.SwiftAudioEngine?.Player?.togglePlay()
-              }, isPlaying ? ic('Pause', 24) : ic('Play', 24)),
+              }, isPlaying ? ic('Pause', 28) : ic('Play', 28)),
 
-              // Fine 5-Second Forward
+              // Fine 5-Second Forward Button (50x50, Bold)
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
                 style: {
-                  width: 44,
-                  height: 44,
+                  width: 50,
+                  height: 50,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: 0,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  fontSize: 13,
+                  fontWeight: 900,
+                  background: 'rgba(255, 255, 255, 0.07)',
+                  border: '1px solid rgba(255, 255, 255, 0.16)',
                   color: 'var(--paper)',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)'
                 },
                 title: 'Forward 5 seconds',
                 onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
               }, '+5s'),
 
-              // Next Chapter
+              // Next Chapter Button (46x46)
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
                 style: {
-                  width: 42,
-                  height: 42,
+                  width: 46,
+                  height: 46,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: 0,
                   color: 'var(--paper)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)'
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)'
                 },
                 title: 'Next Chapter',
                 onClick: () => window.SwiftAudioEngine?.Player?.nextTrack()
-              }, ic('SkipForward', 19))
+              }, ic('SkipForward', 20))
             ),
 
-            // Speed & Sleep Tuning Glass Card
+            // Speed & Sleep Tuning Glass Bar
             h('div', {
               style: {
                 display: 'flex',
@@ -695,16 +713,17 @@
                 alignItems: 'center',
                 background: 'rgba(255, 255, 255, 0.03)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
-                padding: '10px 14px',
-                borderRadius: 12,
-                marginBottom: 14,
+                padding: '8px 12px',
+                borderRadius: 14,
+                marginBottom: 10,
                 flexWrap: 'wrap',
-                gap: 8
+                gap: 8,
+                flexShrink: 0
               }
             },
               // Speed Pill Selector
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 600 } }, 'Speed:'),
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 5 } },
+                h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 700 } }, 'Speed:'),
                 [0.75, 1.0, 1.25, 1.5, 2.0].map(sp => {
                   const isActive = Math.abs(playbackRate - sp) < 0.05;
                   return h('button', {
@@ -712,8 +731,8 @@
                     type: 'button',
                     className: 'mini-btn',
                     style: {
-                      padding: '4px 8px',
-                      fontSize: 11,
+                      padding: '4px 7px',
+                      fontSize: 10.5,
                       fontWeight: 700,
                       borderRadius: 8,
                       background: isActive ? 'var(--accent, #6366f1)' : 'rgba(255, 255, 255, 0.04)',
@@ -728,7 +747,7 @@
 
               // Sleep Timer Selector
               h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 } },
+                h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 } },
                   ic('Clock', 12),
                   'Sleep:'
                 ),
@@ -751,9 +770,9 @@
                     else window.SwiftAudioEngine?.Player?.setSleepTimer(val);
                   },
                   style: {
-                    background: 'rgba(0, 0, 0, 0.4)',
+                    background: 'rgba(0, 0, 0, 0.45)',
                     color: 'var(--paper)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
                     borderRadius: 8,
                     padding: '4px 8px',
                     fontSize: 11
@@ -769,16 +788,16 @@
               )
             ),
 
-            // Open in Poweramp Action Button
+            // Hero Poweramp Action Button
             h('button', {
               type: 'button',
               className: 'mini-btn',
               style: {
                 width: '100%',
                 padding: '11px 16px',
-                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(79, 70, 229, 0.28))',
-                border: '1px solid rgba(99, 102, 241, 0.45)',
-                borderRadius: 12,
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(79, 70, 229, 0.35))',
+                border: '1px solid rgba(99, 102, 241, 0.50)',
+                borderRadius: 14,
                 color: '#e0e7ff',
                 fontWeight: 700,
                 fontSize: 13,
@@ -787,30 +806,37 @@
                 justifyContent: 'center',
                 gap: 8,
                 cursor: 'pointer',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4), 0 0 16px rgba(99, 102, 241, 0.18)',
-                marginBottom: 14
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4), 0 0 16px rgba(99, 102, 241, 0.20)',
+                marginBottom: 10,
+                flexShrink: 0
               },
               title: 'Open and play in Poweramp player on Android',
               onClick: () => window.SwiftAudioEngine?.Player?.openInPoweramp()
             },
               ic('ExternalLink', 15, 'text-indigo-300'),
-              'Open in Poweramp'
+              'Play in Poweramp (Android)'
             ),
 
-            // Expandable Chapter Queue
-            h('div', { style: { marginTop: 4 } },
+            // Collapsible Chapter Queue Drawer Bar
+            h('div', { style: { marginTop: 4, flexShrink: 0 } },
               h('div', {
                 style: {
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: 'var(--paper)',
-                  marginBottom: 8,
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center'
-                }
+                  alignItems: 'center',
+                  padding: '10px 12px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 12,
+                  cursor: 'pointer'
+                },
+                onClick: () => setIsChapterQueueOpen(prev => !prev)
               },
-                h('span', null, `Chapters (${totalTracks})`),
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                  ic('ListMusic', 15, 'text-indigo-400'),
+                  h('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--paper)' } }, `Chapters & Queue (${totalTracks})`),
+                  ic(isChapterQueueOpen ? 'ChevronUp' : 'ChevronDown', 14, 'text-slate-400')
+                ),
                 h('button', {
                   type: 'button',
                   className: 'mini-btn ghost',
@@ -820,20 +846,27 @@
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 4,
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.10)',
                     borderRadius: 6
                   },
-                  onClick: () => handleOpenAudioDownload && handleOpenAudioDownload(currentBook)
+                  onClick: (e) => {
+                    e.stopPropagation();
+                    if (handleOpenAudioDownload) handleOpenAudioDownload(currentBook);
+                  }
                 }, ic('Download', 13), 'Download MP3s')
               ),
-              h('div', {
+
+              // Expandable Chapter Queue Body
+              isChapterQueueOpen && h('div', {
                 style: {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 4,
-                  maxHeight: isPlayerFullscreen ? 360 : 190,
-                  overflowY: 'auto'
+                  maxHeight: 260,
+                  overflowY: 'auto',
+                  marginTop: 8,
+                  padding: '4px 0'
                 }
               },
                 (currentBook.tracks || []).map((t, idx) => {
@@ -919,7 +952,7 @@
       hasBgDl && h('div', {
         style: {
           position: 'fixed',
-          bottom: audioPlayerState?.currentBook ? 124 : 64,
+          bottom: audioPlayerState?.currentBook ? 'calc(164px + env(safe-area-inset-bottom, 16px))' : 'calc(88px + env(safe-area-inset-bottom, 16px))',
           left: 12,
           right: 12,
           maxWidth: 480,
