@@ -223,10 +223,13 @@
       onHealAllChapters, isHealingAll, healAllProgress,
       onOpenSuiteModal,
       bookTitle = '', totalChapters = 0, chapters = [], chapterScrollPct = 0,
-      bookmarks = [], onToggleBookmark
+      bookmarks = [], onToggleBookmark, coverUrl = '', onOpenLightbox,
+      onAddBookmark, onDeleteBookmark
     } = props;
 
-    const [activeTab, setActiveTab] = useState('chapters'); // 'chapters' | 'bookmarks'
+    const [activeTab, setActiveTab] = useState('chapters'); // 'chapters' | 'bookmarks' | 'gallery'
+    const [bmFilter, setBmFilter] = useState('all'); // 'all' | 'bookmarks' | 'notes' | 'highlights'
+    const [bmSearch, setBmSearch] = useState('');
     const [sortAsc, setSortAsc] = useState(true);
     const [filterImagesOnly, setFilterImagesOnly] = useState(false);
     const [showSearchDrawer, setShowSearchDrawer] = useState(false);
@@ -251,6 +254,36 @@
       return pages;
     }, [safeChapters]);
 
+    // All illustrations extracted across chapters for Gallery View (Screenshot 2)
+    const allIllustrations = useMemo(() => {
+      const imgs = [];
+      safeChapters.forEach((ch, chIdx) => {
+        const text = (ch.content || ch.text || '');
+        const mdMatches = [...text.matchAll(/!\[(.*?)\]\((https?:\/\/[^\s)]+|data:image\/[^\s)]+)\)/gi)];
+        mdMatches.forEach(m => {
+          imgs.push({
+            alt: m[1] || 'Illustration',
+            src: m[2],
+            chapterIdx: chIdx,
+            chapterTitle: ch.title || `Chapter ${chIdx + 1}`
+          });
+        });
+        const htmlMatches = [...text.matchAll(/<img\b[^>]*src=["'](https?:\/\/[^"']+|data:image\/[^"']+)["'][^>]*>/gi)];
+        htmlMatches.forEach(m => {
+          const src = m[1];
+          if (!imgs.some(existing => existing.src === src)) {
+            imgs.push({
+              alt: 'Illustration',
+              src: src,
+              chapterIdx: chIdx,
+              chapterTitle: ch.title || `Chapter ${chIdx + 1}`
+            });
+          }
+        });
+      });
+      return imgs;
+    }, [safeChapters]);
+
     // Format Moon+ Reader chapter label: "#<num> <title>"
     const formatMoonTitle = (ch, origIdx) => {
       const cleanT = (typeof window !== 'undefined' && window.cleanRawChapterTitle)
@@ -266,7 +299,7 @@
     const displayedChapters = useMemo(() => {
       let list = safeChapters.map((ch, idx) => ({ ...ch, originalIndex: idx }));
       if (filterImagesOnly) {
-        list = list.filter(ch => ch.hasImages || /<img/i.test(ch.content || ch.text || ''));
+        list = list.filter(ch => ch.hasImages || /<img/i.test(ch.content || ch.text || '') || /!\[/i.test(ch.content || ch.text || ''));
       }
       if (filterUntranslatedOnly) {
         const hasForeignChars = (s) => typeof s === 'string' && /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\u0400-\u04ff]/.test(s);
@@ -281,6 +314,36 @@
       }
       return list;
     }, [safeChapters, filterImagesOnly, filterUntranslatedOnly, tocSearch, sortAsc]);
+
+    // Helper to categorize bookmark kinds (0: bookmark, 1: note, 2: highlight)
+    const getBmKind = (b) => {
+      if (b.type === 1 || b.type === 'note' || b.noteText) return 'notes';
+      if (b.type === 2 || b.type === 'highlight' || b.highlightText) return 'highlights';
+      return 'bookmarks';
+    };
+
+    // Filtered & Strictly Ordered Bookmarks (Bookmarks first, then Notes, then Highlights)
+    const displayedBookmarks = useMemo(() => {
+      let list = Array.isArray(bookmarks) ? [...bookmarks] : [];
+      if (bmSearch && bmSearch.trim()) {
+        const q = bmSearch.trim().toLowerCase();
+        list = list.filter(b => 
+          (b.chapterTitle && b.chapterTitle.toLowerCase().includes(q)) ||
+          (b.noteText && b.noteText.toLowerCase().includes(q)) ||
+          (b.highlightText && b.highlightText.toLowerCase().includes(q)) ||
+          (b.snippet && b.snippet.toLowerCase().includes(q))
+        );
+      }
+      if (bmFilter === 'bookmarks') return list.filter(b => getBmKind(b) === 'bookmarks');
+      if (bmFilter === 'notes') return list.filter(b => getBmKind(b) === 'notes');
+      if (bmFilter === 'highlights') return list.filter(b => getBmKind(b) === 'highlights');
+
+      // STRICT 1:1 ORDERING FROM MOON+ READER (Screenshot 1): Bookmarks first, Notes second, Highlights third
+      const bms = list.filter(b => getBmKind(b) === 'bookmarks');
+      const nts = list.filter(b => getBmKind(b) === 'notes');
+      const hls = list.filter(b => getBmKind(b) === 'highlights');
+      return [...bms, ...nts, ...hls];
+    }, [bookmarks, bmFilter, bmSearch]);
 
     if (!showToc) return null;
 
@@ -301,7 +364,7 @@
         className: 'moon-toc-panel',
         onClick: (e) => e.stopPropagation()
       },
-        // ── TOP NAVIGATION BAR (Screenshot 2) ──
+        // ── TOP NAVIGATION BAR (Screenshots 1 & 2) ──
         h('div', { className: 'moon-toc-top-nav' },
           h('div', { className: 'moon-toc-nav-left' },
             h('button', {
@@ -326,9 +389,9 @@
           h('div', { className: 'moon-toc-nav-actions' },
             h('button', {
               type: 'button',
-              className: 'moon-toc-action-btn' + (filterImagesOnly ? ' active' : ''),
-              title: filterImagesOnly ? 'Show all chapters' : 'Filter chapters with images',
-              onClick: () => setFilterImagesOnly(v => !v)
+              className: 'moon-toc-action-btn' + (activeTab === 'gallery' ? ' active' : ''),
+              title: activeTab === 'gallery' ? 'View Chapters' : 'View Image Gallery',
+              onClick: () => setActiveTab(t => t === 'gallery' ? 'chapters' : 'gallery')
             }, ic('Image', 17)),
             h('button', {
               type: 'button',
@@ -344,21 +407,95 @@
           ic('Search', 15, 'text-gray-400 shrink-0'),
           h('input', {
             type: 'text',
-            placeholder: 'Filter chapters or arcs…',
-            value: tocSearch,
+            placeholder: activeTab === 'bookmarks' ? 'Filter bookmarks, notes, or highlights…' : 'Filter chapters or arcs…',
+            value: activeTab === 'bookmarks' ? bmSearch : tocSearch,
             autoFocus: true,
-            onChange: (e) => setTocSearch(e.target.value)
+            onChange: (e) => activeTab === 'bookmarks' ? setBmSearch(e.target.value) : setTocSearch(e.target.value)
           }),
-          tocSearch && h('button', {
+          (activeTab === 'bookmarks' ? bmSearch : tocSearch) && h('button', {
             type: 'button',
             className: 'moon-toc-action-btn',
             style: { width: 28, height: 28 },
-            onClick: () => setTocSearch('')
+            onClick: () => activeTab === 'bookmarks' ? setBmSearch('') : setTocSearch('')
           }, ic('X', 14))
         ),
 
-        // ── MAIN CONTENT LIST (1:1 MOON+ READER) ──
-        activeTab === 'chapters' ? (
+        // ── SUB-BAR: BOOKMARKS / NOTES / HIGHLIGHTS CHIPS (Screenshot 1) ──
+        activeTab === 'bookmarks' && h('div', { className: 'moon-bm-filter-bar' },
+          h('button', {
+            type: 'button',
+            className: 'moon-bm-filter-chip' + (bmFilter === 'all' ? ' active' : ''),
+            onClick: () => setBmFilter('all')
+          }, '>> All'),
+          h('button', {
+            type: 'button',
+            className: 'moon-bm-filter-chip' + (bmFilter === 'bookmarks' ? ' active' : ''),
+            onClick: () => setBmFilter('bookmarks')
+          }, 'Bookmarks'),
+          h('button', {
+            type: 'button',
+            className: 'moon-bm-filter-chip' + (bmFilter === 'notes' ? ' active' : ''),
+            onClick: () => setBmFilter('notes')
+          }, 'Notes'),
+          h('button', {
+            type: 'button',
+            className: 'moon-bm-filter-chip' + (bmFilter === 'highlights' ? ' active' : ''),
+            onClick: () => setBmFilter('highlights')
+          }, 'Highlights')
+        ),
+
+        // ── MAIN CONTENT (Chapters | Bookmarks | Image Gallery) ──
+        activeTab === 'gallery' ? (
+          // ── 1:1 MOON+ READER IMAGE GALLERY VIEW (Screenshot 2) ──
+          h('div', { className: 'moon-gallery-container' },
+            coverUrl && h('div', { className: 'moon-gallery-cover-wrap' },
+              h('img', {
+                className: 'moon-gallery-cover-img',
+                src: coverUrl,
+                alt: bookTitle || 'Cover',
+                onClick: () => typeof onOpenLightbox === 'function' && onOpenLightbox(coverUrl)
+              }),
+              h('div', { className: 'moon-gallery-cover-title' }, bookTitle || 'Cover Illustration')
+            ),
+            allIllustrations.length === 0 ? (
+              h('div', { style: { padding: '48px 20px', textAlign: 'center', color: '#64748b', fontSize: 13 } },
+                coverUrl ? 'No additional chapter illustrations found in this novel.' : 'No illustrations or cover found in this novel.'
+              )
+            ) : (
+              h('div', null,
+                h('div', { style: { fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 } },
+                  `Novel Illustrations (${allIllustrations.length})`
+                ),
+                h('div', { className: 'moon-gallery-grid' },
+                  allIllustrations.map((img, iIdx) => (
+                    h('div', {
+                      key: `gallery-img-${iIdx}`,
+                      className: 'moon-gallery-card',
+                      onClick: () => {
+                        if (typeof onOpenLightbox === 'function') {
+                          onOpenLightbox(img.src);
+                        } else {
+                          changeChapter(img.chapterIdx);
+                          setShowToc(false);
+                        }
+                      }
+                    },
+                      h('img', {
+                        className: 'moon-gallery-thumb',
+                        src: img.src,
+                        alt: img.alt || `Illustration ${iIdx + 1}`,
+                        loading: 'lazy'
+                      }),
+                      h('div', { className: 'moon-gallery-caption', title: img.chapterTitle },
+                        img.chapterTitle
+                      )
+                    )
+                  ))
+                )
+              )
+            )
+          )
+        ) : activeTab === 'chapters' ? (
           h('div', { className: 'moon-toc-list-wrap' },
             displayedChapters.length === 0 ? (
               h('div', { style: { padding: '48px 20px', textAlign: 'center', color: '#64748b', fontSize: 13 } },
@@ -391,41 +528,77 @@
             )
           )
         ) : (
-          // Bookmarks Tab
-          h('div', { className: 'moon-toc-list-wrap' },
-            (!bookmarks || bookmarks.length === 0) ? (
+          // ── 1:1 MOON+ READER BOOKMARKS, NOTES & HIGHLIGHTS TAB (Screenshot 1) ──
+          h('div', { className: 'moon-bm-container' },
+            displayedBookmarks.length === 0 ? (
               h('div', { style: { padding: '64px 20px', textAlign: 'center', color: '#64748b' } },
                 ic('Bookmark', 36, 'opacity-40 mb-3'),
-                h('div', { style: { fontWeight: 600, color: '#94a3b8', fontSize: 14, marginBottom: 6 } }, 'No Bookmarks Yet'),
-                h('div', { style: { fontSize: 12, lineHeight: 1.5, maxWidth: 240, margin: '0 auto' } },
-                  'Tap the bookmark icon in the reading menu to bookmark any chapter.'
+                h('div', { style: { fontWeight: 600, color: '#94a3b8', fontSize: 14, marginBottom: 6 } }, 'No Items Yet'),
+                h('div', { style: { fontSize: 12, lineHeight: 1.5, maxWidth: 260, margin: '0 auto' } },
+                  'Tap "ADD NEW BOOKMARK" below or bookmark from the reader menu.'
                 )
               )
             ) : (
-              bookmarks.map((bm, bIdx) => {
+              displayedBookmarks.map((bm, bIdx) => {
+                const kind = getBmKind(bm);
                 const isCurrent = bm.chapterIdx === activeIdx;
-                const pageNum = chapterPages[bm.chapterIdx] || 1;
-                const bTitle = (typeof window !== 'undefined' && window.cleanRawChapterTitle)
+                const dateStr = bm.time ? new Date(bm.time).toISOString().replace('T', ' ').slice(0, 16) : 'Recently';
+                const chTitle = (typeof window !== 'undefined' && window.cleanRawChapterTitle)
                   ? window.cleanRawChapterTitle(bm.chapterTitle)
-                  : (bm.chapterTitle || `Chapter ${bm.chapterIdx + 1}`);
+                  : (bm.chapterTitle || `Chapter ${(bm.chapterIdx ?? 0) + 1}`);
 
                 return h('div', {
-                  key: `moon-bm-${bIdx}`,
-                  className: 'moon-toc-chapter-row' + (isCurrent ? ' active' : ''),
+                  key: bm.id || `moon-bm-${bIdx}`,
+                  className: 'moon-bm-card',
                   onClick: () => {
-                    changeChapter(bm.chapterIdx);
+                    changeChapter(bm.chapterIdx || 0);
                     setShowToc(false);
                   }
                 },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flex: 1, overflow: 'hidden' } },
-                    ic('Bookmark', 15, isCurrent ? 'text-amber-500 shrink-0' : 'text-slate-400 shrink-0'),
-                    h('div', { className: 'moon-toc-chapter-title' },
-                      h('span', { style: { fontWeight: 600 } }, `Chapter ${bm.chapterIdx + 1}: `),
-                      h('span', null, bTitle)
-                    )
+                  // Card Header
+                  h('div', { className: 'moon-bm-header' },
+                    h('div', { className: 'moon-bm-header-left' },
+                      h('span', { className: 'moon-bm-icon' },
+                        kind === 'highlights'
+                          ? ic('Highlighter', 15, 'text-emerald-400')
+                          : kind === 'notes'
+                          ? ic('Edit3', 15, 'text-sky-400')
+                          : ic('Bookmark', 15, isCurrent ? 'text-amber-400' : 'text-blue-400')
+                      ),
+                      h('div', { className: 'moon-bm-meta' },
+                        h('span', { className: 'moon-bm-date' }, dateStr),
+                        h('span', { className: 'moon-bm-chapter-tag' }, `Chapter ${(bm.chapterIdx ?? 0) + 1}: ${chTitle}`)
+                      )
+                    ),
+                    h('button', {
+                      type: 'button',
+                      className: 'moon-bm-menu-btn',
+                      title: 'Delete Item',
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        if (typeof onDeleteBookmark === 'function') {
+                          onDeleteBookmark(bm.id || bm.chapterIdx);
+                        } else if (typeof onToggleBookmark === 'function') {
+                          onToggleBookmark(bm.chapterIdx);
+                        }
+                      }
+                    }, ic('Trash2', 13) || '✕')
                   ),
-                  h('div', { className: 'moon-toc-chapter-page' },
-                    bm.pct !== undefined ? `${bm.pct}%` : `p. ${pageNum}`
+
+                  // Card Body (Highlight colored box vs Note vs Bookmark progress)
+                  kind === 'highlights' ? (
+                    h('div', {
+                      className: 'moon-bm-highlight-box',
+                      style: { background: bm.color || '#166534' }
+                    }, `${bIdx + 1}. ${bm.highlightText || bm.snippet || 'Highlighted excerpt'}`)
+                  ) : kind === 'notes' ? (
+                    h('div', { className: 'moon-bm-snippet', style: { color: '#e2e8f0', fontStyle: 'italic' } },
+                      bm.noteText || bm.snippet || 'Note'
+                    )
+                  ) : (
+                    h('div', { className: 'moon-bm-snippet' },
+                      bm.snippet || `${bm.pct !== undefined ? bm.pct + '% completed' : 'Chapter bookmark'} (p. ${chapterPages[bm.chapterIdx] || 1})`
+                    )
                   )
                 );
               })
@@ -481,47 +654,16 @@
           ),
           h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap' } },
             h('div', { style: { display: 'flex', gap: 4 } },
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: { padding: '4px 8px', fontSize: 11 },
-                disabled: activeIdx <= 0,
-                onClick: () => changeChapter(Math.max(0, activeIdx - 25))
-              }, '« 25'),
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: { padding: '4px 8px', fontSize: 11 },
-                disabled: activeIdx <= 0,
-                onClick: () => changeChapter(Math.max(0, activeIdx - 1))
-              }, '‹'),
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: { padding: '4px 8px', fontSize: 11 },
-                disabled: activeIdx >= totalChsCount - 1,
-                onClick: () => changeChapter(Math.min(totalChsCount - 1, activeIdx + 1))
-              }, '›'),
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: { padding: '4px 8px', fontSize: 11 },
-                disabled: activeIdx >= totalChsCount - 1,
-                onClick: () => changeChapter(Math.min(totalChsCount - 1, activeIdx + 25))
-              }, '25 »')
+              h('button', { type: 'button', className: 'mini-btn ghost', style: { padding: '4px 8px', fontSize: 11 }, disabled: activeIdx <= 0, onClick: () => changeChapter(Math.max(0, activeIdx - 25)) }, '« 25'),
+              h('button', { type: 'button', className: 'mini-btn ghost', style: { padding: '4px 8px', fontSize: 11 }, disabled: activeIdx <= 0, onClick: () => changeChapter(Math.max(0, activeIdx - 1)) }, '‹'),
+              h('button', { type: 'button', className: 'mini-btn ghost', style: { padding: '4px 8px', fontSize: 11 }, disabled: activeIdx >= totalChsCount - 1, onClick: () => changeChapter(Math.min(totalChsCount - 1, activeIdx + 1)) }, '›'),
+              h('button', { type: 'button', className: 'mini-btn ghost', style: { padding: '4px 8px', fontSize: 11 }, disabled: activeIdx >= totalChsCount - 1, onClick: () => changeChapter(Math.min(totalChsCount - 1, activeIdx + 25)) }, '25 »')
             ),
             h('div', { style: { display: 'flex', gap: 6 } },
               h('button', {
                 type: 'button',
                 className: 'mini-btn' + (filterUntranslatedOnly ? ' active' : ' ghost'),
-                style: {
-                  fontSize: 11,
-                  padding: '4px 8px',
-                  borderRadius: 6,
-                  background: filterUntranslatedOnly ? '#f97316' : 'rgba(255,255,255,0.06)',
-                  color: filterUntranslatedOnly ? '#fff' : '#94a3b8',
-                  border: '1px solid ' + (filterUntranslatedOnly ? '#f97316' : 'rgba(255,255,255,0.1)')
-                },
+                style: { fontSize: 11, padding: '4px 8px', borderRadius: 6, background: filterUntranslatedOnly ? '#f97316' : 'rgba(255,255,255,0.06)', color: filterUntranslatedOnly ? '#fff' : '#94a3b8', border: '1px solid ' + (filterUntranslatedOnly ? '#f97316' : 'rgba(255,255,255,0.1)') },
                 onClick: () => setFilterUntranslatedOnly(v => !v)
               }, 'Untranslated'),
               typeof onHealAllChapters === 'function' && h('button', {
@@ -535,34 +677,72 @@
           )
         ),
 
-        // ── BOTTOM HUD BAR (Screenshot 2) ──
-        h('div', { className: 'moon-toc-bottom-hud' },
-          h('div', {
-            className: 'moon-toc-bottom-left',
-            title: `#${activeIdx + 1} ${currentChapterTitle} (${activeIdx + 1}/${totalChsCount})`
-          }, `#${activeIdx + 1} ${currentChapterTitle} (${activeIdx + 1}/${totalChsCount})`),
-          h('div', { className: 'moon-toc-bottom-right' },
+        // ── BOTTOM HUD BAR (Screenshot 1 for Bookmarks, Screenshot 2 for Chapters/Gallery) ──
+        activeTab === 'bookmarks' ? (
+          h('div', { className: 'moon-bm-footer-bar' },
             h('button', {
               type: 'button',
-              className: 'moon-toc-action-btn' + (showSearchDrawer ? ' active' : ''),
-              title: 'Search in chapters',
-              onClick: () => setShowSearchDrawer(v => !v)
-            }, ic('Search', 17)),
-            h('button', {
-              type: 'button',
-              className: 'moon-toc-action-btn' + (showSettingsSheet ? ' active' : ''),
-              title: 'Jump & Translation Tools',
-              onClick: () => setShowSettingsSheet(v => !v)
-            }, ic('Settings', 17)),
-            h('span', {
-              style: {
-                fontSize: 13,
-                fontWeight: 600,
-                color: '#f8fafc',
-                minWidth: 44,
-                textAlign: 'right'
+              className: 'moon-toc-action-btn',
+              title: 'Export / Backup Bookmarks (.mrexpt)',
+              onClick: () => {
+                const text = bookmarks.map(b => `${b.chapterIdx || 0}\n${b.snippet || ''}\n${b.time || Date.now()}`).join('\n#\n');
+                const blob = new Blob([text], { type: 'text/plain' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = (bookTitle || 'Book') + '.mrexpt';
+                a.click();
+                URL.revokeObjectURL(a.href);
               }
-            }, `${overallPct}%`)
+            }, ic('Share2', 17) || ic('Link', 17)),
+            h('button', {
+              type: 'button',
+              className: 'moon-bm-add-btn',
+              onClick: () => {
+                if (typeof onAddBookmark === 'function') {
+                  onAddBookmark({ chapterIdx: activeIdx, pct: Math.round(chapterScrollPct || 0) });
+                } else if (typeof onToggleBookmark === 'function') {
+                  onToggleBookmark();
+                }
+              }
+            }, ic('Plus', 16), 'ADD NEW BOOKMARK'),
+            h('div', { style: { display: 'flex', gap: 6 } },
+              h('button', {
+                type: 'button',
+                className: 'moon-toc-action-btn' + (showSearchDrawer ? ' active' : ''),
+                title: 'Search bookmarks',
+                onClick: () => setShowSearchDrawer(v => !v)
+              }, ic('Search', 17)),
+              h('button', {
+                type: 'button',
+                className: 'moon-toc-action-btn',
+                title: 'Jump Tools',
+                onClick: () => setShowSettingsSheet(v => !v)
+              }, ic('Settings', 17))
+            )
+          )
+        ) : (
+          h('div', { className: 'moon-toc-bottom-hud' },
+            h('div', {
+              className: 'moon-toc-bottom-left',
+              title: `#${activeIdx + 1} ${currentChapterTitle} (${activeIdx + 1}/${totalChsCount})`
+            }, `#${activeIdx + 1} ${currentChapterTitle} (${activeIdx + 1}/${totalChsCount})`),
+            h('div', { className: 'moon-toc-bottom-right' },
+              h('button', {
+                type: 'button',
+                className: 'moon-toc-action-btn' + (showSearchDrawer ? ' active' : ''),
+                title: 'Search in chapters',
+                onClick: () => setShowSearchDrawer(v => !v)
+              }, ic('Search', 17)),
+              h('button', {
+                type: 'button',
+                className: 'moon-toc-action-btn' + (showSettingsSheet ? ' active' : ''),
+                title: 'Jump & Translation Tools',
+                onClick: () => setShowSettingsSheet(v => !v)
+              }, ic('Settings', 17)),
+              h('span', {
+                style: { fontSize: 13, fontWeight: 600, color: '#f8fafc', minWidth: 44, textAlign: 'right' }
+              }, `${overallPct}%`)
+            )
           )
         )
       )
@@ -2310,39 +2490,15 @@
         className: 'reader-dynamic-progress-pill-mini',
         title: `${modeLabel} in progress (${Math.round(pct)}%) · Tap to unhide progress bar`,
         style: {
-          position: 'fixed',
-          top: hudVisible ? 'calc(58px + env(safe-area-inset-top, 0px))' : 'calc(14px + env(safe-area-inset-top, 0px))',
-          right: '16px',
-          zIndex: 60,
-          background: 'rgba(15, 23, 42, 0.94)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          border: `1px solid ${accentBorder}`,
-          boxShadow: `0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px ${glowShadow}`,
-          borderRadius: 9999,
-          padding: '5px 11px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          color: '#f8fafc',
-          fontSize: 11.5,
-          fontWeight: 700,
-          cursor: 'pointer',
-          userSelect: 'none',
-          transition: 'top 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease'
+          position: 'fixed', top: hudVisible ? 'calc(58px + env(safe-area-inset-top, 0px))' : 'calc(14px + env(safe-area-inset-top, 0px))',
+          right: '16px', zIndex: 60, background: 'rgba(15, 23, 42, 0.94)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+          border: `1px solid ${accentBorder}`, boxShadow: `0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px ${glowShadow}`,
+          borderRadius: 9999, padding: '5px 11px', display: 'flex', alignItems: 'center', gap: 6, color: '#f8fafc',
+          fontSize: 11.5, fontWeight: 700, cursor: 'pointer', userSelect: 'none', transition: 'top 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease'
         },
         onClick: toggleHidden
       },
-        h('div', {
-          style: {
-            width: 7,
-            height: 7,
-            borderRadius: '50%',
-            background: accentColor,
-            boxShadow: `0 0 6px ${accentColor}`
-          },
-          className: 'animate-pulse'
-        }),
+        h('div', { style: { width: 7, height: 7, borderRadius: '50%', background: accentColor, boxShadow: `0 0 6px ${accentColor}` }, className: 'animate-pulse' }),
         h('span', { style: { color: accentColor } }, `${Math.round(pct)}%`),
         ic('Eye', 12, 'opacity-70')
       );
@@ -2351,114 +2507,43 @@
     return h('div', {
       className: 'reader-dynamic-progress-pill',
       style: {
-        position: 'fixed',
-        top: hudVisible ? 'calc(58px + env(safe-area-inset-top, 0px))' : 'calc(12px + env(safe-area-inset-top, 0px))',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 60,
-        background: 'rgba(15, 23, 42, 0.94)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        border: `1px solid ${accentBorder}`,
-        boxShadow: `0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 16px ${glowShadow}`,
-        borderRadius: 9999,
-        padding: '7px 14px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        color: '#f8fafc',
-        fontSize: 12.5,
-        maxWidth: 'min(460px, calc(100vw - 28px))',
-        cursor: 'pointer',
-        userSelect: 'none',
+        position: 'fixed', top: hudVisible ? 'calc(58px + env(safe-area-inset-top, 0px))' : 'calc(12px + env(safe-area-inset-top, 0px))',
+        left: '50%', transform: 'translateX(-50%)', zIndex: 60, background: 'rgba(15, 23, 42, 0.94)',
+        backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: `1px solid ${accentBorder}`,
+        boxShadow: `0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 16px ${glowShadow}`, borderRadius: 9999,
+        padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 10, color: '#f8fafc', fontSize: 12.5,
+        maxWidth: 'min(460px, calc(100vw - 28px))', cursor: 'pointer', userSelect: 'none',
         transition: 'top 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s ease, opacity 0.25s ease'
       },
       onClick: onOpenDashboard
     },
       // Left: Animated pulsing icon
       h('div', {
-        style: {
-          width: 24,
-          height: 24,
-          borderRadius: '50%',
-          background: `rgba(${isHealing ? '168, 85, 247' : (isTranslatingTitles ? '56, 189, 248' : '99, 102, 241')}, 0.2)`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: accentColor,
-          flexShrink: 0
-        }
+        style: { width: 24, height: 24, borderRadius: '50%', background: `rgba(${isHealing ? '168, 85, 247' : (isTranslatingTitles ? '56, 189, 248' : '99, 102, 241')}, 0.2)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: accentColor, flexShrink: 0 }
       }, ic('Sparkles', 13, 'animate-pulse')),
 
       // Center Info
-      h('div', {
-        style: {
-          display: 'flex',
-          flexDirection: 'column',
-          minWidth: 90,
-          maxWidth: 200,
-          overflow: 'hidden'
-        }
-      },
-        h('div', {
-          style: {
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            fontWeight: 700,
-            fontSize: 12,
-            color: accentColor,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }
-        },
+      h('div', { style: { display: 'flex', flexDirection: 'column', minWidth: 90, maxWidth: 200, overflow: 'hidden' } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: accentColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
           h('span', null, isTranslatingTitles ? `Titles (${titlesProgress?.done || 0}/${titlesProgress?.total || '…'})` : `Ch. ${(chapterIndex ?? 0) + 1} · ${modeLabel}`),
           h('span', { style: { fontSize: 11, color: '#94a3b8', fontWeight: 600 } }, `${Math.round(pct)}%`)
         ),
-        h('div', {
-          style: {
-            fontSize: 10.5,
-            color: '#cbd5e1',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }
-        }, statusMsg || cleanTitle || 'Tap for Live Dashboard')
+        h('div', { style: { fontSize: 10.5, color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, statusMsg || cleanTitle || 'Tap for Live Dashboard')
       ),
 
       // Progress Bar
-      h('div', {
-        style: {
-          width: 60,
-          height: 5,
-          background: 'rgba(255, 255, 255, 0.12)',
-          borderRadius: 3,
-          overflow: 'hidden',
-          flexShrink: 0
-        }
-      },
+      h('div', { style: { width: 60, height: 5, background: 'rgba(255, 255, 255, 0.12)', borderRadius: 3, overflow: 'hidden', flexShrink: 0 } },
         h('div', {
           style: {
-            width: `${Math.min(100, Math.max(0, pct))}%`,
-            height: '100%',
-            background: isHealing
-              ? 'linear-gradient(90deg, #a855f7, #ec4899)'
-              : (isTranslatingTitles ? 'linear-gradient(90deg, #38bdf8, #6366f1)' : 'linear-gradient(90deg, #6366f1, #a855f7)'),
+            width: `${Math.min(100, Math.max(0, pct))}%`, height: '100%',
+            background: isHealing ? 'linear-gradient(90deg, #a855f7, #ec4899)' : (isTranslatingTitles ? 'linear-gradient(90deg, #38bdf8, #6366f1)' : 'linear-gradient(90deg, #6366f1, #a855f7)'),
             transition: 'width 0.3s ease'
           }
         })
       ),
 
       // Action Buttons Container
-      h('div', {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 5,
-          flexShrink: 0
-        }
-      },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 } },
         // Hide Button
         h('button', {
           type: 'button',

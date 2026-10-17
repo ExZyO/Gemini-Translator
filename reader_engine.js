@@ -1271,6 +1271,12 @@
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [showVoiceModal, setShowVoiceModal] = useState(false);
     const [previewSpeaking, setPreviewSpeaking] = useState(false);
+    useEffect(() => {
+      if (!hudVisible) {
+        setShowMoreMenu(false);
+        setShowQuickFont(false);
+      }
+    }, [hudVisible]);
     const [sleepTimerMinutes, setSleepTimerMinutes] = useState(0); // 0 = off, 15, 30, 45, 60, -1 = end of chapter
     const [sleepTimerSecondsLeft, setSleepTimerSecondsLeft] = useState(0);
     const sleepTimerRef = useRef(0);
@@ -1346,13 +1352,54 @@
           next = prev.filter(b => b.chapterIdx !== activeIdx);
           if (typeof window !== 'undefined' && window.toast) window.toast(`Bookmark removed from Chapter ${activeIdx + 1}`);
         } else {
-          next = [...prev, { chapterIdx: activeIdx, chapterTitle: currentChapter?.title || `Chapter ${activeIdx + 1}`, pct: Math.round(chapterScrollPct || 0), time: Date.now() }];
+          next = [...prev, { id: 'bm_' + Date.now(), chapterIdx: activeIdx, chapterTitle: currentChapter?.title || `Chapter ${activeIdx + 1}`, pct: Math.round(chapterScrollPct || 0), time: Date.now(), type: 0 }];
           if (typeof window !== 'undefined' && window.toast) window.toast(`Bookmark saved for Chapter ${activeIdx + 1}`);
         }
         try { localStorage.setItem('gemini_reader_bookmarks_' + k, JSON.stringify(next)); } catch (_) {}
+        if (activeNovelRecord && typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
+          window.GeminiNovelDB.updateNovel(activeNovelRecord.id, { bookmarks: next }).catch(() => {});
+        }
         return next;
       });
-    }, [novelId, activeIdx, currentChapter, chapterScrollPct]);
+    }, [novelId, activeIdx, currentChapter, chapterScrollPct, activeNovelRecord]);
+
+    const handleAddBookmark = useCallback((entry = {}) => {
+      const k = novelId || (typeof window !== 'undefined' && window.activeNovelRecord?.id) || 'default';
+      setBookmarks(prev => {
+        const item = {
+          id: 'bm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          chapterIdx: entry.chapterIdx !== undefined ? entry.chapterIdx : activeIdx,
+          chapterTitle: entry.chapterTitle || currentChapter?.title || `Chapter ${activeIdx + 1}`,
+          pct: entry.pct !== undefined ? entry.pct : Math.round(chapterScrollPct || 0),
+          time: Date.now(),
+          type: entry.type !== undefined ? entry.type : 0,
+          snippet: entry.snippet || '',
+          highlightText: entry.highlightText || '',
+          noteText: entry.noteText || '',
+          color: entry.color || '#166534'
+        };
+        const next = [...prev, item];
+        try { localStorage.setItem('gemini_reader_bookmarks_' + k, JSON.stringify(next)); } catch (_) {}
+        if (activeNovelRecord && typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
+          window.GeminiNovelDB.updateNovel(activeNovelRecord.id, { bookmarks: next }).catch(() => {});
+        }
+        if (typeof window !== 'undefined' && window.toast) window.toast('Bookmark saved');
+        return next;
+      });
+    }, [novelId, activeIdx, currentChapter, chapterScrollPct, activeNovelRecord]);
+
+    const handleDeleteBookmark = useCallback((targetIdOrIdx) => {
+      const k = novelId || (typeof window !== 'undefined' && window.activeNovelRecord?.id) || 'default';
+      setBookmarks(prev => {
+        const next = prev.filter(b => (b.id ? b.id !== targetIdOrIdx : b.chapterIdx !== targetIdOrIdx));
+        try { localStorage.setItem('gemini_reader_bookmarks_' + k, JSON.stringify(next)); } catch (_) {}
+        if (activeNovelRecord && typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
+          window.GeminiNovelDB.updateNovel(activeNovelRecord.id, { bookmarks: next }).catch(() => {});
+        }
+        if (typeof window !== 'undefined' && window.toast) window.toast('Bookmark removed');
+        return next;
+      });
+    }, [novelId, activeNovelRecord]);
 
     const sentencesRef = useRef([]);
     const utteranceRef = useRef(null);
@@ -2304,6 +2351,14 @@
             zIndex: 9998,
             background: 'transparent'
           },
+          onPointerDown: (e) => {
+            e.stopPropagation();
+            setShowMoreMenu(false);
+          },
+          onTouchStart: (e) => {
+            e.stopPropagation();
+            setShowMoreMenu(false);
+          },
           onClick: (e) => {
             e.stopPropagation();
             setShowMoreMenu(false);
@@ -2321,145 +2376,21 @@
           },
           onClick: (e) => e.stopPropagation()
         },
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          onClick: () => { setShowMoreMenu(false); setShowSearch(s => !s); }
-        },
-          ic('Search', 15),
-          h('span', null, 'Find in Chapter')
-        ),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          onClick: () => { setShowMoreMenu(false); setAutoScroll(s => !s); }
-        },
-          ic('Zap', 15),
-          h('span', null, autoScroll ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')
-        ),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          onClick: () => { setShowMoreMenu(false); setShowVoiceModal(true); }
-        },
-          ic('Volume2', 15),
-          h('span', null, 'Voice & Offline Engine Settings')
-        ),
+        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); setShowSearch(s => !s); } }, ic('Search', 15), h('span', null, 'Find in Chapter')),
+        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); setAutoScroll(s => !s); } }, ic('Zap', 15), h('span', null, autoScroll ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')),
+        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); setShowVoiceModal(true); } }, ic('Volume2', 15), h('span', null, 'Voice & Offline Engine Settings')),
         h('div', { className: 'reader-more-divider' }),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          style: { color: 'var(--r-accent)', fontWeight: 700 },
-          onClick: () => {
-            setShowMoreMenu(false);
-            const targetChap = (chapters && chapters[activeIdx]) || (safeChapters && safeChapters[activeIdx]) || currentChapter;
-            setSuiteModalChap(targetChap || { idx: activeIdx, title: `Chapter ${activeIdx + 1}` });
-          }
-        },
-          ic('Sparkles', 15),
-          h('span', null, 'Chapter Translation Suite & Settings…')
-        ),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          onClick: () => {
-            setShowMoreMenu(false);
-            handleTranslateActiveChapter();
-          }
-        },
-          ic('Sparkles', 15),
-          h('span', null, isTranslatingCurrentChapter ? 'Translating Chapter…' : 'Quick Translate Chapter')
-        ),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          style: { color: '#c084fc' },
-          onClick: () => {
-            setShowMoreMenu(false);
-            handleHealActiveChapterLines();
-          }
-        },
-          ic('Sparkles', 15),
-          h('span', null, 'Quick Heal Chapter Lines')
-        ),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          onClick: () => {
-            setShowMoreMenu(false);
-            handleTranslateActiveChapterTitleOnly();
-          }
-        },
-          ic('Type', 15),
-          h('span', null, 'Translate Chapter Title Only')
-        ),
-        (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) && h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          style: { color: 'var(--r-accent)', fontWeight: 600 },
-          onClick: () => { setShowMoreMenu(false); setLiveStreamText(streamBufferRef.current || ''); setIsLiveDashboardOpen(true); }
-        }, ic('Activity', 15), h('span', null, 'Open Live Translation Dashboard')),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          onClick: () => {
-            setShowMoreMenu(false);
-            if (typeof onExportEpub === 'function') {
-              onExportEpub(chapters);
-            } else if (typeof window !== 'undefined' && window.ExportEngine?.Controller?.export) {
-              window.ExportEngine.Controller.export('epub', { chaptersToExport: chapters }, { toast: (m, t) => window.toast?.(m, t) });
-            }
-          }
-        },
-          ic('Download', 15),
-          h('span', null, 'Save / Export EPUB')
-        ),
+        h('button', { type: 'button', className: 'reader-more-item', style: { color: 'var(--r-accent)', fontWeight: 700 }, onClick: () => { setShowMoreMenu(false); const targetChap = (chapters && chapters[activeIdx]) || (safeChapters && safeChapters[activeIdx]) || currentChapter; setSuiteModalChap(targetChap || { idx: activeIdx, title: `Chapter ${activeIdx + 1}` }); } }, ic('Sparkles', 15), h('span', null, 'Chapter Translation Suite & Settings…')),
+        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); handleTranslateActiveChapter(); } }, ic('Sparkles', 15), h('span', null, isTranslatingCurrentChapter ? 'Translating Chapter…' : 'Quick Translate Chapter')),
+        h('button', { type: 'button', className: 'reader-more-item', style: { color: '#c084fc' }, onClick: () => { setShowMoreMenu(false); handleHealActiveChapterLines(); } }, ic('Sparkles', 15), h('span', null, 'Quick Heal Chapter Lines')),
+        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); handleTranslateActiveChapterTitleOnly(); } }, ic('Type', 15), h('span', null, 'Translate Chapter Title Only')),
+        (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) && h('button', { type: 'button', className: 'reader-more-item', style: { color: 'var(--r-accent)', fontWeight: 600 }, onClick: () => { setShowMoreMenu(false); setLiveStreamText(streamBufferRef.current || ''); setIsLiveDashboardOpen(true); } }, ic('Activity', 15), h('span', null, 'Open Live Translation Dashboard')),
+        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); if (typeof onExportEpub === 'function') { onExportEpub(chapters); } else if (typeof window !== 'undefined' && window.ExportEngine?.Controller?.export) { window.ExportEngine.Controller.export('epub', { chaptersToExport: chapters }, { toast: (m, t) => window.toast?.(m, t) }); } } }, ic('Download', 15), h('span', null, 'Save / Export EPUB')),
         h('div', { className: 'reader-more-divider' }),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          onClick: () => {
-            setShowMoreMenu(false);
-            if (typeof onOpenHealthAudit === 'function') onOpenHealthAudit();
-            else if (typeof window !== 'undefined' && typeof window.openNovelHealthAudit === 'function') window.openNovelHealthAudit();
-          }
-        },
-          ic('Activity', 15),
-          h('span', null, 'Novel Health & QA Audit')
-        ),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          onClick: () => {
-            setShowMoreMenu(false);
-            if (typeof onOpenDiff === 'function') onOpenDiff(activeIdx);
-            else if (typeof window !== 'undefined' && typeof window.openDiffInspector === 'function') window.openDiffInspector(activeIdx);
-          }
-        },
-          ic('GitCompare', 15),
-          h('span', null, 'Translation Diffs & Revisions')
-        ),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          onClick: () => {
-            setShowMoreMenu(false);
-            if (typeof onClose === 'function') onClose();
-            if (window.loadEpubForEditing) window.loadEpubForEditing({ id: novelId, chapters });
-            if (typeof window.setActiveAppTab === 'function') window.setActiveAppTab('studio', 'edit');
-          }
-        },
-          ic('Edit', 15),
-          h('span', null, 'Edit in Ebook Studio')
-        ),
-        h('button', {
-          type: 'button',
-          className: 'reader-more-item',
-          onClick: () => { setShowMoreMenu(false); handleShareDeepLink(); }
-        },
-          ic('Link', 15),
-          h('span', null, 'Share Chapter Deep Link')
-        )
+        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); if (typeof onOpenHealthAudit === 'function') onOpenHealthAudit(); else if (typeof window !== 'undefined' && typeof window.openNovelHealthAudit === 'function') window.openNovelHealthAudit(); } }, ic('Activity', 15), h('span', null, 'Novel Health & QA Audit')),
+        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); if (typeof onOpenDiff === 'function') onOpenDiff(activeIdx); else if (typeof window !== 'undefined' && typeof window.openDiffInspector === 'function') window.openDiffInspector(activeIdx); } }, ic('GitCompare', 15), h('span', null, 'Translation Diffs & Revisions')),
+        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); if (typeof onClose === 'function') onClose(); if (window.loadEpubForEditing) window.loadEpubForEditing({ id: novelId, chapters }); if (typeof window.setActiveAppTab === 'function') window.setActiveAppTab('studio', 'edit'); } }, ic('Edit', 15), h('span', null, 'Edit in Ebook Studio')),
+        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); handleShareDeepLink(); } }, ic('Link', 15), h('span', null, 'Share Chapter Deep Link'))
       )
     ),
 
@@ -2834,7 +2765,10 @@
         isHealingAll, healAllProgress,
         onOpenSuiteModal: (c) => setSuiteModalChap(c),
         bookTitle, totalChapters: safeChapters.length, chapters: safeChapters, chapterScrollPct,
-        bookmarks, onToggleBookmark: handleToggleBookmark
+        bookmarks, onToggleBookmark: handleToggleBookmark,
+        coverUrl: activeNovelRecord?.cover || activeNovelRecord?.coverUrl || (typeof window !== 'undefined' ? window.currentDocCover : '') || '',
+        onOpenLightbox: (src) => setLightboxImg(src),
+        onAddBookmark: handleAddBookmark, onDeleteBookmark: handleDeleteBookmark
       }),
 
       // ── TYPOGRAPHY & THEMES SETTINGS MODAL ──

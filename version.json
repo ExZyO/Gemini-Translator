@@ -1,9 +1,9 @@
 {
-  "version": "8.21.65",
-  "versionCode": 8476,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.65/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.65/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.65",
+  "version": "8.21.66",
+  "versionCode": 8477,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.66/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.66/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.66",
   "releaseDate": "2026-10-17",
-  "releaseNotes": "v8.21.65: 1:1 Moon+ Reader Table of Contents drawer with cumulative page numbers, tabs, image filters, and dismiss backdrop fix for reading action menu."
+  "releaseNotes": "v8.21.66: 1:1 Moon+ Reader Bookmarks, Notes & Highlights view, full Image Gallery mode, Syosetu/Hameln illustration ingestion, and menu dismiss fix."
 }

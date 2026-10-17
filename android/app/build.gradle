@@ -7,8 +7,8 @@ android {
         applicationId "com.exzyo.geminitranslator"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 8476
-        versionName "8.21.65"
+        versionCode 8477
+        versionName "8.21.66"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'

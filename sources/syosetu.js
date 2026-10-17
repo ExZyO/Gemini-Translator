@@ -108,11 +108,15 @@
         }
       }
 
+      const cover = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.extractPageCover)
+        ? window.WebNovelImporter.extractPageCover(doc, url)
+        : (doc.querySelector('#novel_header img, #novel_ex img, meta[property="og:image"]')?.getAttribute('content') || '');
+
       return {
         id: 'hameln_' + (novelId || Date.now()),
         title,
         author,
-        cover: 'https://placehold.co/400x600?text=Hameln',
+        cover: cover || '',
         summary,
         status: 'Ongoing',
         chapters
@@ -157,11 +161,15 @@
         });
       }
 
+      const cover = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.extractPageCover)
+        ? window.WebNovelImporter.extractPageCover(doc, url)
+        : (doc.querySelector('meta[property="og:image"]')?.getAttribute('content') || '');
+
       return {
         id: 'narou_' + (url.match(/(n\d+[a-z]+)/i)?.[1] || Date.now()),
         title,
         author,
-        cover: 'https://placehold.co/400x600?text=Syosetu',
+        cover: cover || '',
         summary,
         status: 'Ongoing',
         chapters
@@ -185,29 +193,45 @@
 
       // Content extraction: Hameln uses #honbun (plus optional #mae/#ato), Narou uses .p-novel__body or #novel_honbun
       let content = '';
+      const cleanFn = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.cleanChapterHtmlWithImages)
+        ? window.WebNovelImporter.cleanChapterHtmlWithImages
+        : null;
+
       const honbun = doc.querySelector('#honbun');
       if (honbun) {
         const mae = doc.querySelector('#mae');
         const ato = doc.querySelector('#ato');
-        const parts = [];
-        if (mae && mae.textContent.trim()) parts.push(mae.textContent.trim());
-        parts.push(honbun.textContent.trim());
-        if (ato && ato.textContent.trim()) parts.push(ato.textContent.trim());
-        content = parts.join('\n\n');
+        if (cleanFn) {
+          let combinedHtml = '';
+          if (mae) combinedHtml += mae.innerHTML + '\n<hr/>\n';
+          combinedHtml += honbun.innerHTML;
+          if (ato) combinedHtml += '\n<hr/>\n' + ato.innerHTML;
+          content = cleanFn(combinedHtml, chapterUrl);
+        } else {
+          const parts = [];
+          if (mae && mae.textContent.trim()) parts.push(mae.textContent.trim());
+          parts.push(honbun.textContent.trim());
+          if (ato && ato.textContent.trim()) parts.push(ato.textContent.trim());
+          content = parts.join('\n\n');
+        }
       } else {
         const contentEl = doc.querySelector('.p-novel__body, #novel_honbun, .novel_honbun, .widget-episodeBody, .ss');
         if (contentEl) {
-          // Remove Ruby tags markup or format cleanly
-          const paras = contentEl.querySelectorAll('p, div.novel_honbun, .p-novel__text');
-          if (paras.length > 0) {
-            const cleanParas = [];
-            paras.forEach(p => {
-              const t = p.textContent.trim();
-              if (t) cleanParas.push(t);
-            });
-            content = cleanParas.join('\n\n');
+          if (cleanFn) {
+            content = cleanFn(contentEl.innerHTML, chapterUrl);
           } else {
-            content = contentEl.innerText || contentEl.textContent || '';
+            // Remove Ruby tags markup or format cleanly
+            const paras = contentEl.querySelectorAll('p, div.novel_honbun, .p-novel__text');
+            if (paras.length > 0) {
+              const cleanParas = [];
+              paras.forEach(p => {
+                const t = p.textContent.trim();
+                if (t) cleanParas.push(t);
+              });
+              content = cleanParas.join('\n\n');
+            } else {
+              content = contentEl.innerText || contentEl.textContent || '';
+            }
           }
         }
       }

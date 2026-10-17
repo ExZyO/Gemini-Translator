@@ -1110,6 +1110,239 @@
         line-height: 1.28;
         opacity: 0.95;
       }
+
+      /* ── Moon+ Reader 1:1 Bookmarks, Notes & Highlights (Screenshot 1) ── */
+      .moon-bm-container {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 14px 80px;
+        gap: 12px;
+      }
+      .moon-bm-filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px 10px;
+        background: #000000;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        overflow-x: auto;
+      }
+      .moon-bm-filter-chip {
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.06);
+        color: #94a3b8;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.15s ease;
+        white-space: nowrap;
+      }
+      .moon-bm-filter-chip.active {
+        background: #38bdf8;
+        color: #0f172a;
+        border-color: #38bdf8;
+        font-weight: 700;
+      }
+      .moon-bm-card {
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+      .moon-bm-card:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.16);
+      }
+      .moon-bm-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .moon-bm-header-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        overflow: hidden;
+      }
+      .moon-bm-icon {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .moon-bm-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11.5px;
+        color: #94a3b8;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .moon-bm-date {
+        color: #64748b;
+        font-variant-numeric: tabular-nums;
+        font-size: 11px;
+      }
+      .moon-bm-chapter-tag {
+        color: #e2e8f0;
+        font-weight: 600;
+      }
+      .moon-bm-menu-btn {
+        background: none;
+        border: none;
+        color: #64748b;
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .moon-bm-menu-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #f1f5f9;
+      }
+      .moon-bm-snippet {
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: #cbd5e1;
+        word-break: break-word;
+      }
+      .moon-bm-highlight-box {
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: #ffffff;
+        font-weight: 500;
+        word-break: break-word;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+      }
+      .moon-bm-footer-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #000000;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 8px 14px calc(8px + env(safe-area-inset-bottom, 0px));
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        z-index: 950;
+      }
+      .moon-bm-add-btn {
+        flex: 1;
+        max-width: 260px;
+        height: 38px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        color: #f8fafc;
+        font-size: 12.5px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .moon-bm-add-btn:active {
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+      /* ── Moon+ Reader 1:1 Image Gallery View (Screenshot 2) ── */
+      .moon-gallery-container {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 14px 60px;
+        gap: 20px;
+        background: #000000;
+      }
+      .moon-gallery-cover-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 0 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .moon-gallery-cover-img {
+        width: 170px;
+        height: 250px;
+        object-fit: cover;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 10px 32px rgba(0, 0, 0, 0.85);
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      }
+      .moon-gallery-cover-img:active {
+        transform: scale(0.98);
+      }
+      .moon-gallery-cover-title {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #f1f5f9;
+        text-align: center;
+        max-width: 280px;
+      }
+      .moon-gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+      }
+      .moon-gallery-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.15s ease;
+      }
+      .moon-gallery-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.18);
+        transform: translateY(-2px);
+      }
+      .moon-gallery-thumb {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        border-radius: 6px;
+        background: #111;
+      }
+      .moon-gallery-caption {
+        font-size: 11px;
+        color: #94a3b8;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: center;
+      }
     `;
     document.head.appendChild(styleEl);
   }

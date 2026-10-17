@@ -176,9 +176,9 @@
     function cleanChapterHtmlWithImages(html, baseUrl) {
         if (!html) return '';
 
-        // 0. Pre-purify expansion for Syosetu / Hameln shortcodes (<i1234|5678> or ＜i1234｜5678＞) before DOMPurify strips them
+        // 0. Pre-purify expansion for Syosetu / Hameln shortcodes (<i1234|5678>, &lt;i1234|5678&gt;, [i1234|5678], ＜i1234｜5678＞) before DOMPurify strips them
         if (typeof html === 'string') {
-            html = html.replace(/[<＜]i\s*([a-zA-Z0-9]+)\s*[|｜\/]\s*([a-zA-Z0-9]+)\s*[>＞]/gi, (m, icode, uid) => {
+            html = html.replace(/(?:&lt;|<|＜|\[)\s*i?\s*([a-zA-Z0-9]+)\s*(?:\||｜|\/|&#124;)\s*([a-zA-Z0-9]+)\s*(?:&gt;|>|＞|\])/gi, (m, icode, uid) => {
                 const code = /^i/i.test(icode) ? icode : ('i' + icode);
                 return `\n\n<div class="sasie"><img src="https://${uid}.mitemin.net/userpageimage/viewimagebig/icode/${code}/" alt="Illustration" /></div>\n\n`;
             });
