@@ -224,18 +224,29 @@
       onOpenSuiteModal,
       bookTitle = '', totalChapters = 0, chapters = [], chapterScrollPct = 0,
       bookmarks = [], onToggleBookmark, coverUrl = '', onOpenLightbox,
-      onAddBookmark, onDeleteBookmark
+      onAddBookmark, onDeleteBookmark, initialTocTab = 'chapters', initialBmFilter = 'all'
     } = props;
 
-    const [activeTab, setActiveTab] = useState('chapters'); // 'chapters' | 'bookmarks' | 'gallery'
-    const [bmFilter, setBmFilter] = useState('all'); // 'all' | 'bookmarks' | 'notes' | 'highlights'
+    const [activeTab, setActiveTab] = useState(() => props.initialTocTab || 'chapters'); // 'chapters' | 'bookmarks' | 'gallery'
+    const [bmFilter, setBmFilter] = useState(() => props.initialBmFilter || 'all'); // 'all' | 'bookmarks' | 'notes' | 'highlights'
     const [bmSearch, setBmSearch] = useState('');
     const [sortAsc, setSortAsc] = useState(true);
     const [filterImagesOnly, setFilterImagesOnly] = useState(false);
     const [showSearchDrawer, setShowSearchDrawer] = useState(false);
     const [showSettingsSheet, setShowSettingsSheet] = useState(false);
+
     const [filterUntranslatedOnly, setFilterUntranslatedOnly] = useState(false);
     const [scrubVal, setScrubVal] = useState(null);
+
+    const longPressTimerRef = useRef(null);
+    const didLongPressRef = useRef(false);
+
+    useEffect(() => {
+      if (showToc && props.initialTocTab) {
+        setActiveTab(props.initialTocTab);
+        if (props.initialBmFilter) setBmFilter(props.initialBmFilter);
+      }
+    }, [showToc, props.initialTocTab, props.initialBmFilter]);
 
     const safeChapters = Array.isArray(chapters) ? chapters : [];
     const totalChsCount = totalChapters || safeChapters.length || 1;
@@ -446,55 +457,99 @@
 
         // ── MAIN CONTENT (Chapters | Bookmarks | Image Gallery) ──
         activeTab === 'gallery' ? (
-          // ── 1:1 MOON+ READER IMAGE GALLERY VIEW (Screenshot 2) ──
-          h('div', { className: 'moon-gallery-container' },
-            coverUrl && h('div', { className: 'moon-gallery-cover-wrap' },
-              h('img', {
-                className: 'moon-gallery-cover-img',
-                src: coverUrl,
-                alt: bookTitle || 'Cover',
-                onClick: () => typeof onOpenLightbox === 'function' && onOpenLightbox(coverUrl)
-              }),
-              h('div', { className: 'moon-gallery-cover-title' }, bookTitle || 'Cover Illustration')
-            ),
-            allIllustrations.length === 0 ? (
-              h('div', { style: { padding: '48px 20px', textAlign: 'center', color: '#64748b', fontSize: 13 } },
-                coverUrl ? 'No additional chapter illustrations found in this novel.' : 'No illustrations or cover found in this novel.'
-              )
-            ) : (
-              h('div', null,
-                h('div', { style: { fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 } },
-                  `Novel Illustrations (${allIllustrations.length})`
-                ),
-                h('div', { className: 'moon-gallery-grid' },
-                  allIllustrations.map((img, iIdx) => (
-                    h('div', {
-                      key: `gallery-img-${iIdx}`,
-                      className: 'moon-gallery-card',
-                      onClick: () => {
-                        if (typeof onOpenLightbox === 'function') {
-                          onOpenLightbox(img.src);
-                        } else {
-                          changeChapter(img.chapterIdx);
-                          setShowToc(false);
-                        }
-                      }
-                    },
-                      h('img', {
-                        className: 'moon-gallery-thumb',
-                        src: img.src,
-                        alt: img.alt || `Illustration ${iIdx + 1}`,
-                        loading: 'lazy'
-                      }),
-                      h('div', { className: 'moon-gallery-caption', title: img.chapterTitle },
-                        img.chapterTitle
-                      )
-                    )
-                  ))
+          // ── 1:1 MOON+ READER IMAGES TAB (Screenshot 1) ──
+          (() => {
+            const coverItem = coverUrl ? [{
+              src: coverUrl,
+              chapterIdx: 0,
+              chapterTitle: bookTitle || 'Cover',
+              isCover: true,
+              alt: bookTitle || 'Cover'
+            }] : [];
+            let fullGallery = [...coverItem, ...allIllustrations];
+            if (!sortAsc) fullGallery = [...fullGallery].reverse();
+
+            if (fullGallery.length === 0) {
+              return h('div', { className: 'moon-gallery-container' },
+                h('div', { style: { padding: '48px 20px', textAlign: 'center', color: '#64748b', fontSize: 13 } },
+                  'No illustrations or cover found in this novel.'
                 )
-              )
-            )
-          )
+              );
+            }
+
+            return h('div', { className: 'moon-gallery-container' },
+              fullGallery.map((img, iIdx) => {
+                const safeSrc = (typeof window !== 'undefined' && window.getSafeImageFallbackUrl)
+                  ? window.getSafeImageFallbackUrl(img.src)
+                  : img.src;
+
+                return h('img', {
+                  key: `gallery-feed-${img.isCover ? 'cover' : (img.chapterIdx + '-' + iIdx)}`,
+                  className: 'moon-gallery-feed-item',
+                  src: safeSrc,
+                  alt: img.alt || `Illustration ${iIdx + 1}`,
+                  loading: 'lazy',
+                  referrerPolicy: 'no-referrer',
+                  title: img.chapterTitle || 'Illustration',
+                  onTouchStart: () => {
+                    didLongPressRef.current = false;
+                    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                    longPressTimerRef.current = setTimeout(() => {
+                      didLongPressRef.current = true;
+                      if (typeof onOpenLightbox === 'function') onOpenLightbox(img.src);
+                      if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(40);
+                    }, 450);
+                  },
+                  onTouchEnd: () => {
+                    if (longPressTimerRef.current) {
+                      clearTimeout(longPressTimerRef.current);
+                      longPressTimerRef.current = null;
+                    }
+                  },
+                  onTouchMove: () => {
+                    if (longPressTimerRef.current) {
+                      clearTimeout(longPressTimerRef.current);
+                      longPressTimerRef.current = null;
+                    }
+                  },
+                  onMouseDown: () => {
+                    didLongPressRef.current = false;
+                    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                    longPressTimerRef.current = setTimeout(() => {
+                      didLongPressRef.current = true;
+                      if (typeof onOpenLightbox === 'function') onOpenLightbox(img.src);
+                    }, 450);
+                  },
+                  onMouseUp: () => {
+                    if (longPressTimerRef.current) {
+                      clearTimeout(longPressTimerRef.current);
+                      longPressTimerRef.current = null;
+                    }
+                  },
+                  onClick: (e) => {
+                    if (didLongPressRef.current) {
+                      didLongPressRef.current = false;
+                      e.stopPropagation();
+                      e.preventDefault();
+                      return;
+                    }
+                    changeChapter(img.chapterIdx !== undefined ? img.chapterIdx : 0);
+                    setShowToc(false);
+                  },
+                  onContextMenu: (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof onOpenLightbox === 'function') onOpenLightbox(img.src);
+                  },
+                  onError: (e) => {
+                    if (typeof window !== 'undefined' && window.handleImageErrorFallback) {
+                      window.handleImageErrorFallback(e, img.src);
+                    }
+                  }
+                });
+              })
+            );
+          })()
         ) : activeTab === 'chapters' ? (
           h('div', { className: 'moon-toc-list-wrap' },
             displayedChapters.length === 0 ? (

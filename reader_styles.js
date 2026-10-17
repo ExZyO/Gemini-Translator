@@ -1268,80 +1268,73 @@
         background: rgba(255, 255, 255, 0.16);
       }
 
-      /* ── Moon+ Reader 1:1 Image Gallery View (Screenshot 2) ── */
+      /* ── Moon+ Reader 1:1 Image Gallery View (Screenshot 1 & 2) ── */
       .moon-gallery-container {
         display: flex;
         flex-direction: column;
+        align-items: center;
         flex: 1;
         overflow-y: auto;
-        padding: 16px 14px 60px;
-        gap: 20px;
+        padding: 24px 16px 80px;
+        gap: 32px;
         background: #000000;
+        -webkit-overflow-scrolling: touch;
+        box-sizing: border-box;
+        width: 100%;
+      }
+      .moon-gallery-feed-item {
+        display: block;
+        max-width: 88%;
+        width: auto;
+        max-height: 72vh;
+        height: auto;
+        object-fit: contain;
+        border-radius: 6px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+        transition: transform 0.15s ease, opacity 0.15s ease;
+        -webkit-user-select: none;
+        user-select: none;
+        margin: 0 auto;
+      }
+      .moon-gallery-feed-item:active {
+        transform: scale(0.98);
+        opacity: 0.9;
       }
       .moon-gallery-cover-wrap {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 10px;
-        padding: 12px 0 18px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      }
-      .moon-gallery-cover-img {
-        width: 170px;
-        height: 250px;
-        object-fit: cover;
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        box-shadow: 0 10px 32px rgba(0, 0, 0, 0.85);
-        cursor: pointer;
-        transition: transform 0.2s ease;
-      }
-      .moon-gallery-cover-img:active {
-        transform: scale(0.98);
-      }
-      .moon-gallery-cover-title {
-        font-size: 13.5px;
-        font-weight: 700;
-        color: #f1f5f9;
-        text-align: center;
-        max-width: 280px;
-      }
-      .moon-gallery-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-        gap: 12px;
-      }
-      .moon-gallery-card {
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 8px;
-        padding: 6px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        cursor: pointer;
-        transition: background 0.15s ease, transform 0.15s ease;
-      }
-      .moon-gallery-card:hover {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: rgba(255, 255, 255, 0.18);
-        transform: translateY(-2px);
-      }
-      .moon-gallery-thumb {
         width: 100%;
-        aspect-ratio: 1;
-        object-fit: cover;
-        border-radius: 6px;
-        background: #111;
       }
-      .moon-gallery-caption {
-        font-size: 11px;
-        color: #94a3b8;
-        font-weight: 500;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        text-align: center;
+
+      /* ── Moon+ Reader Top-Right Dog-Ear Bookmark Indicator ── */
+      .moon-dogear-corner {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 0 34px 34px 0;
+        border-color: transparent var(--r-accent, #6366f1) transparent transparent;
+        z-index: 45;
+        cursor: pointer;
+        filter: drop-shadow(-1px 2px 4px rgba(0, 0, 0, 0.4));
+        transition: transform 0.15s ease;
+      }
+      .moon-dogear-corner:active {
+        transform: scale(1.15);
+      }
+      .moon-dogear-touch-zone {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 72px;
+        height: 72px;
+        z-index: 46;
+        cursor: pointer;
       }
     `;
     document.head.appendChild(styleEl);

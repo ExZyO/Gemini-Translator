@@ -1967,6 +1967,41 @@ function swapPronouns(text) {
 
     return s;
 }
+
+function getSafeImageFallbackUrl(src) {
+    if (!src || typeof src !== 'string') return '';
+    const clean = src.trim();
+    if (clean.startsWith('data:') || clean.startsWith('blob:')) return clean;
+    // Known hotlink-protected image hosts that return 403 on direct browser <img> tags
+    if (/(?:mitemin\.net|eparet\.net|syosetu\.com|hameln\.php|pixiv\.net|pximg\.net)/i.test(clean)) {
+        const noProto = clean.replace(/^https?:\/\//i, '');
+        return `https://images.weserv.nl/?url=${encodeURIComponent(noProto)}`;
+    }
+    return clean;
+}
+
+function handleImageErrorFallback(e, originalSrc) {
+    if (!e || !e.target) return;
+    const img = e.target;
+    const raw = (originalSrc || img.src || '').trim();
+    if (!raw || raw.startsWith('data:')) return;
+
+    const stage = parseInt(img.dataset.proxyStage || '0', 10);
+    const cleanNoProto = raw.replace(/^https?:\/\//i, '');
+
+    if (stage === 0) {
+        img.dataset.proxyStage = '1';
+        img.src = `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`;
+    } else if (stage === 1) {
+        img.dataset.proxyStage = '2';
+        img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(raw)}`;
+    } else if (stage === 2) {
+        img.dataset.proxyStage = '3';
+        img.src = `https://corsproxy.org/?url=${encodeURIComponent(raw)}`;
+    }
+}
+window.getSafeImageFallbackUrl = getSafeImageFallbackUrl;
+window.handleImageErrorFallback = handleImageErrorFallback;
 window.swapPronouns = swapPronouns;
 window.getProviderFallbackModel = getProviderFallbackModel;
 
@@ -2040,7 +2075,9 @@ if (typeof module !== 'undefined' && module.exports) {
         hasUntranslatedOrError,
         cleanHealedProse,
         resolveSetting,
-        getProviderFallbackModel
+        getProviderFallbackModel,
+        getSafeImageFallbackUrl,
+        handleImageErrorFallback
     };
 }
 })();

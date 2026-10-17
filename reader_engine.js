@@ -219,6 +219,8 @@
     // ── 2. UI Chrome & Menus ──
     const [hudVisible, setHudVisible] = useState(false);
     const [showToc, setShowToc] = useState(false);
+    const [tocTab, setTocTab] = useState('chapters');
+    const [tocBmFilter, setTocBmFilter] = useState('all');
     const [tocSearch, setTocSearch] = useState('');
     const activeTocItemRef = useRef(null);
     useEffect(() => {
@@ -1156,6 +1158,14 @@
 
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      // Moon+ Reader Top-Right Dog-Ear Bookmark Tap Zone (top 75px, right 75px)
+      if (clickX > rect.width - 75 && clickY < 75) {
+        handleToggleBookmark();
+        return;
+      }
+
       const ratio = clickX / rect.width;
 
       if (showMoreMenu) {
@@ -2077,9 +2087,10 @@
           }
         },
           h('img', {
-            src: displaySrc,
+            src: (typeof window !== 'undefined' && window.getSafeImageFallbackUrl) ? window.getSafeImageFallbackUrl(displaySrc) : displaySrc,
             alt: el.alt,
             loading: 'lazy',
+            referrerPolicy: 'no-referrer',
             onError: (e) => {
               if (!e.target.dataset.highResTried) {
                 e.target.dataset.highResTried = '1';
@@ -2106,6 +2117,10 @@
                 e.target.dataset.lnoriFallback = '1';
                 const cdnUrl = el.src.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.[^#?]*/i, 'https://cdn.lnori.com/volume/$1.jpg');
                 e.target.src = cdnUrl;
+                return;
+              }
+              if (typeof window !== 'undefined' && window.handleImageErrorFallback) {
+                window.handleImageErrorFallback(e, displaySrc);
               }
             },
             style: {
@@ -2466,6 +2481,15 @@
             onTouchStart: handleTouchStart,
             onTouchEnd: handleTouchEnd
           },
+            // Moon+ Reader Top-Right Dog-Ear Bookmark Indicator
+            bookmarks.some(b => b.chapterIdx === activeIdx) && h('div', {
+              className: 'moon-dogear-corner',
+              title: 'Chapter Bookmarked · Tap to toggle',
+              onClick: (e) => {
+                e.stopPropagation();
+                handleToggleBookmark();
+              }
+            }),
             // Multi-column Paginated Track
             h('div', {
               ref: paginatedTrackRef,
@@ -2538,9 +2562,28 @@
                 setShowMoreMenu(false);
                 return;
               }
+              const rect = e.currentTarget.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              const clickY = e.clientY - rect.top;
+
+              // Moon+ Reader Top-Right Dog-Ear Bookmark Tap Zone (top 75px, right 75px)
+              if (clickX > rect.width - 75 && clickY < 75) {
+                handleToggleBookmark();
+                return;
+              }
+
               setHudVisible(prev => !prev);
             }
           },
+            // Moon+ Reader Top-Right Dog-Ear Bookmark Indicator
+            bookmarks.some(b => b.chapterIdx === activeIdx) && h('div', {
+              className: 'moon-dogear-corner',
+              title: 'Chapter Bookmarked · Tap to toggle',
+              onClick: (e) => {
+                e.stopPropagation();
+                handleToggleBookmark();
+              }
+            }),
             h('div', { className: `reader-v2-content-box ${widthClass} ${paragraphIndent ? 'reader-v2-indent' : ''}`, style: { textAlign: justify ? 'justify' : 'left' } },
           // Moon+ Reader Centered Bold Chapter Header (Screenshot 1)
           (() => {
@@ -2623,7 +2666,8 @@
         onToggleAutoScroll: () => setAutoScroll(s => !s),
         onToggleBookmark: handleToggleBookmark,
         isCurrentBookmarked: bookmarks.some(b => b.chapterIdx === activeIdx),
-        onOpenToc: () => setShowToc(true)
+        onOpenToc: (tab = 'chapters') => { setTocTab(tab); setShowToc(true); },
+        onOpenBookmarksDrawer: () => { setTocTab('bookmarks'); setTocBmFilter('all'); setShowToc(true); }
       }),
 
       // ── MOON+ READER FLOATING TTS PLAYER (Screenshots 1 & 3) ──
@@ -2768,7 +2812,8 @@
         bookmarks, onToggleBookmark: handleToggleBookmark,
         coverUrl: activeNovelRecord?.cover || activeNovelRecord?.coverUrl || (typeof window !== 'undefined' ? window.currentDocCover : '') || '',
         onOpenLightbox: (src) => setLightboxImg(src),
-        onAddBookmark: handleAddBookmark, onDeleteBookmark: handleDeleteBookmark
+        onAddBookmark: handleAddBookmark, onDeleteBookmark: handleDeleteBookmark,
+        initialTocTab: tocTab, initialBmFilter: tocBmFilter
       }),
 
       // ── TYPOGRAPHY & THEMES SETTINGS MODAL ──

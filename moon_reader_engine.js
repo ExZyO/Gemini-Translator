@@ -1993,7 +1993,8 @@
           onToggleAutoScroll = () => {},
           onToggleBookmark = () => {},
           isCurrentBookmarked = false,
-          onOpenToc = () => {}
+          onOpenToc = () => {},
+          onOpenBookmarksDrawer = () => {}
         } = props;
         const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
         const ic = typeof window !== 'undefined' && window.ic ? window.ic : () => null;
@@ -2176,12 +2177,26 @@
               onClick: (e) => { e.stopPropagation(); onToggleAutoScroll(); }
             }, ic('ArrowUpDown', 20)),
 
-            // 4. Bookmarks (Bookmark current chapter)
+            // 4. Bookmarks (Open Bookmarks drawer / Hold to toggle bookmark)
             h('button', {
               type: 'button',
               className: `moon-hud-tool-btn ${isCurrentBookmarked ? 'active' : ''}`,
-              title: isCurrentBookmarked ? 'Remove Bookmark' : 'Add Bookmark',
-              onClick: (e) => { e.stopPropagation(); onToggleBookmark(); }
+              title: 'Bookmarks (All) · Hold or right-click to bookmark chapter',
+              onClick: (e) => {
+                e.stopPropagation();
+                if (typeof onOpenBookmarksDrawer === 'function') {
+                  onOpenBookmarksDrawer();
+                } else if (typeof onOpenToc === 'function') {
+                  onOpenToc('bookmarks');
+                } else {
+                  onToggleBookmark();
+                }
+              },
+              onContextMenu: (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleBookmark();
+              }
             },
               h('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: isCurrentBookmarked ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' },
                 h('path', { d: 'm19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z' })
