@@ -213,7 +213,7 @@
       );
   }
 
-  // ── 2. HIERARCHICAL ARC & VOLUME TABLE OF CONTENTS DRAWER ──
+  // ── 2. HIERARCHICAL ARC & VOLUME TABLE OF CONTENTS DRAWER (1:1 MOON+ READER) ──
   function ReaderTocDrawer(props) {
     const {
       showToc, setShowToc, tocSearch, setTocSearch, arcGroups, collapsedArcs,
@@ -222,417 +222,351 @@
       onTranslateAllTitles, isTranslatingTitles, titlesProgress,
       onHealAllChapters, isHealingAll, healAllProgress,
       onOpenSuiteModal,
-      bookTitle = '', totalChapters = 0, chapters = [], chapterScrollPct = 0
+      bookTitle = '', totalChapters = 0, chapters = [], chapterScrollPct = 0,
+      bookmarks = [], onToggleBookmark
     } = props;
-    const [actionMenuChap, setActionMenuChap] = useState(null);
+
+    const [activeTab, setActiveTab] = useState('chapters'); // 'chapters' | 'bookmarks'
+    const [sortAsc, setSortAsc] = useState(true);
+    const [filterImagesOnly, setFilterImagesOnly] = useState(false);
+    const [showSearchDrawer, setShowSearchDrawer] = useState(false);
+    const [showSettingsSheet, setShowSettingsSheet] = useState(false);
     const [filterUntranslatedOnly, setFilterUntranslatedOnly] = useState(false);
     const [scrubVal, setScrubVal] = useState(null);
 
-    const totalChsCount = totalChapters || (Array.isArray(chapters) ? chapters.length : 1);
+    const safeChapters = Array.isArray(chapters) ? chapters : [];
+    const totalChsCount = totalChapters || safeChapters.length || 1;
     const overallPct = (((activeIdx + Math.max(0, Math.min(1, (chapterScrollPct || 0) / 100))) / Math.max(1, totalChsCount)) * 100).toFixed(1);
 
-    const hasForeignChars = (s) => typeof s === 'string' && /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\u0400-\u04ff]/.test(s);
-    const isChapUntranslated = (c) => !c.isTranslated || hasForeignChars(c.title) || hasForeignChars(c.originalTitle) || hasForeignChars(c.content || c.text);
+    // Cumulative starting page for each chapter (standard ~250 words per book page)
+    const chapterPages = useMemo(() => {
+      const pages = [];
+      let cum = 1;
+      safeChapters.forEach((ch, idx) => {
+        pages[idx] = cum;
+        const text = (ch.content || ch.text || '');
+        const words = text ? text.trim().split(/\s+/).length : 250;
+        cum += Math.max(1, Math.round(words / 250));
+      });
+      return pages;
+    }, [safeChapters]);
+
+    // Format Moon+ Reader chapter label: "#<num> <title>"
+    const formatMoonTitle = (ch, origIdx) => {
+      const cleanT = (typeof window !== 'undefined' && window.cleanRawChapterTitle)
+        ? window.cleanRawChapterTitle(ch.title)
+        : (ch.title || `Chapter ${origIdx + 1}`);
+      const m = cleanT.match(/^(?:chapter|ch|c)?\s*(\d+(?:\.\d+)?)\s*[:：\-_.]\s*(.*)$/i);
+      const num = m ? m[1] : (origIdx + 1);
+      const name = m ? m[2].trim() : cleanT.replace(/^(?:chapter|ch|c)?\s*\d+\s*/i, '').trim();
+      return { num, name: name || `Chapter ${num}` };
+    };
+
+    // Filter and sort chapters
+    const displayedChapters = useMemo(() => {
+      let list = safeChapters.map((ch, idx) => ({ ...ch, originalIndex: idx }));
+      if (filterImagesOnly) {
+        list = list.filter(ch => ch.hasImages || /<img/i.test(ch.content || ch.text || ''));
+      }
+      if (filterUntranslatedOnly) {
+        const hasForeignChars = (s) => typeof s === 'string' && /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\u0400-\u04ff]/.test(s);
+        list = list.filter(c => !c.isTranslated || hasForeignChars(c.title) || hasForeignChars(c.originalTitle) || hasForeignChars(c.content || c.text));
+      }
+      if (tocSearch && tocSearch.trim()) {
+        const q = tocSearch.trim().toLowerCase();
+        list = list.filter(c => (c.title && c.title.toLowerCase().includes(q)) || (c.arc && c.arc.toLowerCase().includes(q)));
+      }
+      if (!sortAsc) {
+        list = [...list].reverse();
+      }
+      return list;
+    }, [safeChapters, filterImagesOnly, filterUntranslatedOnly, tocSearch, sortAsc]);
 
     if (!showToc) return null;
+
+    const currentChapter = safeChapters[activeIdx] || { title: `Chapter ${activeIdx + 1}` };
+    const currentChapterTitle = (typeof window !== 'undefined' && window.cleanRawChapterTitle)
+      ? window.cleanRawChapterTitle(currentChapter.title)
+      : (currentChapter.title || `Chapter ${activeIdx + 1}`);
+
     return h('div', {
-        style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex' },
-        onClick: () => {
-          setActionMenuChap(null);
-          setShowToc(false);
-        }
+      className: 'moon-toc-modal-backdrop',
+      onClick: () => {
+        setShowSearchDrawer(false);
+        setShowSettingsSheet(false);
+        setShowToc(false);
+      }
+    },
+      h('div', {
+        className: 'moon-toc-panel',
+        onClick: (e) => e.stopPropagation()
       },
-        h('div', {
-          style: { width: '88%', maxWidth: 420, height: '100%', background: 'var(--r-card)', color: 'var(--r-text)', display: 'flex', flexDirection: 'column', boxShadow: '4px 0 24px rgba(0,0,0,0.5)' },
-          onClick: (e) => e.stopPropagation()
+        // ── TOP NAVIGATION BAR (Screenshot 2) ──
+        h('div', { className: 'moon-toc-top-nav' },
+          h('div', { className: 'moon-toc-nav-left' },
+            h('button', {
+              type: 'button',
+              className: 'moon-toc-back-arrow',
+              title: 'Back to Reader',
+              onClick: () => setShowToc(false)
+            }, ic('ArrowLeft', 20)),
+            h('div', { className: 'moon-toc-tabs' },
+              h('button', {
+                type: 'button',
+                className: 'moon-toc-tab-item' + (activeTab === 'chapters' ? ' active' : ''),
+                onClick: () => setActiveTab('chapters')
+              }, 'Chapters'),
+              h('button', {
+                type: 'button',
+                className: 'moon-toc-tab-item' + (activeTab === 'bookmarks' ? ' active' : ''),
+                onClick: () => setActiveTab('bookmarks')
+              }, 'Bookmarks' + (bookmarks && bookmarks.length > 0 ? ` (${bookmarks.length})` : ''))
+            )
+          ),
+          h('div', { className: 'moon-toc-nav-actions' },
+            h('button', {
+              type: 'button',
+              className: 'moon-toc-action-btn' + (filterImagesOnly ? ' active' : ''),
+              title: filterImagesOnly ? 'Show all chapters' : 'Filter chapters with images',
+              onClick: () => setFilterImagesOnly(v => !v)
+            }, ic('Image', 17)),
+            h('button', {
+              type: 'button',
+              className: 'moon-toc-action-btn',
+              title: sortAsc ? 'Sort Descending' : 'Sort Ascending',
+              onClick: () => setSortAsc(v => !v)
+            }, ic('ArrowUpDown', 17))
+          )
+        ),
+
+        // ── OPTIONAL SEARCH DRAWER ──
+        showSearchDrawer && h('div', { className: 'moon-toc-search-drawer' },
+          ic('Search', 15, 'text-gray-400 shrink-0'),
+          h('input', {
+            type: 'text',
+            placeholder: 'Filter chapters or arcs…',
+            value: tocSearch,
+            autoFocus: true,
+            onChange: (e) => setTocSearch(e.target.value)
+          }),
+          tocSearch && h('button', {
+            type: 'button',
+            className: 'moon-toc-action-btn',
+            style: { width: 28, height: 28 },
+            onClick: () => setTocSearch('')
+          }, ic('X', 14))
+        ),
+
+        // ── MAIN CONTENT LIST (1:1 MOON+ READER) ──
+        activeTab === 'chapters' ? (
+          h('div', { className: 'moon-toc-list-wrap' },
+            displayedChapters.length === 0 ? (
+              h('div', { style: { padding: '48px 20px', textAlign: 'center', color: '#64748b', fontSize: 13 } },
+                'No matching chapters found'
+              )
+            ) : (
+              displayedChapters.map((ch, idx) => {
+                const origIdx = ch.originalIndex !== undefined ? ch.originalIndex : idx;
+                const isCurrent = origIdx === activeIdx;
+                const isRead = origIdx < activeIdx;
+                const formatted = formatMoonTitle(ch, origIdx);
+                const pageNum = chapterPages[origIdx] || 1;
+
+                return h('div', {
+                  key: `moon-ch-${origIdx}`,
+                  ref: isCurrent ? activeTocItemRef : undefined,
+                  className: 'moon-toc-chapter-row' + (isCurrent ? ' active' : ''),
+                  onClick: () => {
+                    changeChapter(origIdx);
+                    setShowToc(false);
+                  }
+                },
+                  h('div', { className: 'moon-toc-chapter-title' },
+                    isRead && h('span', { style: { marginRight: 6, color: '#10b981', fontWeight: 600 } }, '√'),
+                    h('span', null, `#${formatted.num} ${formatted.name}`)
+                  ),
+                  h('div', { className: 'moon-toc-chapter-page' }, String(pageNum))
+                );
+              })
+            )
+          )
+        ) : (
+          // Bookmarks Tab
+          h('div', { className: 'moon-toc-list-wrap' },
+            (!bookmarks || bookmarks.length === 0) ? (
+              h('div', { style: { padding: '64px 20px', textAlign: 'center', color: '#64748b' } },
+                ic('Bookmark', 36, 'opacity-40 mb-3'),
+                h('div', { style: { fontWeight: 600, color: '#94a3b8', fontSize: 14, marginBottom: 6 } }, 'No Bookmarks Yet'),
+                h('div', { style: { fontSize: 12, lineHeight: 1.5, maxWidth: 240, margin: '0 auto' } },
+                  'Tap the bookmark icon in the reading menu to bookmark any chapter.'
+                )
+              )
+            ) : (
+              bookmarks.map((bm, bIdx) => {
+                const isCurrent = bm.chapterIdx === activeIdx;
+                const pageNum = chapterPages[bm.chapterIdx] || 1;
+                const bTitle = (typeof window !== 'undefined' && window.cleanRawChapterTitle)
+                  ? window.cleanRawChapterTitle(bm.chapterTitle)
+                  : (bm.chapterTitle || `Chapter ${bm.chapterIdx + 1}`);
+
+                return h('div', {
+                  key: `moon-bm-${bIdx}`,
+                  className: 'moon-toc-chapter-row' + (isCurrent ? ' active' : ''),
+                  onClick: () => {
+                    changeChapter(bm.chapterIdx);
+                    setShowToc(false);
+                  }
+                },
+                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flex: 1, overflow: 'hidden' } },
+                    ic('Bookmark', 15, isCurrent ? 'text-amber-500 shrink-0' : 'text-slate-400 shrink-0'),
+                    h('div', { className: 'moon-toc-chapter-title' },
+                      h('span', { style: { fontWeight: 600 } }, `Chapter ${bm.chapterIdx + 1}: `),
+                      h('span', null, bTitle)
+                    )
+                  ),
+                  h('div', { className: 'moon-toc-chapter-page' },
+                    bm.pct !== undefined ? `${bm.pct}%` : `p. ${pageNum}`
+                  )
+                );
+              })
+            )
+          )
+        ),
+
+        // ── QUICK JUMP & SETTINGS SHEET ──
+        showSettingsSheet && h('div', {
+          style: {
+            background: '#16181f',
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            padding: '12px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            animation: 'fadeIn 0.12s ease-out'
+          }
         },
-          // Header & Search
-          h('div', { style: { padding: '14px 18px 12px', borderBottom: '1px solid var(--r-border)' } },
-            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
-              h('span', { style: { fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 } }, bookTitle || 'Table of Contents'),
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+            h('span', { style: { fontSize: 12, fontWeight: 700, color: '#e2e8f0' } }, 'Quick Chapter Jump & Tools'),
+            h('button', {
+              type: 'button',
+              className: 'moon-toc-action-btn',
+              style: { width: 24, height: 24 },
+              onClick: () => setShowSettingsSheet(false)
+            }, ic('X', 13))
+          ),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            h('input', {
+              type: 'range',
+              min: 0,
+              max: Math.max(0, totalChsCount - 1),
+              value: scrubVal !== null ? scrubVal : activeIdx,
+              onChange: (e) => setScrubVal(parseInt(e.target.value, 10)),
+              onMouseUp: () => {
+                if (scrubVal !== null) {
+                  changeChapter(scrubVal);
+                  setScrubVal(null);
+                }
+              },
+              onTouchEnd: () => {
+                if (scrubVal !== null) {
+                  changeChapter(scrubVal);
+                  setScrubVal(null);
+                }
+              },
+              style: { flex: 1, accentColor: '#f97316', cursor: 'pointer' }
+            }),
+            h('span', { style: { fontSize: 12, color: '#f97316', fontWeight: 700, minWidth: 42, textAlign: 'right' } },
+              `#${(scrubVal !== null ? scrubVal : activeIdx) + 1}`
+            )
+          ),
+          h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap' } },
+            h('div', { style: { display: 'flex', gap: 4 } },
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' },
-                onClick: () => setShowToc(false)
-              }, ic('X', 15))
-            ),
-            h('div', { style: { height: 4, background: 'rgba(255, 255, 255, 0.1)', borderRadius: 2, overflow: 'hidden' } },
-              h('div', { style: { height: '100%', width: `${Math.min(100, Math.max(0, overallPct))}%`, background: 'var(--r-accent, #6366f1)', borderRadius: 2, transition: 'width 0.2s ease' } })
-            ),
-            h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--r-muted)', marginTop: 4, marginBottom: 8 } },
-              h('span', null, `Chapter ${activeIdx + 1} of ${totalChsCount}`),
-              h('span', null, `${overallPct}% Read`)
-            ),
-            h('input', {
-              type: 'text',
-              placeholder: 'Filter chapters or arcs…',
-              value: tocSearch,
-              onChange: (e) => setTocSearch(e.target.value),
-              style: { width: '100%', padding: '8px 12px', background: 'var(--r-bg)', border: '1px solid var(--r-border)', color: 'inherit', borderRadius: 6, fontSize: 13 }
-            }),
-            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 10, flexWrap: 'wrap' } },
-              h('button', {
-                type: 'button',
-                className: 'mini-btn' + (filterUntranslatedOnly ? ' active' : ' ghost'),
-                style: {
-                  fontSize: 11,
-                  padding: '5px 8px',
-                  borderRadius: 6,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  background: filterUntranslatedOnly ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,255,0.06)',
-                  color: filterUntranslatedOnly ? '#fff' : 'var(--r-muted)',
-                  border: '1px solid ' + (filterUntranslatedOnly ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,255,0.1)'),
-                  cursor: 'pointer'
-                },
-                onClick: () => setFilterUntranslatedOnly(!filterUntranslatedOnly)
-              }, ic('Filter', 11), filterUntranslatedOnly ? 'Untranslated' : 'All'),
-
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                typeof onHealAllChapters === 'function' && h('button', {
-                  type: 'button',
-                  className: 'mini-btn ghost',
-                  disabled: isHealingAll || isTranslatingTitles,
-                  style: {
-                    fontSize: 11,
-                    padding: '5px 8px',
-                    borderRadius: 6,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    background: isHealingAll ? 'rgba(168, 85, 247, 0.4)' : 'rgba(168, 85, 247, 0.12)',
-                    color: '#c084fc',
-                    border: '1px solid rgba(168, 85, 247, 0.35)',
-                    cursor: (isHealingAll || isTranslatingTitles) ? 'not-allowed' : 'pointer'
-                  },
-                  onClick: onHealAllChapters
-                },
-                  ic('Sparkles', 11),
-                  isHealingAll
-                    ? `Healing (${healAllProgress?.done || 0}/${healAllProgress?.total || '…'})`
-                    : 'Heal All'
-                ),
-
-                typeof onTranslateAllTitles === 'function' && h('button', {
-                  type: 'button',
-                  className: 'mini-btn',
-                  disabled: isTranslatingTitles || isHealingAll,
-                  style: {
-                    fontSize: 11,
-                    padding: '5px 8px',
-                    borderRadius: 6,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    background: isTranslatingTitles ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.15)',
-                    color: 'var(--r-accent, #818cf8)',
-                    border: '1px solid rgba(99, 102, 241, 0.3)',
-                    cursor: (isTranslatingTitles || isHealingAll) ? 'not-allowed' : 'pointer'
-                  },
-                  onClick: onTranslateAllTitles
-                },
-                  ic('Sparkles', 11),
-                  isTranslatingTitles
-                    ? `Titles (${titlesProgress?.done || 0}/${titlesProgress?.total || '…'})`
-                    : 'Titles'
-                )
-              )
-            )
-          ),
-
-          // Chapter List (Hierarchical per Arc)
-          h('div', { style: { flex: 1, overflowY: 'auto', padding: '12px 10px' } },
-            arcGroups.map((group, gIdx) => {
-              const matchingChapters = group.chapters.filter(c => {
-                const matchesSearch = !tocSearch || c.title.toLowerCase().includes(tocSearch.toLowerCase()) || group.arc.toLowerCase().includes(tocSearch.toLowerCase());
-                if (!matchesSearch) return false;
-                if (filterUntranslatedOnly) return isChapUntranslated(c);
-                return true;
-              });
-              if (matchingChapters.length === 0) return null;
-
-              const isCollapsed = Boolean(collapsedArcs[group.arc]) && !tocSearch && !group.chapters.some(c => c.idx === activeIdx);
-
-              return h('div', { key: gIdx, style: { marginBottom: 10 } },
-                // Arc Header Accordion Toggle
-                h('div', {
-                  style: {
-                    padding: '8px 10px',
-                    borderRadius: 6,
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                    fontSize: 12.5,
-                    color: 'var(--r-accent)'
-                  },
-                  onClick: () => toggleArcCollapse(group.arc)
-                },
-                  h('span', null, `${isCollapsed ? '▸' : '▾'} ${group.arc}`),
-                  h('span', { style: { fontSize: 11, color: 'var(--r-muted)', fontWeight: 500 } }, `${group.chapters.length}`)
-                ),
-
-                // Chapters inside this Arc
-                !isCollapsed && h('div', { style: { marginLeft: 6, marginTop: 4 } },
-                  matchingChapters.map(c => {
-                    const isActive = c.idx === activeIdx;
-                    return h('div', {
-                      key: c.idx,
-                      ref: isActive ? activeTocItemRef : null,
-                      style: {
-                        padding: '9px 12px',
-                        borderRadius: 6,
-                        marginBottom: 2,
-                        cursor: 'pointer',
-                        fontSize: 12.5,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        background: isActive ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
-                        color: isActive ? 'var(--r-accent)' : 'inherit',
-                        fontWeight: isActive ? 700 : 400
-                      },
-                      onClick: () => {
-                        changeChapter(c.idx);
-                        setShowToc(false);
-                      }
-                    },
-                      h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, marginRight: 8 } }, (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(c.title) : c.title),
-                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 } },
-                        isActive
-                          ? h('span', { style: { fontSize: 10, padding: '2px 6px', background: 'var(--r-accent, #6366f1)', color: '#fff', borderRadius: 4, fontWeight: 700 } }, `Reading (${Math.round(chapterScrollPct || 0)}%)`)
-                          : (c.idx < activeIdx && h('span', { style: { fontSize: 10, padding: '2px 6px', background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', borderRadius: 4, fontWeight: 600 } }, '✓ Read')),
-                        (typeof onTranslateChapter === 'function' || typeof onTranslateChapterTitle === 'function') && h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          title: 'Translate options',
-                          style: {
-                            padding: 0,
-                            width: 26,
-                            height: 26,
-                            borderRadius: 6,
-                            border: '1px solid rgba(255,255,255,0.15)',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'var(--r-accent)',
-                            flexShrink: 0
-                          },
-                          onClick: (e) => {
-                            e.stopPropagation();
-                            if (typeof onOpenSuiteModal === 'function') {
-                              onOpenSuiteModal(c);
-                            } else {
-                              setActionMenuChap(c);
-                            }
-                          }
-                        }, ic('Sparkles', 12))
-                      )
-                    );
-                  })
-                )
-              );
-            })
-          ),
-
-          // Moon+ Reader TOC Quick Scrubber Bar
-          h('div', { className: 'moon-toc-scrubber-bar' },
-            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--r-muted)' } },
-              h('span', { style: { fontWeight: 600, color: 'var(--r-text)' } }, 'Jump to Chapter'),
-              h('span', null, `Ch. ${(scrubVal !== null ? scrubVal : activeIdx) + 1} of ${totalChsCount}`)
-            ),
-            h('div', { className: 'moon-toc-scrubber-row' },
-              h('button', {
-                type: 'button',
-                className: 'moon-scrub-jump-btn',
-                title: 'Jump back 25 chapters',
+                style: { padding: '4px 8px', fontSize: 11 },
                 disabled: activeIdx <= 0,
                 onClick: () => changeChapter(Math.max(0, activeIdx - 25))
               }, '« 25'),
               h('button', {
                 type: 'button',
-                className: 'moon-scrub-jump-btn',
-                title: 'Previous chapter',
+                className: 'mini-btn ghost',
+                style: { padding: '4px 8px', fontSize: 11 },
                 disabled: activeIdx <= 0,
                 onClick: () => changeChapter(Math.max(0, activeIdx - 1))
               }, '‹'),
-              h('input', {
-                type: 'range',
-                min: 0,
-                max: Math.max(0, totalChsCount - 1),
-                value: scrubVal !== null ? scrubVal : activeIdx,
-                style: { flex: 1, accentColor: 'var(--r-accent, #6366f1)', cursor: 'pointer', height: 6 },
-                onInput: (e) => setScrubVal(parseInt(e.target.value, 10)),
-                onChange: (e) => {
-                  const target = parseInt(e.target.value, 10);
-                  setScrubVal(null);
-                  changeChapter(target);
-                }
-              }),
               h('button', {
                 type: 'button',
-                className: 'moon-scrub-jump-btn',
-                title: 'Next chapter',
+                className: 'mini-btn ghost',
+                style: { padding: '4px 8px', fontSize: 11 },
                 disabled: activeIdx >= totalChsCount - 1,
                 onClick: () => changeChapter(Math.min(totalChsCount - 1, activeIdx + 1))
               }, '›'),
               h('button', {
                 type: 'button',
-                className: 'moon-scrub-jump-btn',
-                title: 'Jump forward 25 chapters',
+                className: 'mini-btn ghost',
+                style: { padding: '4px 8px', fontSize: 11 },
                 disabled: activeIdx >= totalChsCount - 1,
                 onClick: () => changeChapter(Math.min(totalChsCount - 1, activeIdx + 25))
               }, '25 »')
-            )
-          ),
-
-          // Floating Action Modal when tapping Sparkles
-          actionMenuChap && h('div', {
-            style: {
-              position: 'fixed',
-              inset: 0,
-              zIndex: 10005,
-              background: 'rgba(0,0,0,0.6)',
-              backdropFilter: 'blur(3px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 16
-            },
-            onClick: () => setActionMenuChap(null)
-          },
-            h('div', {
-              style: {
-                background: 'var(--r-card, #1e293b)',
-                border: '1px solid var(--r-border, rgba(255,255,255,0.1))',
-                borderRadius: 12,
-                padding: 18,
-                width: '100%',
-                maxWidth: 320,
-                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10
-              },
-              onClick: e => e.stopPropagation()
-            },
-              h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--r-text)' } },
-                `Chapter ${actionMenuChap.idx + 1}`
-              ),
-              h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 } },
-                (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(actionMenuChap.title) : actionMenuChap.title
-              ),
+            ),
+            h('div', { style: { display: 'flex', gap: 6 } },
               h('button', {
                 type: 'button',
-                className: 'mini-btn',
+                className: 'mini-btn' + (filterUntranslatedOnly ? ' active' : ' ghost'),
                 style: {
-                  background: 'var(--r-accent, #6366f1)',
-                  color: '#fff',
-                  fontWeight: 600,
-                  padding: '9px 12px',
-                  borderRadius: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  fontSize: 12.5
+                  fontSize: 11,
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  background: filterUntranslatedOnly ? '#f97316' : 'rgba(255,255,255,0.06)',
+                  color: filterUntranslatedOnly ? '#fff' : '#94a3b8',
+                  border: '1px solid ' + (filterUntranslatedOnly ? '#f97316' : 'rgba(255,255,255,0.1)')
                 },
-                onClick: () => {
-                  const chap = actionMenuChap;
-                  setActionMenuChap(null);
-                  changeChapter(chap.idx);
-                  setShowToc(false);
-                  if (typeof onTranslateChapter === 'function') {
-                    onTranslateChapter(chap.idx);
-                  }
-                }
-              }, ic('Sparkles', 13), 'Translate Full Chapter'),
-              h('button', {
+                onClick: () => setFilterUntranslatedOnly(v => !v)
+              }, 'Untranslated'),
+              typeof onHealAllChapters === 'function' && h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: {
-                  border: '1px solid rgba(168, 85, 247, 0.45)',
-                  background: 'rgba(168, 85, 247, 0.08)',
-                  color: '#c084fc',
-                  fontWeight: 600,
-                  padding: '9px 12px',
-                  borderRadius: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  fontSize: 12.5
-                },
-                onClick: () => {
-                  const chap = actionMenuChap;
-                  setActionMenuChap(null);
-                  changeChapter(chap.idx);
-                  setShowToc(false);
-                  if (typeof onHealChapterLines === 'function') {
-                    onHealChapterLines(chap.idx);
-                  }
-                }
-              }, ic('Sparkles', 13), 'Heal Untranslated Lines Only (Save Tokens)'),
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: {
-                  border: '1px solid var(--r-border, rgba(255,255,255,0.15))',
-                  color: 'var(--r-text)',
-                  fontWeight: 600,
-                  padding: '9px 12px',
-                  borderRadius: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  fontSize: 12.5
-                },
-                onClick: () => {
-                  const chap = actionMenuChap;
-                  setActionMenuChap(null);
-                  if (typeof onTranslateChapterTitle === 'function') {
-                    onTranslateChapterTitle(chap.idx);
-                  }
-                }
-              }, ic('Type', 13), 'Translate Title Only'),
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: {
-                  border: '1px solid var(--r-accent, #6366f1)',
-                  color: 'var(--r-accent, #6366f1)',
-                  fontWeight: 600,
-                  padding: '9px 12px',
-                  borderRadius: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  fontSize: 12.5
-                },
-                onClick: () => {
-                  const chap = actionMenuChap;
-                  setActionMenuChap(null);
-                  if (typeof onOpenSuiteModal === 'function') {
-                    onOpenSuiteModal(chap);
-                  }
-                }
-              }, ic('Settings', 13), 'Translation Suite & Settings…'),
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: { fontSize: 11.5, color: 'var(--r-muted)', marginTop: 2 },
-                onClick: () => setActionMenuChap(null)
-              }, 'Cancel')
+                disabled: isHealingAll || isTranslatingTitles,
+                style: { fontSize: 11, padding: '4px 8px' },
+                onClick: onHealAllChapters
+              }, isHealingAll ? 'Healing…' : 'Heal All')
             )
           )
+        ),
+
+        // ── BOTTOM HUD BAR (Screenshot 2) ──
+        h('div', { className: 'moon-toc-bottom-hud' },
+          h('div', {
+            className: 'moon-toc-bottom-left',
+            title: `#${activeIdx + 1} ${currentChapterTitle} (${activeIdx + 1}/${totalChsCount})`
+          }, `#${activeIdx + 1} ${currentChapterTitle} (${activeIdx + 1}/${totalChsCount})`),
+          h('div', { className: 'moon-toc-bottom-right' },
+            h('button', {
+              type: 'button',
+              className: 'moon-toc-action-btn' + (showSearchDrawer ? ' active' : ''),
+              title: 'Search in chapters',
+              onClick: () => setShowSearchDrawer(v => !v)
+            }, ic('Search', 17)),
+            h('button', {
+              type: 'button',
+              className: 'moon-toc-action-btn' + (showSettingsSheet ? ' active' : ''),
+              title: 'Jump & Translation Tools',
+              onClick: () => setShowSettingsSheet(v => !v)
+            }, ic('Settings', 17)),
+            h('span', {
+              style: {
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#f8fafc',
+                minWidth: 44,
+                textAlign: 'right'
+              }
+            }, `${overallPct}%`)
+          )
         )
-      );
+      )
+    );
   }
 
   // ── 3. TYPOGRAPHY & THEMES SETTINGS MODAL ──

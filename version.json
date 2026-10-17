@@ -1,9 +1,9 @@
 {
-  "version": "8.21.64",
-  "versionCode": 8475,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.64/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.64/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.64",
+  "version": "8.21.65",
+  "versionCode": 8476,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.65/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.65/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.65",
   "releaseDate": "2026-10-17",
-  "releaseNotes": "v8.21.64: Resilient Japanese web novel illustration ingestion for syosetu.org (Hameln) and syosetu.com (Narou) supporting Mitemin uncompressed high-resolution images, shortcode expansion, and multi-tier proxy fallbacks."
+  "releaseNotes": "v8.21.65: 1:1 Moon+ Reader Table of Contents drawer with cumulative page numbers, tabs, image filters, and dismiss backdrop fix for reading action menu."
 }

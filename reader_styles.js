@@ -624,6 +624,221 @@
         color: #fff;
       }
 
+      /* ── 1:1 Moon+ Reader Table of Contents Drawer ── */
+      .moon-toc-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        background: rgba(0, 0, 0, 0.72);
+        backdrop-filter: blur(4px);
+        display: flex;
+        animation: fadeIn 0.15s ease-out;
+      }
+      .moon-toc-panel {
+        width: 100%;
+        max-width: 440px;
+        height: 100%;
+        background: #000000;
+        color: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 6px 0 30px rgba(0, 0, 0, 0.85);
+        font-family: inherit;
+      }
+      .moon-toc-top-nav {
+        height: 52px;
+        background: #121418;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        flex-shrink: 0;
+      }
+      .moon-toc-nav-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 100%;
+      }
+      .moon-toc-back-arrow {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        padding: 8px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.15s ease;
+      }
+      .moon-toc-back-arrow:hover {
+        color: #ffffff;
+      }
+      .moon-toc-tabs {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        height: 100%;
+      }
+      .moon-toc-tab-item {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        font-size: 14.5px;
+        font-weight: 600;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        position: relative;
+        padding: 0 4px;
+        cursor: pointer;
+        transition: color 0.15s ease;
+      }
+      .moon-toc-tab-item.active {
+        color: #ffffff;
+      }
+      .moon-toc-tab-item.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2.5px;
+        background: #f97316;
+        border-radius: 2px 2px 0 0;
+      }
+      .moon-toc-nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .moon-toc-action-btn {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        width: 36px;
+        height: 36px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .moon-toc-action-btn:hover {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .moon-toc-action-btn.active {
+        color: #f97316;
+        background: rgba(249, 115, 22, 0.15);
+      }
+      .moon-toc-search-drawer {
+        padding: 10px 14px;
+        background: #16181f;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        animation: fadeIn 0.12s ease-out;
+      }
+      .moon-toc-search-drawer input {
+        flex: 1;
+        background: #090a0f;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #f8fafc;
+        border-radius: 6px;
+        padding: 7px 11px;
+        font-size: 13px;
+        outline: none;
+      }
+      .moon-toc-search-drawer input:focus {
+        border-color: #f97316;
+      }
+      .moon-toc-list-wrap {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #000000;
+        padding: 4px 0;
+      }
+      .moon-toc-list-wrap::-webkit-scrollbar {
+        width: 4px;
+      }
+      .moon-toc-list-wrap::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 2px;
+      }
+      .moon-toc-chapter-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 18px;
+        cursor: pointer;
+        transition: background 0.1s ease;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        user-select: none;
+      }
+      .moon-toc-chapter-row:hover {
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .moon-toc-chapter-row:active {
+        background: rgba(249, 115, 22, 0.14);
+      }
+      .moon-toc-chapter-row.active .moon-toc-chapter-title {
+        color: #f97316 !important;
+        font-weight: 700;
+      }
+      .moon-toc-chapter-row.active .moon-toc-chapter-page {
+        color: #f97316 !important;
+        font-weight: 700;
+      }
+      .moon-toc-chapter-title {
+        font-size: 13.5px;
+        color: #e2e8f0;
+        font-weight: 400;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        margin-right: 14px;
+        line-height: 1.4;
+      }
+      .moon-toc-chapter-page {
+        font-size: 12.5px;
+        color: #64748b;
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
+        font-weight: 400;
+      }
+      .moon-toc-bottom-hud {
+        height: 48px;
+        background: #121418;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        flex-shrink: 0;
+      }
+      .moon-toc-bottom-left {
+        color: #cbd5e1;
+        font-size: 12px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 58%;
+      }
+      .moon-toc-bottom-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #94a3b8;
+      }
+
       /* Moon+ Reader Pro 5-Color Highlighter Palette */
       .moon-highlight-palette {
         display: inline-flex;

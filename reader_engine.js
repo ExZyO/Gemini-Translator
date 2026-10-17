@@ -1158,6 +1158,11 @@
       const clickX = e.clientX - rect.left;
       const ratio = clickX / rect.width;
 
+      if (showMoreMenu) {
+        setShowMoreMenu(false);
+        return;
+      }
+
       if (ratio < 0.25) {
         goToPrevPage();
       } else if (ratio > 0.75) {
@@ -2291,15 +2296,31 @@
       }),
 
       // ── MORE ACTIONS POPUP MENU (...) ──
-      showMoreMenu && h('div', {
-        className: 'reader-v2-more-menu',
-        style: ttsActive ? {
-          top: 'auto',
-          bottom: 'calc(94px + env(safe-area-inset-bottom, 0px))',
-          right: 'max(16px, calc((100vw - 520px) / 2 + 16px))'
-        } : undefined,
-        onClick: (e) => e.stopPropagation()
-      },
+      hudVisible && showMoreMenu && h(React.Fragment, null,
+        h('div', {
+          style: {
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9998,
+            background: 'transparent'
+          },
+          onClick: (e) => {
+            e.stopPropagation();
+            setShowMoreMenu(false);
+          }
+        }),
+        h('div', {
+          className: 'reader-v2-more-menu',
+          style: {
+            zIndex: 9999,
+            ...(ttsActive ? {
+              top: 'auto',
+              bottom: 'calc(94px + env(safe-area-inset-bottom, 0px))',
+              right: 'max(16px, calc((100vw - 520px) / 2 + 16px))'
+            } : {})
+          },
+          onClick: (e) => e.stopPropagation()
+        },
         h('button', {
           type: 'button',
           className: 'reader-more-item',
@@ -2439,7 +2460,8 @@
           ic('Link', 15),
           h('span', null, 'Share Chapter Deep Link')
         )
-      ),
+      )
+    ),
 
       // ── FLOATING IN-CHAPTER SEARCH BAR ──
       showSearch && h('div', {
@@ -2581,6 +2603,10 @@
               const selection = window.getSelection();
               if (selection && selection.toString().trim().length > 0) return;
               if (e.target.tagName === 'IMG' || e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+              if (showMoreMenu) {
+                setShowMoreMenu(false);
+                return;
+              }
               setHudVisible(prev => !prev);
             }
           },
@@ -2807,7 +2833,8 @@
         onHealAllChapters: handleHealAllChapters,
         isHealingAll, healAllProgress,
         onOpenSuiteModal: (c) => setSuiteModalChap(c),
-        bookTitle, totalChapters: safeChapters.length, chapters: safeChapters, chapterScrollPct
+        bookTitle, totalChapters: safeChapters.length, chapters: safeChapters, chapterScrollPct,
+        bookmarks, onToggleBookmark: handleToggleBookmark
       }),
 
       // ── TYPOGRAPHY & THEMES SETTINGS MODAL ──
