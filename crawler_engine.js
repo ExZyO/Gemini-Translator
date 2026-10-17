@@ -275,13 +275,26 @@
           callbacks.setActiveCrawlSession?.(latestSessionSnapshot);
           callbacks.setWebImportData?.(latestSessionSnapshot);
         }
-        safeToast(callbacks, `✕ Fetch cancelled. Progress preserved in Library.`, 'warning');
+        safeToast(callbacks, 'Fetch cancelled. Progress preserved in Library.', 'warning');
         callbacks.onCancelled?.(latestSessionSnapshot);
         return latestSessionSnapshot;
       }
 
       // Fetch completed or returned
       if (data) {
+        if (data.isPlaylist || data.isUserLists) {
+          callbacks.setIsFetchingUrl?.(false);
+          callbacks.setIsFetchingPaused?.(false);
+          callbacks.setWebImportStatus?.('');
+          callbacks.setActiveCrawlSession?.(null);
+          callbacks.setWebImportData?.(data);
+          if (data.isPlaylist && typeof callbacks.setNovelSearchResults === 'function') {
+            callbacks.setNovelSearchResults(data.stories || []);
+          }
+          safeToast(callbacks, data.isPlaylist ? `Loaded reading list "${data.title}" (${data.stories?.length || 0} stories)!` : `Found ${data.lists?.length || 0} reading lists for ${data.username}!`, 'success');
+          return data;
+        }
+
         const totalExpected = data.totalChapterCount || (data.chapterList ? data.chapterList.length : (data.chapters ? data.chapters.length : (latestSessionSnapshot?.totalChapterCount || targetSession?.totalChapterCount || 0)));
         const isActuallyFinished = totalExpected > 0 ? (data.chapters.length >= totalExpected || (data.chapterList && data.chapterList.length > 0 && data.chapters.length >= data.chapterList.length)) : true;
 
@@ -337,10 +350,10 @@
               });
             }
           }
-          safeToast(callbacks, `Imported "${data.title}" — ${data.chapters.length} chapters! 🎉`, 'success');
+          safeToast(callbacks, `Imported "${data.title}" — ${data.chapters.length} chapters!`, 'success');
           try {
             window.NativeBridge?.clearProgressNotification?.(true);
-            window.NativeBridge?.showCompletionNotification?.('Novel Import Complete! 📥', `Imported "${data.title}" (${data.chapters.length} chapters).`);
+            window.NativeBridge?.showCompletionNotification?.('Novel Import Complete!', `Imported "${data.title}" (${data.chapters.length} chapters).`);
           } catch (e) {}
           if (autoExportEpub && data.chapters && data.chapters.length > 0) {
             if (typeof callbacks.exportCleanLnoriEpub === 'function') {
@@ -355,7 +368,7 @@
           // Not finished (e.g. rate limit, partial pause, or network interrupt) — retain active session
           try {
             window.NativeBridge?.clearProgressNotification?.(false);
-            window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', `Saved ${data.chapters.length}/${totalExpected} chapters. Tap to resume.`);
+            window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused', `Saved ${data.chapters.length}/${totalExpected} chapters. Tap to resume.`);
           } catch (e) {}
           const partialSession = {
             ...latestSessionSnapshot,
@@ -371,7 +384,7 @@
           flushSession(partialSession);
           callbacks.setIsFetchingPaused?.(true);
           callbacks.setIsFetchingUrl?.(false);
-          safeToast(callbacks, `⚠️ Partial import: Saved ${data.chapters.length}/${totalExpected} chapters. Click "Resume Fetch" to continue.`, 'warning');
+          safeToast(callbacks, `Partial import: Saved ${data.chapters.length}/${totalExpected} chapters. Click "Resume Fetch" to continue.`, 'warning');
           callbacks.onPaused?.(partialSession, ctrl);
           return partialSession;
         }
@@ -408,7 +421,7 @@
         };
         callbacks.setWebImportError?.(errObj);
         if (err.isCloudflare) {
-          safeToast(callbacks, '🛡️ Remote site has Cloudflare verification active.', 'warning');
+          safeToast(callbacks, 'Remote site has Cloudflare verification active.', 'warning');
         } else {
           safeToast(callbacks, 'Failed to fetch URL: ' + err.message, 'error');
         }
@@ -590,6 +603,115 @@
       options,
       callbacks
     });
+  }
+
+  /**
+   * Mass download all stories in a playlist as EPUBs
+   */
+  async function massDownloadPlaylistEpubs({ playlist, stories, options = {}, callbacks = {} } = {}) {
+    const list = stories || playlist?.stories || [];
+    if (!list || list.length === 0) {
+      safeToast(callbacks, 'No stories found in playlist to download.', 'warning');
+      return;
+    }
+
+    const playlistTitle = playlist?.title || 'Wattpad Playlist';
+    safeToast(callbacks, `Starting mass EPUB download for ${list.length} stories…`, 'info');
+
+    let completedCount = 0;
+    let failedCount = 0;
+
+    try {
+      window.NativeBridge?.acquireWakeLock?.(`Mass Downloading ${playlistTitle}`, `Downloading ${list.length} stories as EPUBs...`);
+    } catch (_) {}
+
+    try {
+      for (let i = 0; i < list.length; i++) {
+        const story = list[i];
+        const progressPct = Math.round((i / list.length) * 100);
+
+        callbacks.setEpubPackagingModal?.({
+          title: `${playlistTitle} (${i + 1}/${list.length})`,
+          status: `Fetching "${story.title}"…`,
+          pct: progressPct
+        });
+
+        try {
+          const novelData = await window.WebNovelImporter.importUrl(story.url, (msg, pct) => {
+            callbacks.setEpubPackagingModal?.({
+              title: `${playlistTitle} (${i + 1}/${list.length})`,
+              status: `${story.title}: ${msg}`,
+              pct: Math.min(95, progressPct + Math.round((pct || 0) / list.length))
+            });
+          }, {
+            ...options,
+            concurrency: 6,
+            delayMs: 40
+          });
+
+          if (!novelData || !novelData.chapters || novelData.chapters.length === 0) {
+            console.warn(`[MassDownload] Skipping empty story: ${story.title}`);
+            failedCount++;
+            continue;
+          }
+
+          const cleanBookTitleFn = options.cleanBookTitle || (typeof window !== 'undefined' ? window.cleanBookTitle : null);
+          const cleanBookAuthorFn = options.cleanBookAuthor || (typeof window !== 'undefined' ? window.cleanBookAuthor : null);
+          const novelTitle = (typeof cleanBookTitleFn === 'function' ? cleanBookTitleFn(novelData.title, novelData.chapters) : (novelData.title || story.title)).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+          const novelAuthor = (typeof cleanBookAuthorFn === 'function' ? cleanBookAuthorFn(novelData.author) : (novelData.author || story.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
+
+          const generateEpubFn = options.generateEpubFromChapters || (typeof window !== 'undefined' ? window.generateEpubFromChapters : null);
+          const saveUniversalBlobFn = options.saveUniversalBlob || (typeof window !== 'undefined' ? window.saveUniversalBlob : null);
+
+          if (typeof generateEpubFn === 'function' && typeof saveUniversalBlobFn === 'function') {
+            const getEpubOptionsFn = options.getEpubOptions || (typeof window !== 'undefined' ? window.getEpubOptions : null);
+            const epubOpts = (typeof getEpubOptionsFn === 'function')
+              ? getEpubOptionsFn({ novelId: novelData.id || story.id, coverUrl: novelData.cover || story.cover || '' })
+              : { coverUrl: novelData.cover || story.cover || '' };
+
+            const blob = await generateEpubFn(novelData.chapters, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
+              callbacks.setEpubPackagingModal?.({
+                title: `${playlistTitle} (${i + 1}/${list.length})`,
+                status: `Packaging "${novelTitle}": ${status}`,
+                pct: Math.min(99, progressPct + Math.round((pct || 0) / list.length)),
+                elapsed
+              });
+            }, epubOpts);
+
+            const getEpubFileNameFn = options.getEpubFileName || (typeof window !== 'undefined' ? window.getEpubFileName : null);
+            const epubFileName = getEpubFileNameFn ? getEpubFileNameFn(novelTitle, novelData.chapters.length, false) : `${novelTitle}.epub`;
+            const getNovelFolderOptionsFn = options.getNovelFolderOptions || (typeof window !== 'undefined' ? window.getNovelFolderOptions : null);
+            const folderOpts = (typeof getNovelFolderOptionsFn === 'function') ? getNovelFolderOptionsFn(novelData) : {};
+
+            await saveUniversalBlobFn(blob, epubFileName, 'application/epub+zip', false, folderOpts);
+          }
+
+          if (typeof callbacks.saveNovelToHistory === 'function') {
+            callbacks.saveNovelToHistory({
+              ...novelData,
+              id: novelData.id || story.id,
+              title: novelTitle,
+              author: novelAuthor,
+              cover: novelData.cover || story.cover,
+              chapterCount: novelData.chapters.length,
+              sourceUrl: story.url
+            });
+          }
+
+          completedCount++;
+          safeToast(callbacks, `Downloaded (${completedCount}/${list.length}): "${novelTitle}"`, 'info');
+        } catch (err) {
+          console.warn(`[MassDownload] Error on ${story.title}:`, err);
+          failedCount++;
+        }
+      }
+
+      callbacks.setEpubPackagingModal?.(null);
+      safeToast(callbacks, `Mass download complete! ${completedCount} EPUBs saved to your Library and device.${failedCount > 0 ? ` (${failedCount} skipped)` : ''}`, 'success');
+    } finally {
+      try { window.NativeBridge?.releaseWakeLock?.(); } catch (_) {}
+      callbacks.setEpubPackagingModal?.(null);
+    }
   }
 
   /**
@@ -1055,6 +1177,10 @@
 
     searchNovels(queryOrUrl, sourceOverride = 'all', callbacks = {}) {
       return searchNovels(queryOrUrl, sourceOverride, callbacks);
+    },
+
+    massDownloadPlaylistEpubs(params = {}) {
+      return massDownloadPlaylistEpubs(params);
     }
   };
 
@@ -1198,7 +1324,7 @@
         });
       }
       if (typeof toast === 'function') {
-        toast('✨ Chapters auto-sorted chronologically!', 'success');
+        toast('Chapters auto-sorted chronologically!', 'success');
       }
     },
 
@@ -1260,7 +1386,7 @@
       }
 
       if (typeof setIsAiSorting === 'function') setIsAiSorting(true);
-      if (typeof toast === 'function') toast('🤖 AI analyzing chapter reading order...', 'info');
+      if (typeof toast === 'function') toast('AI analyzing chapter reading order...', 'info');
 
       try {
         const res = await aiReorderChapters({
@@ -1290,10 +1416,10 @@
           }
 
           if (res.success) {
-            if (typeof toast === 'function') toast('✨ AI successfully reorganized chapters in reading order!', 'success');
+            if (typeof toast === 'function') toast('AI successfully reorganized chapters in reading order!', 'success');
             try {
               if (typeof window !== 'undefined') {
-                window.NativeBridge?.showCompletionNotification?.('Chapters Sorted! 🤖', `Successfully reorganized ${res.chapters.length} chapters into reading order.`);
+                window.NativeBridge?.showCompletionNotification?.('Chapters Sorted!', `Successfully reorganized ${res.chapters.length} chapters into reading order.`);
               }
             } catch(e) {}
           } else {

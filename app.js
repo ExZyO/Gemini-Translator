@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.74';
+    let VERSION = '8.21.75';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2009,6 +2009,11 @@
       const handleLnoriDirectEpubDownload = (targetUrl) => window.WebNovelCrawlerEngine?.Controller?.directEpubDownload({ targetUrl, webImportUrl, currentData: (activeCrawlSession?.chapters?.length >= (webImportData?.chapters?.length || 0)) ? activeCrawlSession : (webImportData || activeCrawlSession), history: webImportHistory, options: { activeCrawlSession, webImportData, webImportHistory, loadFullNovel, cleanBookTitle, cleanBookAuthor, getEpubOptions, getEpubFileName, getNovelFolderOptions, saveUniversalBlob, generateEpubFromChapters }, callbacks: { setWebImportUrl, setScrapeImages, setEpubIncludeImages, setIsFetchingUrl, setIsFetchingPaused, setWebImportStatus, setWebImportError, setActiveCrawlSession, setWebImportData, saveNovelToHistory, toast, exportCleanLnoriEpub, handleStartFetch } });
       const resumeCrawlFromSession = (sessionOrNovel) => window.WebNovelCrawlerEngine?.Controller?.resumeCrawl(sessionOrNovel, { loadFullNovel, activeCrawlSession, webImportUrl, scrapeImages, getNovelFolderOptions, getCustomTitle, cleanBookTitle, cleanBookAuthor, getEpubOptions, getEpubFileName, generateEpubFromChapters, saveUniversalBlob }, { setActiveTab, setWebImportUrl, setActiveCrawlSession, setWebImportData, setIsFetchingUrl, setIsFetchingPaused, setWebImportStatus, setWebImportError, saveNovelToHistory, toast, exportCleanLnoriEpub, handleStartFetch });
       const dismissCrawlSession = () => window.WebNovelCrawlerEngine?.Controller?.dismissCrawl({ setActiveCrawlSession, setIsFetchingPaused, toast });
+      const handleMassDownloadPlaylist = (playlist) => window.WebNovelCrawlerEngine?.Controller?.massDownloadPlaylistEpubs({
+        playlist,
+        options: { cleanBookTitle, cleanBookAuthor, getEpubOptions, getEpubFileName, getNovelFolderOptions, saveUniversalBlob, generateEpubFromChapters },
+        callbacks: { setEpubPackagingModal, saveNovelToHistory, toast }
+      });
       const handleResetImportTab = () => {
         if (isFetchingUrl) {
           handleCancelFetch();
@@ -2591,6 +2596,7 @@
         scrapeImages, setScrapeImages, handleStartFetch, handlePauseFetch, handleCancelFetch,
         handleResetImportTab, dismissCrawlSession, handleSearchNovels, handleSwiftAudioSearch, handleOpenSourcePluginsModal,
         handleCheckRezeroUpdates, exportCleanLnoriEpub, handleStartPlayAudiobook, handleOpenAudioDownload,
+        handleMassDownloadPlaylist,
         isAudiobookInLibrary, saveAudiobookToLibrary, removeAudiobookFromLibrary, handleSetNovelFolder,
         toggleNovelSavedSpace, autoSortImportChapters, reverseImportChapters, aiReorderImportChapters,
         moveImportChapter, moveImportChapterToEdge, removeImportChapter, checkAndApplyNovelGlossary,

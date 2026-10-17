@@ -219,6 +219,117 @@
       };
     }
 
+    isPlaylistUrl(url) {
+      if (!url || typeof url !== 'string') return false;
+      const clean = url.trim().toLowerCase();
+      return /wattpad\.com\/list\/\d+/i.test(clean) ||
+             /wattpad\.com\/user\/[a-z0-9_.-]+\/lists/i.test(clean) ||
+             /wattpad\.com\/user\/[a-z0-9_.-]+\/?(?:$|[?#])/i.test(clean);
+    }
+
+    async getPlaylistDetails(url) {
+      const fetchHtml = (window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
+      if (!fetchHtml) throw new Error('HTML fetcher not initialized');
+
+      const cleanUrl = (url || '').split('?')[0].split('#')[0].trim();
+
+      // Case 1: Specific reading list URL: /list/(\d+)
+      const listMatch = cleanUrl.match(/wattpad\.com\/list\/(\d+)/i) || cleanUrl.match(/\/list\/(\d+)/i);
+      if (listMatch) {
+        const listId = listMatch[1];
+        let listName = 'Wattpad Reading List';
+        let listAuthor = 'Wattpad User';
+        let listCover = '';
+        let totalStories = 0;
+
+        try {
+          const infoStr = await fetchHtml(`https://www.wattpad.com/api/v3/lists/${listId}`);
+          const info = JSON.parse(infoStr);
+          if (info) {
+            listName = this.decodeHtml(info.name || listName);
+            listAuthor = this.decodeHtml(info.user?.name || info.user?.username || listAuthor);
+            listCover = info.sample_covers?.[0] || '';
+            totalStories = info.numStories || 0;
+          }
+        } catch (_) {}
+
+        const allStories = [];
+        let offset = 0;
+        const maxStoriesToFetch = Math.max(totalStories || 0, 500);
+
+        while (offset < maxStoriesToFetch) {
+          try {
+            const jsonStr = await fetchHtml(`https://www.wattpad.com/api/v3/lists/${listId}/stories?limit=100&offset=${offset}`);
+            const data = JSON.parse(jsonStr);
+            const list = data.stories || [];
+            if (list.length === 0) break;
+            allStories.push(...list);
+            offset += list.length;
+            if (list.length < 100) break;
+          } catch (_) {
+            break;
+          }
+        }
+
+        const formattedStories = allStories.map((s, idx) => ({
+          id: 'wp_' + (s.id || idx),
+          storyId: String(s.id),
+          name: this.decodeHtml(s.title || 'Untitled Story'),
+          title: this.decodeHtml(s.title || 'Untitled Story'),
+          author: this.decodeHtml(s.user?.name || s.user?.username || 'Wattpad Author'),
+          cover: s.cover || '',
+          url: s.url || `https://www.wattpad.com/story/${s.id}`,
+          path: s.url || `https://www.wattpad.com/story/${s.id}`,
+          chapters: s.numParts || (s.parts ? s.parts.length : 0),
+          summary: this.decodeHtml(s.description || ''),
+          source: 'Wattpad'
+        }));
+
+        return {
+          isPlaylist: true,
+          id: 'wp_list_' + listId,
+          listId,
+          title: listName,
+          author: listAuthor,
+          cover: listCover,
+          totalCount: formattedStories.length,
+          stories: formattedStories,
+          sourceUrl: cleanUrl
+        };
+      }
+
+      // Case 2: User profile URL: /user/([a-zA-Z0-9_.-]+)
+      const userMatch = cleanUrl.match(/wattpad\.com\/user\/([a-zA-Z0-9_.-]+)/i);
+      if (userMatch) {
+        const username = userMatch[1];
+        try {
+          const jsonStr = await fetchHtml(`https://www.wattpad.com/api/v3/users/${username}/lists`);
+          const parsed = JSON.parse(jsonStr);
+          const rawLists = parsed.lists || [];
+          const formattedLists = rawLists.map(l => ({
+            id: String(l.id),
+            name: this.decodeHtml(l.name || 'Reading List'),
+            numStories: l.numStories || 0,
+            cover: l.sample_covers?.[0] || '',
+            url: `https://www.wattpad.com/list/${l.id}`
+          }));
+
+          return {
+            isUserLists: true,
+            username,
+            title: `${username}'s Reading Lists`,
+            totalCount: formattedLists.length,
+            lists: formattedLists,
+            sourceUrl: cleanUrl
+          };
+        } catch (err) {
+          throw new Error(`Failed to fetch user reading lists for ${username}: ${err.message}`);
+        }
+      }
+
+      throw new Error('Unrecognized Wattpad playlist or profile URL');
+    }
+
     async search(query) {
       if (!query || !query.trim()) return [];
       const fetchHtml = (window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;

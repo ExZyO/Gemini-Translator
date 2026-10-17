@@ -1,9 +1,9 @@
 {
-  "version": "8.21.74",
-  "versionCode": 8485,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.74/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.74/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.74",
+  "version": "8.21.75",
+  "versionCode": 8486,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.75/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.75/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.75",
   "releaseDate": "2026-10-18",
-  "releaseNotes": "v8.21.74: Direct apiv2 Wattpad text scraping with parallel pooling, Flat List vs. Arc Accordion view toggle, and reliable AI generated smart cover persistence across restarts."
+  "releaseNotes": "v8.21.75: Wattpad reading lists and playlists 1-click mass download to clean EPUBs, user profile reading list explorer, and automated queue execution."
 }

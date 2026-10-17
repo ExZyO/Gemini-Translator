@@ -263,6 +263,7 @@
       exportCleanLnoriEpub,
       handleStartPlayAudiobook,
       handleOpenAudioDownload,
+      handleMassDownloadPlaylist,
       isAudiobookInLibrary,
       saveAudiobookToLibrary,
       removeAudiobookFromLibrary,
@@ -1614,7 +1615,309 @@
                   h('span', null, `Ingestion paused. ${getSafeChapterCount(activeNovelView)} chapters saved. Click "Resume Fetch" to continue.`)
                 ),
 
-                activeNovelView && h('div', { className: 'discover-novel-hero' },
+                activeNovelView && (activeNovelView.isPlaylist ? (
+                  h('div', { className: 'playlist-view-container', style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+                    h('div', {
+                      className: 'discover-novel-hero',
+                      style: {
+                        border: '1px solid rgba(236, 72, 153, 0.3)',
+                        background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%)',
+                        borderRadius: 12,
+                        padding: 16
+                      }
+                    },
+                      h('div', { className: 'discover-novel-cover', style: { width: 100, height: 140, borderRadius: 8, overflow: 'hidden', flexShrink: 0 } },
+                        activeNovelView.cover
+                          ? h('img', { src: activeNovelView.cover, alt: 'Playlist Cover', style: { width: '100%', height: '100%', objectFit: 'cover' } })
+                          : ic('List', 36, 'discover-novel-fallback-icon')
+                      ),
+                      h('div', { className: 'discover-novel-info', style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 6 } },
+                        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 } },
+                          h('div', { className: 'discover-novel-title', style: { margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--paper)' } }, activeNovelView.title || 'Wattpad Playlist'),
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: { fontSize: '11px', padding: '3px 8px', borderRadius: 999, color: 'var(--slate)', display: 'inline-flex', alignItems: 'center', gap: 4 },
+                            title: 'Start a new import or search',
+                            onClick: () => {
+                              setImportCategoryTab('wn');
+                              handleResetImportTab();
+                            }
+                          }, ic('Plus', 12), 'New Import')
+                        ),
+                        h('div', { className: 'discover-novel-author', style: { fontSize: 13, color: 'var(--paper-dim)' } },
+                          activeNovelView.author ? `Curated by ${activeNovelView.author}` : 'Wattpad Reading List'
+                        ),
+                        h('div', { className: 'discover-novel-stats', style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' } },
+                          h('span', { className: 'badge', style: { background: '#ec4899', color: '#fff', fontWeight: 600 } }, `${activeNovelView.stories?.length || activeNovelView.totalCount || 0} Stories`),
+                          h('span', { className: 'chip' }, 'Wattpad Reading List')
+                        ),
+                        h('div', { className: 'book-acts', style: { marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn',
+                            style: {
+                              background: 'linear-gradient(90deg, #ec4899, #8b5cf6)',
+                              color: '#fff',
+                              fontWeight: 700,
+                              border: 'none',
+                              boxShadow: '0 2px 10px rgba(236, 72, 153, 0.35)',
+                              padding: '9px 16px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              cursor: 'pointer'
+                            },
+                            title: 'Download all stories in this playlist as clean EPUBs directly to your device and library',
+                            onClick: () => {
+                              if (typeof handleMassDownloadPlaylist === 'function') {
+                                handleMassDownloadPlaylist(activeNovelView);
+                              } else {
+                                toast('Mass download handler not available.', 'error');
+                              }
+                            }
+                          }, ic('Download', 14), `Mass Download All EPUBs (${activeNovelView.stories?.length || activeNovelView.totalCount || 0})`),
+                          (() => {
+                            const fOpts = getNovelFolderOptions(activeNovelView);
+                            const dispPath = activeNovelView.folderPath || fOpts.folderPath || '';
+                            return h('button', {
+                              type: 'button',
+                              className: 'mini-btn secondary',
+                              style: { display: 'inline-flex', alignItems: 'center', gap: 6 },
+                              title: 'Set designated folder on device for EPUB downloads',
+                              onClick: () => handleSetNovelFolder(activeNovelView)
+                            }, ic('Folder', 13), (dispPath ? (dispPath.length > 22 ? dispPath.slice(0, 20) + '…' : dispPath) : 'Set Folder'));
+                          })()
+                        )
+                      )
+                    ),
+                    Array.isArray(activeNovelView.stories) && activeNovelView.stories.length > 0 && h('div', {
+                      style: { marginTop: 8 }
+                    },
+                      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
+                        h('span', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)' } }, `Stories in Playlist (${activeNovelView.stories.length})`),
+                        h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Tap any story to import or download EPUB')
+                      ),
+                      h('div', {
+                        style: {
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                          gap: 12
+                        }
+                      },
+                        activeNovelView.stories.map((story, sIdx) => h('div', {
+                          key: story.id || story.url || sIdx,
+                          className: 'card',
+                          style: {
+                            display: 'flex',
+                            gap: 12,
+                            padding: 10,
+                            background: 'var(--surface, rgba(255, 255, 255, 0.03))',
+                            borderRadius: 8,
+                            border: '1px solid var(--hairline)',
+                            alignItems: 'center'
+                          }
+                        },
+                          h('div', {
+                            style: {
+                              width: 48,
+                              height: 68,
+                              borderRadius: 6,
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                              background: 'rgba(0,0,0,0.2)'
+                            }
+                          },
+                            story.cover
+                              ? h('img', { src: story.cover, alt: story.title, style: { width: '100%', height: '100%', objectFit: 'cover' } })
+                              : ic('BookOpen', 24)
+                          ),
+                          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 } },
+                            h('div', {
+                              style: {
+                                fontWeight: 600,
+                                fontSize: 13,
+                                color: 'var(--paper)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              },
+                              title: story.title
+                            }, story.title),
+                            h('div', { style: { fontSize: 11, color: 'var(--paper-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                              story.author ? `By ${story.author}` : ''
+                            ),
+                            h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 } },
+                              h('span', { className: 'chip', style: { fontSize: 10, padding: '1px 6px' } }, `${story.chapters || story.chapterCount || story.parts || 0} Ch`),
+                              story.completed && h('span', { className: 'chip', style: { fontSize: 10, padding: '1px 6px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' } }, 'Completed')
+                            ),
+                            h('div', { style: { display: 'flex', gap: 6, marginTop: 4 } },
+                              h('button', {
+                                type: 'button',
+                                className: 'mini-btn secondary',
+                                style: { fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 },
+                                title: 'Load into importer to inspect chapters or read',
+                                onClick: () => {
+                                  setWebImportUrl(story.url);
+                                  handleStartFetch(false, null, false, story.url);
+                                }
+                              }, ic('BookOpen', 11), 'Open'),
+                              h('button', {
+                                type: 'button',
+                                className: 'mini-btn ghost',
+                                style: { fontSize: 11, padding: '3px 8px', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 4 },
+                                title: 'Download this story as a clean EPUB',
+                                onClick: () => {
+                                  if (typeof handleMassDownloadPlaylist === 'function') {
+                                    handleMassDownloadPlaylist({ title: story.title, stories: [story] });
+                                  } else {
+                                    setWebImportUrl(story.url);
+                                    handleStartFetch(false, null, false, story.url);
+                                  }
+                                }
+                              }, ic('Download', 11), 'EPUB')
+                            )
+                          )
+                        ))
+                      )
+                    )
+                  )
+                ) : activeNovelView.isUserLists ? (
+                  h('div', { className: 'user-lists-view-container', style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+                    h('div', {
+                      className: 'discover-novel-hero',
+                      style: {
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%)',
+                        borderRadius: 12,
+                        padding: 16
+                      }
+                    },
+                      h('div', { className: 'discover-novel-cover', style: { width: 80, height: 80, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(139, 92, 246, 0.15)' } },
+                        ic('User', 36)
+                      ),
+                      h('div', { className: 'discover-novel-info', style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 6 } },
+                        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 } },
+                          h('div', { className: 'discover-novel-title', style: { margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--paper)' } }, `${activeNovelView.username || 'User'}'s Reading Lists`),
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn ghost',
+                            style: { fontSize: '11px', padding: '3px 8px', borderRadius: 999, color: 'var(--slate)', display: 'inline-flex', alignItems: 'center', gap: 4 },
+                            title: 'Start a new import or search',
+                            onClick: () => {
+                              setImportCategoryTab('wn');
+                              handleResetImportTab();
+                            }
+                          }, ic('Plus', 12), 'New Import')
+                        ),
+                        h('div', { className: 'discover-novel-stats', style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' } },
+                          h('span', { className: 'badge', style: { background: '#8b5cf6', color: '#fff', fontWeight: 600 } }, `${activeNovelView.lists?.length || activeNovelView.totalCount || 0} Reading Lists`),
+                          h('span', { className: 'chip' }, 'Wattpad Profile')
+                        )
+                      )
+                    ),
+                    Array.isArray(activeNovelView.lists) && activeNovelView.lists.length > 0 && h('div', {
+                      style: { marginTop: 8 }
+                    },
+                      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
+                        h('span', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)' } }, `Reading Lists (${activeNovelView.lists.length})`),
+                        h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Select a reading list to open or mass download')
+                      ),
+                      h('div', {
+                        style: {
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                          gap: 12
+                        }
+                      },
+                        activeNovelView.lists.map((list, lIdx) => h('div', {
+                          key: list.id || lIdx,
+                          className: 'card',
+                          style: {
+                            display: 'flex',
+                            gap: 12,
+                            padding: 12,
+                            background: 'var(--surface, rgba(255, 255, 255, 0.03))',
+                            borderRadius: 8,
+                            border: '1px solid var(--hairline)',
+                            alignItems: 'center'
+                          }
+                        },
+                          h('div', {
+                            style: {
+                              width: 48,
+                              height: 68,
+                              borderRadius: 6,
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                              background: 'rgba(0,0,0,0.2)'
+                            }
+                          },
+                            list.cover
+                              ? h('img', { src: list.cover, alt: list.name, style: { width: '100%', height: '100%', objectFit: 'cover' } })
+                              : ic('List', 24)
+                          ),
+                          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 } },
+                            h('div', {
+                              style: {
+                                fontWeight: 600,
+                                fontSize: 13,
+                                color: 'var(--paper)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              },
+                              title: list.name
+                            }, list.name),
+                            h('div', { style: { fontSize: 11, color: 'var(--paper-dim)' } },
+                              `${list.numStories || 0} stories`
+                            ),
+                            h('div', { style: { display: 'flex', gap: 6, marginTop: 4 } },
+                              h('button', {
+                                type: 'button',
+                                className: 'mini-btn secondary',
+                                style: { fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 },
+                                title: 'Open this reading list',
+                                onClick: () => {
+                                  setWebImportUrl(list.url);
+                                  handleStartFetch(false, null, false, list.url);
+                                }
+                              }, ic('BookOpen', 11), 'Open List'),
+                              h('button', {
+                                type: 'button',
+                                className: 'mini-btn ghost',
+                                style: { fontSize: 11, padding: '3px 8px', color: '#ec4899', borderColor: 'rgba(236, 72, 153, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 4 },
+                                title: 'Mass download all stories in this reading list',
+                                onClick: async () => {
+                                  try {
+                                    toast(`Fetching stories for "${list.name}"…`, 'info');
+                                    const plugin = window.sourceRegistry?.getPlugin?.('wattpad');
+                                    if (plugin && typeof plugin.getPlaylistDetails === 'function') {
+                                      const pl = await plugin.getPlaylistDetails(list.url);
+                                      if (pl && pl.stories && pl.stories.length > 0) {
+                                        if (typeof handleMassDownloadPlaylist === 'function') {
+                                          handleMassDownloadPlaylist(pl);
+                                        }
+                                      } else {
+                                        toast('No stories found in list.', 'warning');
+                                      }
+                                    } else {
+                                      setWebImportUrl(list.url);
+                                      handleStartFetch(false, null, false, list.url);
+                                    }
+                                  } catch (err) {
+                                    toast('Failed to load list stories: ' + err.message, 'error');
+                                  }
+                                }
+                              }, ic('Download', 11), 'Mass EPUB')
+                            )
+                          )
+                        ))
+                      )
+                    )
+                  )
+                ) : (
+                  h('div', { className: 'discover-novel-hero' },
                   h('div', { className: 'discover-novel-cover' },
                     activeNovelView.cover
                       ? h('img', { src: activeNovelView.cover, alt: 'Cover' })
@@ -1798,8 +2101,8 @@
                       ? `Download EPUB (${getSafeChapterCount(activeNovelView)} Ch — Incomplete)`
                       : `Download EPUB (${getSafeChapterCount(activeNovelView)} Ch)`)
                   )
-                ),
-              ),
+                )
+              ))),
                 activeNovelView && getSafeChapters(activeNovelView).length > 0 && (() => {
                   const sortedChs = [...getSafeChapters(activeNovelView)].sort((a, b) => (a && b && a.idx !== undefined && b.idx !== undefined) ? (a.idx - b.idx) : 0);
                   const chs = sortedChs;

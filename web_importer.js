@@ -1926,7 +1926,13 @@
                     plugin = new window.WattpadPlugin();
                 }
             }
-            if (plugin) return await crawlWithPlugin(plugin, url, progressCb, options);
+            if (plugin) {
+                if (typeof plugin.isPlaylistUrl === 'function' && plugin.isPlaylistUrl(url)) {
+                    progressCb?.('Loading Wattpad reading list and stories...', 15);
+                    return await plugin.getPlaylistDetails(url);
+                }
+                return await crawlWithPlugin(plugin, url, progressCb, options);
+            }
             return await crawlUniversal(url, progressCb, options);
         }
         else {
