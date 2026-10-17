@@ -1089,6 +1089,9 @@ hr {
                 .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
                 .replace(/\s+/g, '')
                 .replace(/\.jppg$/i, '.jpg');
+              if (u.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(u)) {
+                u = u.replace(/^http:\/\//i, 'https://');
+              }
               if (!u.includes('avatar') && !u.includes('emoji') && !u.includes('gravatar') &&
                   !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
                   !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
@@ -1108,6 +1111,9 @@ hr {
                 .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
                 .replace(/\s+/g, '')
                 .replace(/\.jppg$/i, '.jpg');
+              if (u.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(u)) {
+                u = u.replace(/^http:\/\//i, 'https://');
+              }
               const thM = inner.match(/\bth=["']([^"']+)["']/i);
               if (thM && !u.includes('#th=') && !u.includes('?th=')) {
                 u += '#th=' + thM[1];
@@ -1230,6 +1236,9 @@ hr {
                   detectedMime = cachedRes.headers.get('content-type') || 'image/jpeg';
                 }
               } catch (_) {}
+            }
+            if (downloadUrl.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(downloadUrl)) {
+              downloadUrl = downloadUrl.replace(/^http:\/\//i, 'https://');
             }
             if (/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i.test(downloadUrl)) {
               downloadUrl = downloadUrl.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
@@ -2196,6 +2205,9 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
           if (targetUrl.includes('#th=')) {
             targetUrl = targetUrl.split('#th=')[0];
           }
+          if (targetUrl.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(targetUrl)) {
+            targetUrl = targetUrl.replace(/^http:\/\//i, 'https://');
+          }
 
           const sniffBytes = (buf) => {
             if (!buf || buf.byteLength < 12) return null;
@@ -2217,8 +2229,10 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
             // Strategy 1: NativeBridge
             if (window.NativeBridge && window.NativeBridge.downloadBinary) {
               try {
+                let referer = '';
+                try { referer = new URL(targetUrl).origin + '/'; } catch (_) {}
                 buffer = await Promise.race([
-                  window.NativeBridge.downloadBinary(targetUrl),
+                  window.NativeBridge.downloadBinary(targetUrl, { referer }),
                   new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
                 ]);
               } catch (_) {}

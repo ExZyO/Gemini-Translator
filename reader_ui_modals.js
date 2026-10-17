@@ -272,16 +272,23 @@
         const text = (ch.content || ch.text || '');
         const mdMatches = [...text.matchAll(/!\[(.*?)\]\((https?:\/\/[^\s)]+|data:image\/[^\s)]+)\)/gi)];
         mdMatches.forEach(m => {
+          let src = m[2];
+          if (src && src.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(src)) {
+            src = src.replace(/^http:\/\//i, 'https://');
+          }
           imgs.push({
             alt: m[1] || 'Illustration',
-            src: m[2],
+            src: src,
             chapterIdx: chIdx,
             chapterTitle: ch.title || `Chapter ${chIdx + 1}`
           });
         });
         const htmlMatches = [...text.matchAll(/<img\b[^>]*src=["'](https?:\/\/[^"']+|data:image\/[^"']+)["'][^>]*>/gi)];
         htmlMatches.forEach(m => {
-          const src = m[1];
+          let src = m[1];
+          if (src && src.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(src)) {
+            src = src.replace(/^http:\/\//i, 'https://');
+          }
           if (!imgs.some(existing => existing.src === src)) {
             imgs.push({
               alt: 'Illustration',

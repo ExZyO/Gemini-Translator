@@ -1,9 +1,9 @@
 {
-  "version": "8.21.67",
-  "versionCode": 8478,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.67/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.67/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.67",
+  "version": "8.21.68",
+  "versionCode": 8479,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.68/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.68/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.68",
   "releaseDate": "2026-10-17",
-  "releaseNotes": "v8.21.67: 1:1 Moon+ Reader vertical image feed, tap-to-jump & hold-to-lightbox gestures, multi-tier proxy image fallback, top-right tap bookmarking, and bottom dock bookmark navigation."
+  "releaseNotes": "v8.21.68: NativeBridge zero-CORS direct binary illustration downloader, automated https upgrade for web images, syosetu.org / Hameln hotlink and Cloudflare shield bypass, and EPUB packaging illustration embedding."
 }

@@ -1970,10 +1970,21 @@ function swapPronouns(text) {
 
 function getSafeImageFallbackUrl(src) {
     if (!src || typeof src !== 'string') return '';
-    const clean = src.trim();
+    let clean = src.trim();
     if (clean.startsWith('data:') || clean.startsWith('blob:')) return clean;
+
+    // Upgrade http to https to avoid Mixed Content blocking in WebView
+    if (clean.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(clean)) {
+        clean = clean.replace(/^http:\/\//i, 'https://');
+    }
+
+    // Return cached native blob if available
+    if (typeof window !== 'undefined' && window._nativeImageBlobCache && window._nativeImageBlobCache.has(clean)) {
+        return window._nativeImageBlobCache.get(clean);
+    }
+
     // Known hotlink-protected image hosts that return 403 on direct browser <img> tags
-    if (/(?:mitemin\.net|eparet\.net|syosetu\.com|hameln\.php|pixiv\.net|pximg\.net)/i.test(clean)) {
+    if (/(?:mitemin\.net|eparet\.net|syosetu\.com|syosetu\.org|hameln|pixiv\.net|pximg\.net)/i.test(clean)) {
         const noProto = clean.replace(/^https?:\/\//i, '');
         return `https://images.weserv.nl/?url=${encodeURIComponent(noProto)}`;
     }
@@ -1983,9 +1994,50 @@ function getSafeImageFallbackUrl(src) {
 function handleImageErrorFallback(e, originalSrc) {
     if (!e || !e.target) return;
     const img = e.target;
-    const raw = (originalSrc || img.src || '').trim();
-    if (!raw || raw.startsWith('data:')) return;
+    let raw = (originalSrc || img.src || '').trim();
+    if (!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return;
 
+    if (raw.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(raw)) {
+        raw = raw.replace(/^http:\/\//i, 'https://');
+    }
+
+    // TIER 0: Native Bridge Direct Download (Zero CORS / Native TLS & Cookies on Android)
+    if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.downloadBinary === 'function' && !img.dataset.nativeBridgeTried) {
+        img.dataset.nativeBridgeTried = '1';
+        if (!window._nativeImageBlobCache) window._nativeImageBlobCache = new Map();
+        if (window._nativeImageBlobCache.has(raw)) {
+            img.src = window._nativeImageBlobCache.get(raw);
+            return;
+        }
+
+        let referer = '';
+        try { referer = new URL(raw).origin + '/'; } catch (_) {}
+        window.NativeBridge.downloadBinary(raw, { referer }).then(buf => {
+            if (buf && buf.byteLength > 200) {
+                let mime = 'image/jpeg';
+                const u8 = new Uint8Array(buf.slice(0, 4));
+                if (u8[0] === 0x89 && u8[1] === 0x50) mime = 'image/png';
+                else if (u8[0] === 0x47 && u8[1] === 0x49) mime = 'image/gif';
+                else if (u8[0] === 0x52 && u8[1] === 0x49) mime = 'image/webp';
+                
+                const blob = new Blob([buf], { type: mime });
+                const blobUrl = URL.createObjectURL(blob);
+                window._nativeImageBlobCache.set(raw, blobUrl);
+                img.src = blobUrl;
+            } else {
+                proceedProxyFallback(img, raw);
+            }
+        }).catch(() => {
+            proceedProxyFallback(img, raw);
+        });
+        return;
+    }
+
+    proceedProxyFallback(img, raw);
+}
+
+function proceedProxyFallback(img, raw) {
+    if (!img) return;
     const stage = parseInt(img.dataset.proxyStage || '0', 10);
     const cleanNoProto = raw.replace(/^https?:\/\//i, '');
 

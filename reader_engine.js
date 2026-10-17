@@ -2060,6 +2060,9 @@
         const thMatch = (el.src || '').match(/[#?]th=([A-Za-z0-9_-]+)/i);
         const thHash = thMatch ? thMatch[1] : null;
         let displaySrc = el.src || '';
+        if (displaySrc.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(displaySrc)) {
+          displaySrc = displaySrc.replace(/^http:\/\//i, 'https://');
+        }
         if (/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i.test(displaySrc)) {
           displaySrc = displaySrc.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
         }

@@ -128,6 +128,10 @@
             best = best.replace(/&name=[a-z0-9]+/i, '&name=orig');
         }
 
+        if (best.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(best)) {
+            best = best.replace(/^http:\/\//i, 'https://');
+        }
+
         if (typeof window !== 'undefined' && window.getHighResIllustration) {
             const highRes = window.getHighResIllustration(best);
             if (highRes) best = highRes;
@@ -232,8 +236,12 @@
             });
 
         // Convert standalone or labeled illustration URLs in text (e.g. 挿絵：https://... or <p>https://...</p>)
-        processed = processed.replace(/(?:(?:[\[【「『(]?\s*(?:挿絵|イラスト|画像|図|写真|Illustration|Image|Artwork|Photo)\s*[\]】」』)]?[:：]?\s*)|(?:^|(?<=>)))(https?:\/\/[^\s<"']*(?:mitemin\.net|eparet\.net|pbs\.twimg\.com\/media|i\.imgur\.com|i\.gyazo\.com|\.(?:jpg|jpeg|png|webp|gif|avif))[^\s<"']*)/gi, (match, url) => {
-            return `\n\n![Illustration](${url.trim()})\n\n`;
+        processed = processed.replace(/(?:(?:[\[【「『(]?\s*(?:挿絵|イラスト|画像|図|写真|Illustration|Image|Artwork|Photo)\s*[\]】」』)]?[:：]?\s*)|(?:^|(?<=>)))(https?:\/\/[^\s<"']*(?:mitemin\.net|eparet\.net|syosetu\.org|pbs\.twimg\.com\/media|i\.imgur\.com|i\.gyazo\.com|\.(?:jpg|jpeg|png|webp|gif|avif))[^\s<"']*)/gi, (match, url) => {
+            let u = url.trim();
+            if (u.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(u)) {
+                u = u.replace(/^http:\/\//i, 'https://');
+            }
+            return `\n\n![Illustration](${u})\n\n`;
         });
 
         // 1. Convert linked image wrappers <a href="..."><img .../></a> or <a href="...">[Download Image]</a>
@@ -242,7 +250,7 @@
             const dataSrcMatch = attrs.match(/data-(?:original|src|url)=["']([^"']+)["']/i);
             let targetUrl = hrefMatch ? hrefMatch[1] : (dataSrcMatch ? dataSrcMatch[1] : '');
 
-            const isMiteminOrImageHost = /mitemin\.net|eparet\.net|pbs\.twimg\.com|imgur\.com|gyazo\.com/i.test(targetUrl);
+            const isMiteminOrImageHost = /mitemin\.net|eparet\.net|syosetu\.org|pbs\.twimg\.com|imgur\.com|gyazo\.com/i.test(targetUrl);
             const isImageLink = isMiteminOrImageHost ||
                                 /\.(?:jpg|jpeg|png|webp|gif|bmp|avif)(?:\?[^"']*)?$/i.test(targetUrl) || 
                                 /<img\b/i.test(inner) || 
@@ -271,6 +279,9 @@
                 } else if (imgUrl.includes('pbs.twimg.com/media/')) {
                     imgUrl = imgUrl.replace(/&name=[a-z0-9]+/i, '&name=orig');
                 }
+                if (imgUrl.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(imgUrl)) {
+                    imgUrl = imgUrl.replace(/^http:\/\//i, 'https://');
+                }
                 if (imgUrl && (imgUrl.startsWith('http://') || imgUrl.startsWith('https://') || imgUrl.startsWith('data:image/'))) {
                     let finalUrl = imgUrl.trim();
                     const thMatch = (inner || '').match(/\b(?:data-)?th=["']([^"']+)["']/i);
@@ -291,6 +302,9 @@
             const thMatch = match.match(/\b(?:data-)?th=["']([^"']+)["']/i);
             const altMatch = match.match(/\balt=["']([^"']+)["']/i);
             const altText = altMatch ? altMatch[1].trim() : 'Illustration';
+            if (bestUrl.startsWith('http://') && !/^http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.|10\.)/i.test(bestUrl)) {
+                bestUrl = bestUrl.replace(/^http:\/\//i, 'https://');
+            }
             if (bestUrl && (bestUrl.startsWith('http://') || bestUrl.startsWith('https://') || bestUrl.startsWith('data:image/'))) {
                 if (thMatch && !bestUrl.includes('data:image/') && !bestUrl.includes('#th=') && !bestUrl.includes('?th=')) {
                     bestUrl += '#th=' + thMatch[1];

@@ -201,26 +201,28 @@
       if (honbun) {
         const mae = doc.querySelector('#mae');
         const ato = doc.querySelector('#ato');
+        let combinedHtml = '';
+        if (mae) combinedHtml += mae.innerHTML + '\n<hr/>\n';
+        combinedHtml += honbun.innerHTML;
+        if (ato) combinedHtml += '\n<hr/>\n' + ato.innerHTML;
+        combinedHtml = combinedHtml.replace(/http:\/\/([a-zA-Z0-9.\-_]*syosetu\.(?:org|com))/gi, 'https://$1');
+
         if (cleanFn) {
-          let combinedHtml = '';
-          if (mae) combinedHtml += mae.innerHTML + '\n<hr/>\n';
-          combinedHtml += honbun.innerHTML;
-          if (ato) combinedHtml += '\n<hr/>\n' + ato.innerHTML;
           content = cleanFn(combinedHtml, chapterUrl);
         } else {
-          const parts = [];
-          if (mae && mae.textContent.trim()) parts.push(mae.textContent.trim());
-          parts.push(honbun.textContent.trim());
-          if (ato && ato.textContent.trim()) parts.push(ato.textContent.trim());
-          content = parts.join('\n\n');
+          // Preserve <img> tags even if cleanFn is unavailable
+          combinedHtml = combinedHtml.replace(/<img\b[^>]*src=["'](https?:\/\/[^"']+)["'][^>]*>/gi, '\n\n![Illustration]($1)\n\n');
+          const tmp = new DOMParser().parseFromString(combinedHtml, 'text/html');
+          content = (tmp.body.textContent || '').trim();
         }
       } else {
         const contentEl = doc.querySelector('.p-novel__body, #novel_honbun, .novel_honbun, .widget-episodeBody, .ss');
         if (contentEl) {
+          let innerHtml = contentEl.innerHTML.replace(/http:\/\/([a-zA-Z0-9.\-_]*syosetu\.(?:org|com))/gi, 'https://$1');
           if (cleanFn) {
-            content = cleanFn(contentEl.innerHTML, chapterUrl);
+            content = cleanFn(innerHtml, chapterUrl);
           } else {
-            // Remove Ruby tags markup or format cleanly
+            innerHtml = innerHtml.replace(/<img\b[^>]*src=["'](https?:\/\/[^"']+)["'][^>]*>/gi, '\n\n![Illustration]($1)\n\n');
             const paras = contentEl.querySelectorAll('p, div.novel_honbun, .p-novel__text');
             if (paras.length > 0) {
               const cleanParas = [];
