@@ -2656,12 +2656,11 @@
 
       // ── MOON+ READER MINIMAL STATUS BAR (Active during immersive reading) ──
       h(window.MoonReaderEngine?.StatusBar || 'div', {
-        bookTitle,
-        chapterTitle: currentChapter?.title,
-        chapterIndex: activeIdx,
+        bookTitle, chapterTitle: currentChapter?.title, chapterIndex: activeIdx,
         totalChapters: safeChapters.length,
         chapterScrollPct: viewMode === 'paginated' ? (totalPages > 1 ? ((currentPage + 1) / totalPages) * 100 : 0) : chapterScrollPct,
-        visible: !hudVisible && moonStatusBar !== false
+        visible: !hudVisible && moonStatusBar !== false,
+        chapters: safeChapters, currentChapter, currentPage, totalPages, viewMode
       }),
 
       // ── BOTTOM HUD ──
@@ -2888,7 +2887,8 @@
         isTranslatingTitles, titlesProgress,
         onHealAllChapters: handleHealAllChapters,
         isHealingAll, healAllProgress,
-        onOpenSuiteModal: (c) => setSuiteModalChap(c)
+        onOpenSuiteModal: (c) => setSuiteModalChap(c),
+        bookTitle, totalChapters: safeChapters.length, chapters: safeChapters, chapterScrollPct
       }),
 
       // ── TYPOGRAPHY & THEMES SETTINGS MODAL ──

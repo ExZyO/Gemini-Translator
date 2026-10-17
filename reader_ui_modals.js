@@ -221,10 +221,15 @@
       onTranslateChapter, onTranslateChapterTitle, onHealChapterLines,
       onTranslateAllTitles, isTranslatingTitles, titlesProgress,
       onHealAllChapters, isHealingAll, healAllProgress,
-      onOpenSuiteModal
+      onOpenSuiteModal,
+      bookTitle = '', totalChapters = 0, chapters = [], chapterScrollPct = 0
     } = props;
     const [actionMenuChap, setActionMenuChap] = useState(null);
     const [filterUntranslatedOnly, setFilterUntranslatedOnly] = useState(false);
+    const [scrubVal, setScrubVal] = useState(null);
+
+    const totalChsCount = totalChapters || (Array.isArray(chapters) ? chapters.length : 1);
+    const overallPct = (((activeIdx + Math.max(0, Math.min(1, (chapterScrollPct || 0) / 100))) / Math.max(1, totalChsCount)) * 100).toFixed(1);
 
     const hasForeignChars = (s) => typeof s === 'string' && /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\u0400-\u04ff]/.test(s);
     const isChapUntranslated = (c) => !c.isTranslated || hasForeignChars(c.title) || hasForeignChars(c.originalTitle) || hasForeignChars(c.content || c.text);
@@ -242,15 +247,22 @@
           onClick: (e) => e.stopPropagation()
         },
           // Header & Search
-          h('div', { style: { padding: '16px 18px', borderBottom: '1px solid var(--r-border)' } },
-            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
-              h('span', { style: { fontWeight: 700, fontSize: 16, display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('List', 18), 'Table of Contents'),
+          h('div', { style: { padding: '14px 18px 12px', borderBottom: '1px solid var(--r-border)' } },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+              h('span', { style: { fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 } }, bookTitle || 'Table of Contents'),
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
                 style: { border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' },
                 onClick: () => setShowToc(false)
               }, ic('X', 15))
+            ),
+            h('div', { style: { height: 4, background: 'rgba(255, 255, 255, 0.1)', borderRadius: 2, overflow: 'hidden' } },
+              h('div', { style: { height: '100%', width: `${Math.min(100, Math.max(0, overallPct))}%`, background: 'var(--r-accent, #6366f1)', borderRadius: 2, transition: 'width 0.2s ease' } })
+            ),
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--r-muted)', marginTop: 4, marginBottom: 8 } },
+              h('span', null, `Chapter ${activeIdx + 1} of ${totalChsCount}`),
+              h('span', null, `${overallPct}% Read`)
             ),
             h('input', {
               type: 'text',
@@ -391,7 +403,9 @@
                     },
                       h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, marginRight: 8 } }, (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(c.title) : c.title),
                       h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 } },
-                        isActive && h('span', { style: { fontSize: 10, padding: '2px 6px', background: 'var(--r-accent)', color: '#fff', borderRadius: 4 } }, 'Reading'),
+                        isActive
+                          ? h('span', { style: { fontSize: 10, padding: '2px 6px', background: 'var(--r-accent, #6366f1)', color: '#fff', borderRadius: 4, fontWeight: 700 } }, `Reading (${Math.round(chapterScrollPct || 0)}%)`)
+                          : (c.idx < activeIdx && h('span', { style: { fontSize: 10, padding: '2px 6px', background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', borderRadius: 4, fontWeight: 600 } }, '✓ Read')),
                         (typeof onTranslateChapter === 'function' || typeof onTranslateChapterTitle === 'function') && h('button', {
                           type: 'button',
                           className: 'mini-btn ghost',
@@ -423,6 +437,57 @@
                 )
               );
             })
+          ),
+
+          // Moon+ Reader TOC Quick Scrubber Bar
+          h('div', { className: 'moon-toc-scrubber-bar' },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--r-muted)' } },
+              h('span', { style: { fontWeight: 600, color: 'var(--r-text)' } }, 'Jump to Chapter'),
+              h('span', null, `Ch. ${(scrubVal !== null ? scrubVal : activeIdx) + 1} of ${totalChsCount}`)
+            ),
+            h('div', { className: 'moon-toc-scrubber-row' },
+              h('button', {
+                type: 'button',
+                className: 'moon-scrub-jump-btn',
+                title: 'Jump back 25 chapters',
+                disabled: activeIdx <= 0,
+                onClick: () => changeChapter(Math.max(0, activeIdx - 25))
+              }, '« 25'),
+              h('button', {
+                type: 'button',
+                className: 'moon-scrub-jump-btn',
+                title: 'Previous chapter',
+                disabled: activeIdx <= 0,
+                onClick: () => changeChapter(Math.max(0, activeIdx - 1))
+              }, '‹'),
+              h('input', {
+                type: 'range',
+                min: 0,
+                max: Math.max(0, totalChsCount - 1),
+                value: scrubVal !== null ? scrubVal : activeIdx,
+                style: { flex: 1, accentColor: 'var(--r-accent, #6366f1)', cursor: 'pointer', height: 6 },
+                onInput: (e) => setScrubVal(parseInt(e.target.value, 10)),
+                onChange: (e) => {
+                  const target = parseInt(e.target.value, 10);
+                  setScrubVal(null);
+                  changeChapter(target);
+                }
+              }),
+              h('button', {
+                type: 'button',
+                className: 'moon-scrub-jump-btn',
+                title: 'Next chapter',
+                disabled: activeIdx >= totalChsCount - 1,
+                onClick: () => changeChapter(Math.min(totalChsCount - 1, activeIdx + 1))
+              }, '›'),
+              h('button', {
+                type: 'button',
+                className: 'moon-scrub-jump-btn',
+                title: 'Jump forward 25 chapters',
+                disabled: activeIdx >= totalChsCount - 1,
+                onClick: () => changeChapter(Math.min(totalChsCount - 1, activeIdx + 25))
+              }, '25 »')
+            )
           ),
 
           // Floating Action Modal when tapping Sparkles

@@ -1724,64 +1724,143 @@
         chapterIndex = 0,
         totalChapters = 1,
         chapterScrollPct = 0,
-        totalBookPct = 0,
-        visible = true
+        visible = true,
+        chapters = [],
+        currentChapter = null,
+        currentPage = 0,
+        totalPages = 1,
+        viewMode = 'scroll'
       } = props;
 
-      const [timeStr, setTimeStr] = React.useState(() => {
-        try {
-          return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } catch (e) {
-          return '';
-        }
-      });
-      const [batteryLevel, setBatteryLevel] = React.useState(null);
-      const [isCharging, setIsCharging] = React.useState(false);
+      const [screenMetrics, setScreenMetrics] = React.useState({ currentScreen: 1, totalScreens: 1 });
 
+      // Compute screens dynamically in vertical scroll mode
       React.useEffect(() => {
-        const interval = setInterval(() => {
-          try {
-            setTimeStr(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-          } catch (_) {}
-        }, 30000);
-        return () => clearInterval(interval);
-      }, []);
+        const updateScreens = () => {
+          if (viewMode === 'paginated') {
+            setScreenMetrics({
+              currentScreen: Math.max(1, (currentPage || 0) + 1),
+              totalScreens: Math.max(1, totalPages || 1)
+            });
+            return;
+          }
+          const el = document.getElementById('gemini-reader-scroll-area');
+          if (el) {
+            const vh = el.clientHeight || window.innerHeight || 800;
+            const sh = el.scrollHeight || vh;
+            const tot = Math.max(1, Math.ceil(sh / vh));
+            const cur = Math.min(tot, Math.max(1, Math.floor(((el.scrollTop || 0) + 16) / vh) + 1));
+            setScreenMetrics({ currentScreen: cur, totalScreens: tot });
+          } else {
+            const tot = Math.max(1, Math.round(((currentChapter?.text?.length || 2000) / 1200)));
+            const cur = Math.min(tot, Math.max(1, Math.round(tot * ((chapterScrollPct || 0) / 100))));
+            setScreenMetrics({ currentScreen: cur, totalScreens: tot });
+          }
+        };
 
-      React.useEffect(() => {
-        if (typeof navigator !== 'undefined' && navigator.getBattery) {
-          navigator.getBattery().then(b => {
-            setBatteryLevel(Math.round(b.level * 100));
-            setIsCharging(b.charging);
-            b.addEventListener('levelchange', () => setBatteryLevel(Math.round(b.level * 100)));
-            b.addEventListener('chargingchange', () => setIsCharging(b.charging));
-          }).catch(() => {});
+        updateScreens();
+        const el = document.getElementById('gemini-reader-scroll-area');
+        if (el) {
+          el.addEventListener('scroll', updateScreens, { passive: true });
+          window.addEventListener('resize', updateScreens, { passive: true });
+          return () => {
+            el.removeEventListener('scroll', updateScreens);
+            window.removeEventListener('resize', updateScreens);
+          };
         }
-      }, []);
+      }, [chapterIndex, chapterScrollPct, currentPage, totalPages, viewMode, currentChapter]);
+
+      // Memoize chapter words and book total words for instant estimation
+      const { currentChapterWords, totalBookWords, wordsReadSoFar } = React.useMemo(() => {
+        if (!Array.isArray(chapters) || chapters.length === 0) {
+          const w = (currentChapter?.text || currentChapter?.content || '').split(/\s+/).filter(Boolean).length || 500;
+          return { currentChapterWords: w, totalBookWords: w, wordsReadSoFar: Math.round(w * (chapterScrollPct / 100)) };
+        }
+        let total = 0;
+        let readBefore = 0;
+        let curWords = 0;
+        chapters.forEach((ch, idx) => {
+          const w = typeof ch?.words === 'number' && ch.words > 0
+            ? ch.words
+            : ((ch?.text || ch?.content || '').split(/\s+/).filter(Boolean).length || Math.round((ch?.text?.length || 1000) / 5));
+          total += w;
+          if (idx < chapterIndex) {
+            readBefore += w;
+          } else if (idx === chapterIndex) {
+            curWords = w;
+          }
+        });
+        const curRead = Math.round(curWords * Math.max(0, Math.min(1, (chapterScrollPct || 0) / 100)));
+        return {
+          currentChapterWords: Math.max(1, curWords),
+          totalBookWords: Math.max(1, total),
+          wordsReadSoFar: readBefore + curRead
+        };
+      }, [chapters, chapterIndex, chapterScrollPct, currentChapter]);
 
       if (!visible) return null;
 
-      const cleanChap = (chapterTitle || '').replace(/^[#\s]+/, '').trim();
-      const cleanDisplayTitle = cleanChap || bookTitle || 'Chapter';
+      // 1. Calculate remaining time in chapter (WPM ~ 220)
+      const scrollFrac = Math.max(0, Math.min(1, (chapterScrollPct || 0) / 100));
+      const remainingChapterWords = Math.max(0, Math.round(currentChapterWords * (1 - scrollFrac)));
+      const chapMins = Math.ceil(remainingChapterWords / 220);
+      let chapterTimeLeftStr = '';
+      if (remainingChapterWords <= 30 || chapMins <= 0) {
+        chapterTimeLeftStr = '< 1 min left in chapter';
+      } else if (chapMins < 60) {
+        chapterTimeLeftStr = `${chapMins} mins left in chapter`;
+      } else {
+        const h = Math.floor(chapMins / 60);
+        const m = chapMins % 60;
+        chapterTimeLeftStr = `${h} hr${h > 1 ? 's' : ''} ${m} min${m !== 1 ? 's' : ''} left in chapter`;
+      }
+
+      // 2. Calculate remaining time in book
+      const remainingBookWords = Math.max(0, totalBookWords - wordsReadSoFar);
+      const bookMins = Math.ceil(remainingBookWords / 220);
+      let bookTimeLeftStr = '';
+      if (bookMins < 60) {
+        bookTimeLeftStr = `${Math.max(1, bookMins)} mins left in book`;
+      } else {
+        const bh = Math.floor(bookMins / 60);
+        const bm = bookMins % 60;
+        bookTimeLeftStr = `${bh} hr${bh > 1 ? 's' : ''} ${bm} min${bm !== 1 ? 's' : ''} left in book`;
+      }
+
+      // 3. Formatted Chapter Title: "493: Crimson Hell (1/21)"
+      const rawTitle = (chapterTitle || '').trim();
+      const numMatch = rawTitle.match(/^(?:Chapter|第|Ch\.?)?\s*(\d+)[:.\s-]*(.*)/i);
+      let cleanChapterDisplay = '';
+      if (numMatch && numMatch[1]) {
+        const num = numMatch[1];
+        const rest = numMatch[2] ? numMatch[2].trim() : '';
+        cleanChapterDisplay = rest ? `${num}: ${rest}` : `Chapter ${num}`;
+      } else {
+        cleanChapterDisplay = rawTitle || `Chapter ${chapterIndex + 1}`;
+      }
+
+      // 4. Book Screen / Page Counter: "10500/24715"
+      const currentPageCount = Math.max(1, Math.round(wordsReadSoFar / 250));
+      const totalPageCount = Math.max(currentPageCount, Math.round(totalBookWords / 250));
+
       const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
 
       return h('div', { className: 'moon-reader-status-bar' },
-        h('div', { className: 'moon-status-left' },
-          h('span', { className: 'moon-status-truncate' }, cleanDisplayTitle)
+        // Row 1: Estimated reading times (Left: chapter, Right: book)
+        h('div', { className: 'moon-status-row moon-status-time-row' },
+          h('span', { className: 'moon-time-chapter' }, chapterTimeLeftStr),
+          h('span', { className: 'moon-time-book' }, bookTimeLeftStr)
         ),
-        h('div', { className: 'moon-status-center' },
-          h('span', null, `${chapterScrollPct.toFixed(1)}%`),
-          totalChapters > 1 && h('span', { style: { opacity: 0.7, marginLeft: 4 } }, `(${chapterIndex + 1}/${totalChapters})`)
-        ),
-        h('div', { className: 'moon-status-right' },
-          batteryLevel !== null && h('div', { className: 'moon-battery-wrap', title: `${batteryLevel}%${isCharging ? ' (Charging)' : ''}` },
-            h('div', { className: 'moon-battery-body' },
-              h('div', { className: 'moon-battery-fill', style: { width: `${Math.max(8, batteryLevel)}%`, background: isCharging ? '#4ade80' : 'currentColor' } })
-            ),
-            h('div', { className: 'moon-battery-tip' }),
-            h('span', { style: { fontSize: '9.5px', marginLeft: 3, fontWeight: 600 } }, `${batteryLevel}%`)
+        // Row 2: Chapter Title with Screen Number + Total Book Screens/Pages
+        h('div', { className: 'moon-status-row moon-status-meta-row' },
+          h('div', { className: 'moon-status-center-text' },
+            `${cleanChapterDisplay} (${screenMetrics.currentScreen}/${screenMetrics.totalScreens})`
           ),
-          h('span', { className: 'moon-clock-text' }, timeStr)
+          h('div', { className: 'moon-status-pages-counter' },
+            `${currentPageCount}/${totalPageCount}`
+          )
         ),
+        // Subtle progress track
         h('div', { className: 'moon-bottom-progress-track' },
           h('div', { className: 'moon-bottom-progress-fill', style: { width: `${Math.max(0, Math.min(100, chapterScrollPct))}%` } })
         )

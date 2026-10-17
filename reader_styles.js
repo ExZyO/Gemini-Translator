@@ -30,7 +30,7 @@
         overflow: hidden;
         font-family: inherit;
       }
-      .reader-v2-theme-black { background: #000000; color: #d1d5db; --r-accent: #f59e0b; --r-bg: #000000; --r-card: #111111; --r-border: #222222; --r-text: #d1d5db; --r-muted: #888888; }
+      .reader-v2-theme-black { background: #000000; color: #f3f4f6; --r-accent: #f59e0b; --r-bg: #000000; --r-card: #111111; --r-border: #222222; --r-text: #f3f4f6; --r-muted: #9ca3af; }
       .reader-v2-theme-dark { background: #0a0f1d; color: #cbd5e1; --r-accent: #60a5fa; --r-bg: #0a0f1d; --r-card: #141c2f; --r-border: #222f4c; --r-text: #cbd5e1; --r-muted: #7b8fa7; }
       .reader-v2-theme-nord { background: #242933; color: #eceff4; --r-accent: #88c0d0; --r-bg: #242933; --r-card: #2e3440; --r-border: #434c5e; --r-text: #eceff4; --r-muted: #9baec8; }
       .reader-v2-theme-sepia { background: #fbf0d9; color: #433422; --r-accent: #b45309; --r-bg: #fbf0d9; --r-card: #f3e5c8; --r-border: #e3d2b2; --r-text: #433422; --r-muted: #7d6b53; }
@@ -52,6 +52,8 @@
         scrollbar-width: thin;
         scroll-behavior: smooth;
         -webkit-overflow-scrolling: touch;
+        padding-bottom: 56px;
+        box-sizing: border-box;
       }
       .reader-v2-paginated-viewport {
         flex: 1;
@@ -488,103 +490,138 @@
         border-radius: 6px;
         box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
       }
-      /* Moon+ Reader Pro Bottom Status Bar */
+      /* Moon+ Reader Pro 2-Row Bottom Status Bar (Exact match to Moon+ Reader HUD) */
       .moon-reader-status-bar {
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
-        height: 26px;
         z-index: 80;
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 16px 2px;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 4px 14px 4px;
         box-sizing: border-box;
         font-size: 10.5px;
-        color: var(--r-muted, #94a3b8);
-        background: linear-gradient(to top, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0.15) 60%, transparent 100%);
-        pointer-events: none;
+        color: rgba(255, 255, 255, 0.72);
+        background: #000000;
+        pointer-events: auto;
         user-select: none;
         -webkit-user-select: none;
         letter-spacing: 0.2px;
-        transition: opacity 0.2s ease, transform 0.2s ease;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.4);
       }
-      .reader-v2-theme-sepia .moon-reader-status-bar,
-      .reader-v2-theme-parchment .moon-reader-status-bar,
-      .reader-v2-theme-sage .moon-reader-status-bar,
+      .reader-v2-theme-sepia .moon-reader-status-bar {
+        background: #fbf0d9;
+        color: rgba(67, 52, 34, 0.75);
+        box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.05);
+      }
+      .reader-v2-theme-parchment .moon-reader-status-bar {
+        background: #f4ecd8;
+        color: rgba(56, 50, 38, 0.75);
+        box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.05);
+      }
+      .reader-v2-theme-sage .moon-reader-status-bar {
+        background: #e2ece2;
+        color: rgba(34, 51, 34, 0.75);
+        box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.05);
+      }
       .reader-v2-theme-light .moon-reader-status-bar {
-        background: linear-gradient(to top, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.02) 60%, transparent 100%);
+        background: #ffffff;
+        color: rgba(17, 24, 39, 0.75);
+        box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.06);
       }
-      .moon-status-left {
-        flex: 1;
-        min-width: 0;
+      .reader-v2-theme-dark .moon-reader-status-bar {
+        background: #0a0f1d;
+        color: rgba(203, 213, 225, 0.75);
+      }
+      .reader-v2-theme-nord .moon-reader-status-bar {
+        background: #242933;
+        color: rgba(236, 239, 244, 0.75);
+      }
+      .moon-status-row {
         display: flex;
         align-items: center;
-        overflow: hidden;
+        justify-content: space-between;
+        width: 100%;
+        line-height: 1.35;
       }
-      .moon-status-truncate {
+      .moon-status-time-row {
+        font-size: 10.5px;
+        opacity: 0.85;
+        margin-bottom: 2px;
+      }
+      .moon-status-meta-row {
+        position: relative;
+        font-size: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .moon-status-center-text {
+        flex: 1;
+        text-align: center;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        max-width: 240px;
+        padding: 0 8px;
         font-weight: 500;
-        opacity: 0.9;
+        letter-spacing: 0.15px;
       }
-      .moon-status-center {
+      .moon-status-pages-counter {
         flex-shrink: 0;
-        padding: 0 12px;
-        font-weight: 600;
-        letter-spacing: 0.3px;
+        font-weight: 700;
         font-variant-numeric: tabular-nums;
-      }
-      .moon-status-right {
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 500;
-        font-variant-numeric: tabular-nums;
-      }
-      .moon-battery-wrap {
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-      }
-      .moon-battery-body {
-        width: 17px;
-        height: 8.5px;
-        border: 1px solid currentColor;
-        border-radius: 2px;
-        padding: 1px;
-        box-sizing: border-box;
-        display: flex;
-        align-items: center;
-      }
-      .moon-battery-fill {
-        height: 100%;
-        border-radius: 1px;
-        transition: width 0.3s ease;
-      }
-      .moon-battery-tip {
-        width: 1.5px;
-        height: 4px;
-        background: currentColor;
-        border-radius: 0 1px 1px 0;
+        letter-spacing: 0.25px;
+        opacity: 0.95;
       }
       .moon-bottom-progress-track {
         position: absolute;
         bottom: 0;
         left: 0;
         right: 0;
-        height: 2px;
-        background: rgba(128, 128, 128, 0.15);
+        height: 1.5px;
+        background: rgba(255, 255, 255, 0.08);
         overflow: hidden;
       }
       .moon-bottom-progress-fill {
         height: 100%;
         background: var(--r-accent, #60a5fa);
         transition: width 0.15s ease-out;
+      }
+
+      /* Moon+ Reader TOC Drawer Quick Scrubber Bar */
+      .moon-toc-scrubber-bar {
+        padding: 10px 14px 12px;
+        background: var(--r-card, #12141a);
+        border-top: 1px solid var(--r-border, rgba(255, 255, 255, 0.1));
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .moon-toc-scrubber-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .moon-scrub-jump-btn {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: var(--r-text, #fff);
+        border-radius: 6px;
+        padding: 4px 7px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s ease;
+      }
+      .moon-scrub-jump-btn:active {
+        background: var(--r-accent, #6366f1);
+        color: #fff;
       }
 
       /* Moon+ Reader Pro 5-Color Highlighter Palette */
