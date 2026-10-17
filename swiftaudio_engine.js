@@ -205,6 +205,9 @@
     class SwiftAudioPlayerController {
         constructor() {
             this.audioEl = null;
+            this.preloadAudioEl = null;
+            this._hasPreloadedNext = false;
+            this._lastSavedDbTime = 0;
             this.currentBook = null;
             this.currentTrackIndex = 0;
             this.isPlaying = false;
@@ -248,6 +251,7 @@
                 currentTime: this.currentTime,
                 duration: this.duration,
                 playbackRate: this.playbackRate,
+                sleepTimerMinutes: this.sleepTimerMinutes,
                 sleepTimerRemainingSeconds: this.sleepTimerRemainingSeconds,
                 sleepAtEndOfChapter: this.sleepAtEndOfChapter,
                 isLoaded: !!this.currentBook
@@ -278,6 +282,7 @@
                 } catch(e) {}
             }
 
+            // Primary playback audio element
             let el = document.getElementById('swift-audio-element');
             if (!el) {
                 el = document.createElement('audio');
@@ -292,8 +297,31 @@
             }
             this.audioEl = el;
 
-            this.audioEl.addEventListener('error', () => {
-                const err = this.audioEl ? this.audioEl.error : null;
+            // Zero-gap preload audio element (prebuffers upcoming chapter into HTTP/media cache)
+            let preloadEl = document.getElementById('swift-audio-preload');
+            if (!preloadEl) {
+                preloadEl = document.createElement('audio');
+                preloadEl.id = 'swift-audio-preload';
+                preloadEl.setAttribute('playsinline', 'true');
+                preloadEl.setAttribute('preload', 'auto');
+                preloadEl.setAttribute('referrerpolicy', 'no-referrer');
+                preloadEl.style.cssText = 'position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; z-index: -1;';
+                document.body.appendChild(preloadEl);
+            } else {
+                preloadEl.setAttribute('referrerpolicy', 'no-referrer');
+            }
+            this.preloadAudioEl = preloadEl;
+
+            this._bindAudioEvents(this.audioEl);
+            this._bindAudioEvents(this.preloadAudioEl);
+        }
+
+        _bindAudioEvents(el) {
+            if (!el) return;
+
+            el.addEventListener('error', () => {
+                if (el !== this.audioEl) return;
+                const err = el.error;
                 let errMsg = 'Audio stream error';
                 if (err) {
                     switch (err.code) {
@@ -310,7 +338,8 @@
                 if (window.toast) window.toast(errMsg, 'error');
             });
 
-            this.audioEl.addEventListener('play', () => {
+            el.addEventListener('play', () => {
+                if (el !== this.audioEl) return;
                 this.isPlaying = true;
                 try {
                     if (window.speechSynthesis && window.speechSynthesis.speaking) {
@@ -322,16 +351,25 @@
                 this._notify();
             });
 
-            this.audioEl.addEventListener('pause', () => {
+            el.addEventListener('pause', () => {
+                if (el !== this.audioEl) return;
                 this.isPlaying = false;
+                this._savePosition(true);
                 this._updateMediaSession();
                 this._notify();
             });
 
-            this.audioEl.addEventListener('timeupdate', () => {
-                this.currentTime = this.audioEl.currentTime || 0;
-                this.duration = this.audioEl.duration || this.duration || 0;
-                this._savePosition();
+            el.addEventListener('timeupdate', () => {
+                if (el !== this.audioEl) return;
+                this.currentTime = el.currentTime || 0;
+                this.duration = el.duration || this.duration || 0;
+                this._savePosition(false);
+
+                // Zero-gap chapter pre-buffering (preloads next chapter 15s before current chapter finishes)
+                if (this.duration > 15 && (this.duration - this.currentTime) <= 15) {
+                    this._preloadNextTrack();
+                }
+
                 // Periodic lightweight sync every 20s during active playback to keep Android SystemUI in perfect lockstep
                 if (this.isPlaying && Math.abs(this.currentTime - (this._lastMediaSessionSyncTime || 0)) >= 20) {
                     this._lastMediaSessionSyncTime = this.currentTime;
@@ -340,13 +378,15 @@
                 this._notify();
             });
 
-            this.audioEl.addEventListener('loadedmetadata', () => {
-                this.duration = this.audioEl.duration || 0;
+            el.addEventListener('loadedmetadata', () => {
+                if (el !== this.audioEl) return;
+                this.duration = el.duration || 0;
                 this._updateMediaSession();
                 this._notify();
             });
 
-            this.audioEl.addEventListener('ended', () => {
+            el.addEventListener('ended', () => {
+                if (el !== this.audioEl) return;
                 if (this.sleepAtEndOfChapter) {
                     this.pause();
                     this.clearSleepTimer();
@@ -356,10 +396,30 @@
                 this.nextTrack();
             });
 
-            this.audioEl.addEventListener('ratechange', () => {
-                this.playbackRate = this.audioEl.playbackRate || 1.0;
+            el.addEventListener('ratechange', () => {
+                if (el !== this.audioEl) return;
+                this.playbackRate = el.playbackRate || 1.0;
                 this._notify();
             });
+        }
+
+        _preloadNextTrack() {
+            if (this._hasPreloadedNext || !this.currentBook || !this.currentBook.tracks) return;
+            const nextIdx = this.currentTrackIndex + 1;
+            if (nextIdx >= this.currentBook.tracks.length) return;
+            const nextTrack = this.currentBook.tracks[nextIdx];
+            if (!nextTrack || !nextTrack.src) return;
+
+            this._hasPreloadedNext = true;
+            try {
+                if (this.preloadAudioEl) {
+                    this.preloadAudioEl.src = nextTrack.src;
+                    this.preloadAudioEl.preload = 'auto';
+                    this.preloadAudioEl.load();
+                }
+            } catch (err) {
+                console.debug('[SwiftAudio] Preload track error:', err);
+            }
         }
 
         loadBook(book, startTrackIndex = 0, autoPlay = true, seekTime = 0) {
@@ -373,16 +433,47 @@
 
             this._playSource(track.src, autoPlay, seekTime);
             this._updateMediaSession();
-            this._savePosition();
+            this._savePosition(true);
             this._notify();
         }
 
         _playSource(src, autoPlay = true, seekTime = 0) {
+            this._hasPreloadedNext = false;
+            this.currentTime = seekTime || 0;
+
+            // Zero-gap switch: If preloadAudioEl already has this exact src buffered with readyState >= 2 (HAVE_CURRENT_DATA)
+            if (seekTime === 0 && this.preloadAudioEl && this.preloadAudioEl.src === src && this.preloadAudioEl.readyState >= 2) {
+                try {
+                    if (this.audioEl) {
+                        this.audioEl.pause();
+                        this.audioEl.removeAttribute('src');
+                        this.audioEl.load();
+                    }
+                } catch(e) {}
+
+                // Seamlessly swap active and preload elements
+                const oldActive = this.audioEl;
+                this.audioEl = this.preloadAudioEl;
+                this.preloadAudioEl = oldActive;
+
+                this.audioEl.volume = 1.0;
+                this.audioEl.playbackRate = this.playbackRate;
+                if (autoPlay) {
+                    this.play();
+                }
+                this._updateMediaSession();
+                this._savePosition(true);
+                this._notify();
+                return;
+            }
+
             if (!this.audioEl) return;
             try {
                 this.audioEl.pause();
             } catch(e) {}
 
+            this.audioEl.volume = 1.0; // Immediate full volume with no ramp delay
+            this.audioEl.playbackRate = this.playbackRate;
             this.audioEl.src = src;
 
             if (seekTime > 0) {
@@ -391,16 +482,26 @@
                     try { this.audioEl.currentTime = seekTime; } catch(e) {}
                 };
                 this.audioEl.addEventListener('loadedmetadata', onLoaded, { once: true });
+                this.audioEl.addEventListener('canplay', () => {
+                    try {
+                        if (Math.abs(this.audioEl.currentTime - seekTime) > 1) {
+                            this.audioEl.currentTime = seekTime;
+                        }
+                    } catch(e) {}
+                }, { once: true });
             }
 
             if (autoPlay) {
                 this.play();
             }
+            this._savePosition(true);
+            this._notify();
         }
 
         play() {
             if (!this.audioEl) return;
             try {
+                this.audioEl.volume = 1.0; // Immediate full volume with no fading
                 const p = this.audioEl.play();
                 if (p !== undefined && p.catch) {
                     p.catch(e => {
@@ -419,6 +520,7 @@
             if (this.audioEl) {
                 try { this.audioEl.pause(); } catch(e) {}
             }
+            this._savePosition(true);
         }
 
         togglePlay() {
@@ -432,11 +534,19 @@
 
         close() {
             this.pause();
+            this._hasPreloadedNext = false;
             if (this.audioEl) {
                 try {
                     this.audioEl.pause();
                     this.audioEl.removeAttribute('src');
                     this.audioEl.load();
+                } catch(e) {}
+            }
+            if (this.preloadAudioEl) {
+                try {
+                    this.preloadAudioEl.pause();
+                    this.preloadAudioEl.removeAttribute('src');
+                    this.preloadAudioEl.load();
                 } catch(e) {}
             }
             this.clearSleepTimer();
@@ -470,6 +580,7 @@
                 }
                 this.audioEl.currentTime = target;
                 this.currentTime = target;
+                this._savePosition(true);
                 this._notify();
                 this._updateMediaSession();
             } catch (e) {
@@ -491,8 +602,45 @@
                 const target = Math.max(0, Math.min(seconds, this.duration || Infinity));
                 this.audioEl.currentTime = target;
                 this.currentTime = target;
+                this._savePosition(true);
                 this._notify();
                 this._updateMediaSession();
+            }
+        }
+
+        async openInPoweramp() {
+            if (!this.currentBook) {
+                if (window.toast) window.toast('No audiobook currently playing', 'info');
+                return { success: false, error: 'No audiobook loaded' };
+            }
+            this.pause(); // Pause our player so both players do not play simultaneously
+            const track = this.currentBook.tracks?.[this.currentTrackIndex];
+            const url = track?.src || '';
+            const path = track?.localPath || '';
+            const position = Math.floor(this.currentTime || 0);
+
+            if (window.toast) window.toast('Opening in Poweramp...', 'info');
+
+            if (window.NativeBridge && typeof window.NativeBridge.openInPoweramp === 'function') {
+                try {
+                    const res = await window.NativeBridge.openInPoweramp({ url, path, position });
+                    if (res && res.powerampInstalled === false) {
+                        if (window.toast) window.toast('Poweramp not installed. Opened with system player.', 'info');
+                    }
+                    return res;
+                } catch (err) {
+                    console.error('[SwiftAudio] openInPoweramp failed:', err);
+                    if (window.toast) window.toast('Failed to open Poweramp: ' + (err.message || 'Unknown error'), 'error');
+                    return { success: false, error: err.message };
+                }
+            } else {
+                if (url) {
+                    try {
+                        window.open(url, '_blank');
+                        return { success: true, powerampInstalled: false };
+                    } catch (_) {}
+                }
+                return { success: false, error: 'Poweramp is only available on Android native app.' };
             }
         }
 
@@ -659,39 +807,59 @@
             } catch (e) {}
         }
 
-        _savePosition() {
-            if (typeof localStorage === 'undefined' || !this.currentBook || !this.currentBook.url) return;
-            try {
-                const pos = {
-                    url: this.currentBook.url,
-                    book: {
-                        url: this.currentBook.url,
-                        title: this.currentBook.title,
-                        author: this.currentBook.author,
-                        cover: this.currentBook.cover,
-                        tracks: this.currentBook.tracks
-                    },
-                    trackIndex: this.currentTrackIndex,
-                    currentTime: this.currentTime,
-                    playbackRate: this.playbackRate,
-                    updatedAt: Date.now()
-                };
-                localStorage.setItem('gemini_last_audiobook_position', JSON.stringify(pos));
+        _savePosition(immediate = false) {
+            if (!this.currentBook || !this.currentBook.url) return;
+            const now = Date.now();
+            // During continuous timeupdate ticks, throttle DB & LocalStorage writes to once every 1000ms
+            if (!immediate && this._lastSavedDbTime && (now - this._lastSavedDbTime < 1000)) {
+                return;
+            }
+            this._lastSavedDbTime = now;
 
-                // Auto-sync progress to Library if this audiobook was saved
-                try {
+            const bookKey = this.currentBook.id || this.currentBook.url || this.currentBook.title;
+            const pos = {
+                url: this.currentBook.url,
+                bookId: this.currentBook.id || null,
+                bookTitle: this.currentBook.title || '',
+                book: {
+                    id: this.currentBook.id || null,
+                    url: this.currentBook.url,
+                    title: this.currentBook.title,
+                    author: this.currentBook.author,
+                    cover: this.currentBook.cover,
+                    tracks: this.currentBook.tracks
+                },
+                trackIndex: this.currentTrackIndex,
+                trackTitle: this.currentBook?.tracks?.[this.currentTrackIndex]?.title || '',
+                currentTime: this.currentTime,
+                duration: this.duration,
+                playbackRate: this.playbackRate,
+                updatedAt: now
+            };
+
+            // 1. Authoritative IndexedDB (GeminiNovelDB) exact-second resume memory
+            if (window.GeminiNovelDB && typeof window.GeminiNovelDB.saveAudiobookPosition === 'function') {
+                window.GeminiNovelDB.saveAudiobookPosition(bookKey, pos).catch(() => {});
+            }
+
+            // 2. LocalStorage fast cache & saved audiobooks sync
+            try {
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem('gemini_last_audiobook_position', JSON.stringify(pos));
+
                     const rawSaved = localStorage.getItem('gemini_saved_audiobooks');
                     if (rawSaved) {
                         const list = JSON.parse(rawSaved);
                         let changed = false;
                         for (let i = 0; i < list.length; i++) {
-                            if (list[i].url === this.currentBook.url || list[i].title === this.currentBook.title) {
+                            if (list[i].url === this.currentBook.url || list[i].title === this.currentBook.title || (list[i].id && list[i].id === this.currentBook.id)) {
                                 list[i].lastPlayedTrackIndex = this.currentTrackIndex;
                                 list[i].lastPlayedTrackTitle = this.currentBook?.tracks?.[this.currentTrackIndex]?.title || '';
                                 list[i].lastPlayedTime = this.currentTime;
-                                list[i].lastListenedAt = Date.now();
+                                list[i].lastListenedAt = now;
                                 if (!list[i].tracks && this.currentBook.tracks) {
                                     list[i].tracks = this.currentBook.tracks;
+                                    list[i].totalTracks = this.currentBook.tracks.length;
                                 }
                                 changed = true;
                                 break;
@@ -701,11 +869,38 @@
                             localStorage.setItem('gemini_saved_audiobooks', JSON.stringify(list));
                         }
                     }
-                } catch(e) {}
+                }
             } catch (e) {}
         }
 
-        _loadSavedPosition() {
+        async _loadSavedPosition() {
+            // First attempt to load exact-second resume position from GeminiNovelDB
+            try {
+                const rawLast = typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_last_audiobook_position') : null;
+                const parsedLast = rawLast ? JSON.parse(rawLast) : null;
+                const bookKey = parsedLast?.url || parsedLast?.book?.url || parsedLast?.bookTitle;
+                if (bookKey && window.GeminiNovelDB && typeof window.GeminiNovelDB.getAudiobookPosition === 'function') {
+                    const dbPos = await window.GeminiNovelDB.getAudiobookPosition(bookKey);
+                    if (dbPos && (dbPos.book || parsedLast?.book)) {
+                        const targetBook = dbPos.book || parsedLast.book;
+                        if (targetBook && targetBook.tracks && targetBook.tracks.length > 0) {
+                            this.currentBook = targetBook;
+                            this.currentTrackIndex = dbPos.trackIndex || 0;
+                            this.currentTime = dbPos.currentTime || 0;
+                            this.playbackRate = dbPos.playbackRate || 1.0;
+                            const track = targetBook.tracks[this.currentTrackIndex];
+                            if (track) {
+                                this._playSource(track.src, false, this.currentTime);
+                            }
+                            this._updateMediaSession();
+                            this._notify();
+                            return;
+                        }
+                    }
+                }
+            } catch (e) {}
+
+            // Fallback to localStorage
             if (typeof localStorage === 'undefined') return;
             try {
                 const raw = localStorage.getItem('gemini_last_audiobook_position');
@@ -717,12 +912,11 @@
                     this.currentTime = pos.currentTime || 0;
                     this.playbackRate = pos.playbackRate || 1.0;
                     const track = pos.book.tracks[this.currentTrackIndex];
-                    if (track && this.audioEl) {
-                        this.audioEl.src = track.src;
-                        this.audioEl.currentTime = this.currentTime;
-                        this.audioEl.playbackRate = this.playbackRate;
+                    if (track) {
+                        this._playSource(track.src, false, this.currentTime);
                     }
                     this._updateMediaSession();
+                    this._notify();
                 }
             } catch (e) {}
         }
@@ -975,7 +1169,22 @@
                     fullBook = await SwiftAudioScraper.getBookDetails(targetUrl);
                 }
 
-                player.loadBook(fullBook, startTrack, true);
+                // Query exact resume position from GeminiNovelDB or library record
+                let seekTime = (typeof bookOrResult === 'object' && bookOrResult.lastPlayedTime) ? bookOrResult.lastPlayedTime : 0;
+                const bookKey = fullBook?.id || targetUrl || fullBook?.title;
+                if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getAudiobookPosition === 'function') {
+                    try {
+                        const savedPos = await window.GeminiNovelDB.getAudiobookPosition(bookKey);
+                        if (savedPos) {
+                            if (typeof savedPos.trackIndex === 'number' && (startTrack === undefined || startTrack === 0 || startTrack === savedPos.trackIndex)) {
+                                startTrack = savedPos.trackIndex;
+                                seekTime = savedPos.currentTime || seekTime;
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                player.loadBook(fullBook, startTrack, true, seekTime);
                 callbacks.onPlaying?.(fullBook);
                 safeControllerToast(callbacks, `Playing: ${fullBook.title || 'Audiobook'}`, 'success');
                 return fullBook;
@@ -1160,6 +1369,9 @@
         Player: playerInstance,
         Downloader: SwiftAudioDownloader,
         Controller: SwiftAudioController,
+        openInPoweramp: function() {
+            return playerInstance.openInPoweramp();
+        },
         formatDuration: function(secs) {
             if (!secs || isNaN(secs) || secs < 0) return '0:00';
             const h = Math.floor(secs / 3600);
@@ -1169,6 +1381,11 @@
                 return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             }
             return `${m}:${String(s).padStart(2, '0')}`;
+        },
+        formatCountdown: function(curr, dur) {
+            if (!dur || isNaN(dur) || dur <= 0) return '0:00';
+            const remaining = Math.max(0, dur - (curr || 0));
+            return '-' + this.formatDuration(remaining);
         }
     };
 

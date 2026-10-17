@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.List;
 import java.util.ArrayList;
 import android.content.Intent;
+import android.content.ComponentName;
 import android.content.ClipboardManager;
 import android.content.ClipData;
 import android.content.BroadcastReceiver;
@@ -907,6 +908,96 @@ public class NativeAndroidBridgePlugin extends Plugin {
         } catch (Exception e) {
             Log.e(TAG, "Failed to open reader: " + e.getMessage(), e);
             call.reject("Open in Reader Error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void openInPoweramp(PluginCall call) {
+        try {
+            Context context = getContext();
+            String url = call.getString("url", "");
+            String path = call.getString("path", "");
+
+            Uri audioUri = null;
+            if (path != null && !path.isEmpty()) {
+                File targetFile = new File(path);
+                if (targetFile.exists()) {
+                    audioUri = FileProvider.getUriForFile(
+                        context,
+                        context.getPackageName() + ".fileprovider",
+                        targetFile
+                    );
+                }
+            }
+            if (audioUri == null && url != null && !url.isEmpty()) {
+                audioUri = Uri.parse(url);
+            }
+
+            if (audioUri == null) {
+                call.reject("Missing audio URL or file path");
+                return;
+            }
+
+            boolean powerampInstalled = false;
+            try {
+                context.getPackageManager().getPackageInfo("com.maxmpz.audioplayer", 0);
+                powerampInstalled = true;
+            } catch (Exception ignored) {}
+
+            int position = call.getInt("position", 0);
+
+            if (powerampInstalled) {
+                // 1. Broadcast command to Poweramp receiver (cmd = 20: OPEN_TO_PLAY)
+                Intent broadcastIntent = new Intent("com.maxmpz.audioplayer.API_COMMAND");
+                broadcastIntent.setComponent(new ComponentName("com.maxmpz.audioplayer", "com.maxmpz.audioplayer.player.PowerampAPIReceiver"));
+                broadcastIntent.putExtra("cmd", 20);
+                broadcastIntent.setData(audioUri);
+                if (position > 0) {
+                    broadcastIntent.putExtra("position", position);
+                }
+                broadcastIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                context.sendBroadcast(broadcastIntent);
+
+                // 2. Bring Poweramp to foreground
+                try {
+                    Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+                    viewIntent.setDataAndType(audioUri, "audio/*");
+                    viewIntent.setPackage("com.maxmpz.audioplayer");
+                    if (position > 0) {
+                        viewIntent.putExtra("position", position);
+                    }
+                    viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    context.startActivity(viewIntent);
+                } catch (Exception e2) {
+                    Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage("com.maxmpz.audioplayer");
+                    if (launchIntent != null) {
+                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        context.startActivity(launchIntent);
+                    }
+                }
+
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("powerampInstalled", true);
+                call.resolve(ret);
+            } else {
+                Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+                viewIntent.setDataAndType(audioUri, "audio/*");
+                viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                Intent chooser = Intent.createChooser(viewIntent, "Play Audio with...");
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(chooser);
+
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("powerampInstalled", false);
+                call.resolve(ret);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open in Poweramp: " + e.getMessage(), e);
+            call.reject("Open in Poweramp Error: " + e.getMessage());
         }
     }
 

@@ -905,6 +905,30 @@
             return false;
         },
 
+        openInPoweramp: async (options = {}) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.openInPoweramp) {
+                    const res = await bridge.openInPoweramp({
+                        url: options.url || '',
+                        path: options.path || '',
+                        position: typeof options.position === 'number' ? Math.floor(options.position) : 0
+                    });
+                    return res || { success: true, powerampInstalled: true };
+                }
+            } catch (e) {
+                console.warn('Native openInPoweramp Error:', e);
+                throw e;
+            }
+            if (options.url) {
+                try {
+                    window.open(options.url, '_blank');
+                    return { success: true, powerampInstalled: false, fallback: 'web' };
+                } catch (_) {}
+            }
+            return { success: false, powerampInstalled: false, message: 'Poweramp is only available on Android native app.' };
+        },
+
         openExternalUrl: async (url) => {
             if (!url) return false;
             try {

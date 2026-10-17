@@ -1,9 +1,9 @@
 {
-  "version": "8.21.69",
-  "versionCode": 8480,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.69/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.69/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.69",
+  "version": "8.21.70",
+  "versionCode": 8481,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.70/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.70/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.70",
   "releaseDate": "2026-10-17",
-  "releaseNotes": "v8.21.69: High-definition photo cover (JPEG) canvas rasterization, data URI decoding resilience, library action sheet novel cover export synchronization, and universal external e-reader bookshelf compatibility."
+  "releaseNotes": "v8.21.70: Poweramp studio audiobook player integration, zero-gap chapter pre-buffering, fine 5-second jump controls, exact-second resume memory in GeminiNovelDB, and modern glass UI styling with zero emojis."
 }

@@ -33,6 +33,10 @@
         <package android:name="com.samsung.SMT" />
         <package android:name="com.google.android.packageinstaller" />
         <package android:name="com.android.packageinstaller" />
+        <package android:name="com.maxmpz.audioplayer" />
+        <intent>
+            <action android:name="com.maxmpz.audioplayer.API_COMMAND" />
+        </intent>
     </queries>
 
     <application

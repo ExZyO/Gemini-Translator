@@ -861,6 +861,100 @@
       } catch (e) { return false; }
     },
 
+    // 5c. Audiobook Exact-Second Resume Memory API
+    async saveAudiobookPosition(bookKey, positionData) {
+      if (!bookKey || !positionData) return false;
+      try {
+        if (novelDB) {
+          let novel = await novelDB.novels.get(bookKey);
+          if (!novel) {
+            const all = await novelDB.novels.toArray();
+            novel = all.find(n => n.id === bookKey || n.url === bookKey || n.sourceUrl === bookKey || (n.title && n.title.trim().toLowerCase() === String(bookKey).trim().toLowerCase()));
+          }
+          if (novel) {
+            novel.audioProgress = {
+              trackIndex: positionData.trackIndex || 0,
+              trackTitle: positionData.trackTitle || '',
+              currentTime: positionData.currentTime || 0,
+              duration: positionData.duration || 0,
+              playbackRate: positionData.playbackRate || 1.0,
+              updatedAt: Date.now()
+            };
+            await novelDB.novels.put(novel);
+            notifyChange('saveAudiobookPosition', { bookKey, novelId: novel.id, audioProgress: novel.audioProgress });
+          }
+        } else {
+          const db = await getNativeDB();
+          if (db) {
+            const tx = db.transaction('novels', 'readwrite');
+            const store = tx.objectStore('novels');
+            const req = store.get(bookKey);
+            req.onsuccess = () => {
+              const novel = req.result;
+              if (novel) {
+                novel.audioProgress = {
+                  trackIndex: positionData.trackIndex || 0,
+                  trackTitle: positionData.trackTitle || '',
+                  currentTime: positionData.currentTime || 0,
+                  duration: positionData.duration || 0,
+                  playbackRate: positionData.playbackRate || 1.0,
+                  updatedAt: Date.now()
+                };
+                store.put(novel);
+                notifyChange('saveAudiobookPosition', { bookKey, novelId: novel.id, audioProgress: novel.audioProgress });
+              }
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('[db_engine] saveAudiobookPosition error:', e);
+      }
+      try {
+        const adb = appDB || (typeof global !== 'undefined' && global.appDB) || (typeof window !== 'undefined' && window.appDB);
+        if (adb && adb.kv) {
+          await adb.kv.put({
+            key: 'audio_pos_' + bookKey,
+            data: positionData,
+            updatedAt: Date.now()
+          });
+        }
+      } catch (e) {}
+      return true;
+    },
+
+    async getAudiobookPosition(bookKey) {
+      if (!bookKey) return null;
+      try {
+        const adb = appDB || (typeof global !== 'undefined' && global.appDB) || (typeof window !== 'undefined' && window.appDB);
+        if (adb && adb.kv) {
+          const res = await adb.kv.get('audio_pos_' + bookKey);
+          if (res && res.data) return res.data;
+        }
+      } catch (e) {}
+      try {
+        if (novelDB) {
+          let novel = await novelDB.novels.get(bookKey);
+          if (!novel) {
+            const all = await novelDB.novels.toArray();
+            novel = all.find(n => n.id === bookKey || n.url === bookKey || n.sourceUrl === bookKey || (n.title && n.title.trim().toLowerCase() === String(bookKey).trim().toLowerCase()));
+          }
+          if (novel && novel.audioProgress) return novel.audioProgress;
+        } else {
+          const db = await getNativeDB();
+          if (db) {
+            return new Promise((resolve) => {
+              const tx = db.transaction('novels', 'readonly');
+              const store = tx.objectStore('novels');
+              const req = store.get(bookKey);
+              req.onsuccess = () => resolve(req.result?.audioProgress || null);
+              req.onerror = () => resolve(null);
+            });
+          }
+        }
+      } catch (e) {}
+      return null;
+    },
+
     // 6. Permanent Storage API (Exempt from Android/Browser Eviction)
     async requestPersistentStorage() {
       if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
