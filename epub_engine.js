@@ -2188,7 +2188,7 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
         try {
           let targetUrl = imgUrl;
           const thMatch = (targetUrl || '').match(/[#?]th=([A-Za-z0-9_-]+)/i);
-          const thHash = thMatch ? thMatch[1] : null;
+          let thHash = thMatch ? thMatch[1] : null;
 
           if (/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i.test(targetUrl)) {
             targetUrl = targetUrl.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
@@ -2197,17 +2197,71 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
             targetUrl = targetUrl.split('#th=')[0];
           }
 
+          const sniffBytes = (buf) => {
+            if (!buf || buf.byteLength < 12) return null;
+            const b = new Uint8Array(buf.slice(0, 16));
+            if (b[0] === 0x42 && b[1] === 0x4D) return { ext: 'bmp', mime: 'image/bmp' };
+            if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return { ext: 'png', mime: 'image/png' };
+            if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return { ext: 'jpg', mime: 'image/jpeg' };
+            if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return { ext: 'gif', mime: 'image/gif' };
+            if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return { ext: 'webp', mime: 'image/webp' };
+            const s = String.fromCharCode(...b.slice(4, 12));
+            if (s.includes('ftyp') || s.includes('avif')) return { ext: 'avif', mime: 'image/avif' };
+            return null;
+          };
+
           if (targetUrl.startsWith('http')) {
-            let res = await fetch(targetUrl).catch(() => null);
-            if (!res || !res.ok) {
-              const proxy = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
-              res = await fetch(proxy).catch(() => null);
+            let buffer = null;
+            let detectedMime = null;
+
+            // Strategy 1: NativeBridge
+            if (window.NativeBridge && window.NativeBridge.downloadBinary) {
+              try {
+                buffer = await Promise.race([
+                  window.NativeBridge.downloadBinary(targetUrl),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+                ]);
+              } catch (_) {}
             }
-            if (res && res.ok) {
-              const buf = await res.arrayBuffer();
-              const ct = res.headers.get('content-type') || '';
-              const ext = ct.includes('png') ? 'png' : (ct.includes('webp') ? 'webp' : (ct.includes('gif') ? 'gif' : 'jpg'));
-              return { data: new Uint8Array(buf), ext, mime: ct || 'image/jpeg' };
+
+            // Strategy 2: Direct fetch
+            if (!buffer || buffer.byteLength < 500) {
+              try {
+                const res = await fetch(targetUrl);
+                if (res.ok) {
+                  const b = await res.arrayBuffer();
+                  const sniffed = sniffBytes(b);
+                  if (sniffed) { buffer = b; detectedMime = sniffed.mime; }
+                }
+              } catch (_) {}
+            }
+
+            // Strategy 3: Multi-tier proxy fallback pool
+            if (!buffer || buffer.byteLength < 500) {
+              const cleanNoProto = targetUrl.replace(/^https?:\/\//i, '');
+              const proxies = [
+                () => `https://corsproxy.org/?url=${encodeURIComponent(targetUrl)}`,
+                () => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`,
+                () => `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+              ];
+              for (const getProxyUrl of proxies) {
+                if (buffer && buffer.byteLength > 500) break;
+                try {
+                  const res = await fetch(getProxyUrl());
+                  if (res.ok) {
+                    const b = await res.arrayBuffer();
+                    const sniffed = sniffBytes(b);
+                    if (sniffed) { buffer = b; detectedMime = sniffed.mime; break; }
+                  }
+                } catch (_) {}
+              }
+            }
+
+            if (buffer && buffer.byteLength > 50) {
+              const sniffed = sniffBytes(buffer);
+              const ext = sniffed?.ext || 'jpg';
+              const mime = sniffed?.mime || detectedMime || 'image/jpeg';
+              return { data: new Uint8Array(buffer), ext, mime };
             }
           }
 
@@ -2226,9 +2280,10 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
             let res = await fetch(highResUrl).catch(() => null);
             if (res && res.ok) {
               const buf = await res.arrayBuffer();
-              const ct = res.headers.get('content-type') || 'image/webp';
-              const ext = ct.includes('png') ? 'png' : (ct.includes('webp') ? 'webp' : 'jpg');
-              return { data: new Uint8Array(buf), ext, mime: ct };
+              const sniffed = sniffBytes(buf);
+              const ext = sniffed?.ext || 'webp';
+              const mime = sniffed?.mime || 'image/webp';
+              return { data: new Uint8Array(buf), ext, mime };
             }
           }
 

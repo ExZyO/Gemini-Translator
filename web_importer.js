@@ -122,6 +122,10 @@
             best = best.replace(/\/covers-full\//i, '/covers-large/');
         } else if (/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i.test(best)) {
             best = best.replace(/(?:https?:)?\/\/img\.lnori\.(?:com|org)\/(\d+)-(?:01|1)\.(?:jpg|jpeg|png|webp|avif|jxl)/i, 'https://cdn.lnori.com/volume/$1.jpg');
+        } else if (best.includes('mitemin.net') || best.includes('eparet.net')) {
+            best = best.replace(/\/viewimage\//i, '/viewimagebig/');
+        } else if (best.includes('pbs.twimg.com/media/')) {
+            best = best.replace(/&name=[a-z0-9]+/i, '&name=orig');
         }
 
         if (typeof window !== 'undefined' && window.getHighResIllustration) {
@@ -172,6 +176,14 @@
     function cleanChapterHtmlWithImages(html, baseUrl) {
         if (!html) return '';
 
+        // 0. Pre-purify expansion for Syosetu / Hameln shortcodes (<i1234|5678> or ＜i1234｜5678＞) before DOMPurify strips them
+        if (typeof html === 'string') {
+            html = html.replace(/[<＜]i\s*([a-zA-Z0-9]+)\s*[|｜\/]\s*([a-zA-Z0-9]+)\s*[>＞]/gi, (m, icode, uid) => {
+                const code = /^i/i.test(icode) ? icode : ('i' + icode);
+                return `\n\n<div class="sasie"><img src="https://${uid}.mitemin.net/userpageimage/viewimagebig/icode/${code}/" alt="Illustration" /></div>\n\n`;
+            });
+        }
+
         const trapCleaner = (typeof window !== 'undefined' && window.stripInvisibleTrapsAndWatermarks) 
             ? window.stripInvisibleTrapsAndWatermarks 
             : (typeof stripInvisibleTrapsAndWatermarks === 'function' ? stripInvisibleTrapsAndWatermarks : null);
@@ -209,15 +221,32 @@
             .replace(/<p[^>]*>[\s\S]*?(?:This story has been stolen from Royal Road|This novel is published on Royal Road|unlawfully lifted without the author's consent|Report any appearances on Amazon|Support the author by reading on Royal Road|If you encounter this story on Amazon)[\s\S]*?<\/p>/gi, '')
             .replace(/<div[^>]*>[\s\S]*?(?:This story has been stolen from Royal Road|This novel is published on Royal Road|unlawfully lifted without the author's consent|Report any appearances on Amazon|Support the author by reading on Royal Road)[\s\S]*?<\/div>/gi, '');
 
+        // Normalize and upgrade Mitemin / Epalette and Twitter/X illustration URLs
+        processed = processed
+            .replace(/https?:\/\/([a-zA-Z0-9]+)\.mitemin\.net\/(?:userpageimage\/viewimage(?:big)?\/icode\/)?i?([a-zA-Z0-9]+)\/?/gi, (m, uid, icode) => {
+                const code = /^i/i.test(icode) ? icode : ('i' + icode);
+                return `https://${uid}.mitemin.net/userpageimage/viewimagebig/icode/${code}/`;
+            })
+            .replace(/(https?:\/\/pbs\.twimg\.com\/media\/[^\s"'<>]+)/gi, (m, u) => {
+                return u.replace(/&name=[a-z0-9]+/i, '&name=orig');
+            });
+
+        // Convert standalone or labeled illustration URLs in text (e.g. 挿絵：https://... or <p>https://...</p>)
+        processed = processed.replace(/(?:(?:[\[【「『(]?\s*(?:挿絵|イラスト|画像|図|写真|Illustration|Image|Artwork|Photo)\s*[\]】」』)]?[:：]?\s*)|(?:^|(?<=>)))(https?:\/\/[^\s<"']*(?:mitemin\.net|eparet\.net|pbs\.twimg\.com\/media|i\.imgur\.com|i\.gyazo\.com|\.(?:jpg|jpeg|png|webp|gif|avif))[^\s<"']*)/gi, (match, url) => {
+            return `\n\n![Illustration](${url.trim()})\n\n`;
+        });
+
         // 1. Convert linked image wrappers <a href="..."><img .../></a> or <a href="...">[Download Image]</a>
         processed = processed.replace(/<a\s+([^>]+)>([\s\S]*?)<\/a>/gi, (match, attrs, inner) => {
             const hrefMatch = attrs.match(/href=["']([^"']+)["']/i);
             const dataSrcMatch = attrs.match(/data-(?:original|src|url)=["']([^"']+)["']/i);
             let targetUrl = hrefMatch ? hrefMatch[1] : (dataSrcMatch ? dataSrcMatch[1] : '');
 
-            const isImageLink = /\.(?:jpg|jpeg|png|webp|gif)(?:\?[^"']*)?$/i.test(targetUrl) || 
+            const isMiteminOrImageHost = /mitemin\.net|eparet\.net|pbs\.twimg\.com|imgur\.com|gyazo\.com/i.test(targetUrl);
+            const isImageLink = isMiteminOrImageHost ||
+                                /\.(?:jpg|jpeg|png|webp|gif|bmp|avif)(?:\?[^"']*)?$/i.test(targetUrl) || 
                                 /<img\b/i.test(inner) || 
-                                /^[\[\(]?\s*(?:Download|View|Click to view|High-Res|Full Size|Original)?\s*(?:Image|Illustration|Art|Artwork|Resolution|Photo|Picture)\s*[\]\)]?$/i.test(inner.trim());
+                                /^[\[\(【「『]?\s*(?:Download|View|Click to view|High-Res|Full Size|Original)?\s*(?:Image|Illustration|Art|Artwork|Resolution|Photo|Picture|挿絵|イラスト|画像|図|写真)\s*[\]\)】」』]?$/i.test(inner.trim());
 
             if (isImageLink) {
                 let imgUrl = '';
@@ -236,6 +265,11 @@
                         imgUrl = 'https:' + imgUrl;
                     }
                     imgUrl = imgUrl.replace(/\.jppg$/i, '.jpg');
+                }
+                if (imgUrl.includes('mitemin.net') || imgUrl.includes('eparet.net')) {
+                    imgUrl = imgUrl.replace(/\/viewimage\//i, '/viewimagebig/');
+                } else if (imgUrl.includes('pbs.twimg.com/media/')) {
+                    imgUrl = imgUrl.replace(/&name=[a-z0-9]+/i, '&name=orig');
                 }
                 if (imgUrl && (imgUrl.startsWith('http://') || imgUrl.startsWith('https://') || imgUrl.startsWith('data:image/'))) {
                     let finalUrl = imgUrl.trim();
@@ -268,7 +302,7 @@
 
         // 3. Strip residual image anchor text artifacts
         processed = processed
-            .replace(/(?<!\!)[\[\(]\s*(?:Download|View|Click to view|High-Res|Full Size|Original)?\s*(?:Image|Illustration|Artwork|Resolution|Photo|Picture)\s*[\]\)]/gi, '')
+            .replace(/(?<!\!)[\[\(【「『]\s*(?:Download|View|Click to view|High-Res|Full Size|Original)?\s*(?:Image|Illustration|Artwork|Resolution|Photo|Picture|挿絵|イラスト|画像)\s*[\]\)】」』]/gi, '')
             .replace(/\b(?:Download|View|Click to view)\s+(?:High-Res\s+|Full Size\s+|Original\s+)?(?:Image|Illustration|Artwork|Photo|Picture)\b/gi, '')
             .replace(/\b(?:High-Res|Full Size)\s+(?:Image|Illustration|Artwork|Photo|Picture)\b/gi, '')
             .replace(/!\(https?:\/\/[^\s)]*the-artifice\.com[^\s)]*\)/gi, '');

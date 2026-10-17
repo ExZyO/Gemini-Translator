@@ -1209,7 +1209,7 @@
                 summary,
                 cover,
                 tags: ['Syosetu', 'Web Novel'],
-                chapters: [{ title, text: cleanChapterHtmlWithImages(body.innerHTML || body.textContent || '') }],
+                chapters: [{ title, text: cleanChapterHtmlWithImages(body.innerHTML || body.textContent || '', url) }],
                 isEpub: false,
                 sourceUrl: url
             };
@@ -1262,10 +1262,7 @@
                 if (honbun) {
                     const mae = chDoc.querySelector('#mae');
                     const ato = chDoc.querySelector('#ato');
-                    const parts = [];
-                    if (mae && mae.textContent.trim()) parts.push(mae.innerHTML);
-                    parts.push(honbun.innerHTML);
-                    if (ato && ato.textContent.trim()) parts.push(ato.innerHTML);
+                    const parts = [mae?.textContent?.trim() ? mae.innerHTML : '', honbun.innerHTML, ato?.textContent?.trim() ? ato.innerHTML : ''].filter(Boolean);
                     chapterText = cleanChapterHtmlWithImages(parts.join('<br/><br/>'), item.url);
                 } else {
                     const chBody = chDoc.querySelector('.p-novel__body .p-novel__text:not([class*="p-novel__text--"]), .p-novel__body, #novel_honbun, .novel_honbun, #honbun, .honbun, .widget-episodeBody, .ss') || chDoc.body;
