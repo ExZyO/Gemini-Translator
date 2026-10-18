@@ -645,6 +645,7 @@
             });
           }, {
             ...options,
+            scrapeImages: true,
             concurrency: 6,
             delayMs: 40
           });
@@ -665,9 +666,13 @@
 
           if (typeof generateEpubFn === 'function' && typeof saveUniversalBlobFn === 'function') {
             const getEpubOptionsFn = options.getEpubOptions || (typeof window !== 'undefined' ? window.getEpubOptions : null);
-            const epubOpts = (typeof getEpubOptionsFn === 'function')
+            const baseEpubOpts = (typeof getEpubOptionsFn === 'function')
               ? getEpubOptionsFn({ novelId: novelData.id || story.id, coverUrl: novelData.cover || story.cover || '' })
               : { coverUrl: novelData.cover || story.cover || '' };
+            const epubOpts = {
+              ...baseEpubOpts,
+              includeImages: true
+            };
 
             const blob = await generateEpubFn(novelData.chapters, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
               callbacks.setEpubPackagingModal?.({

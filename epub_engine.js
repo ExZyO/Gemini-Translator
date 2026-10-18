@@ -1384,63 +1384,74 @@ hr {
                   await new Promise(r => setTimeout(r, 300));
                 }
 
-                // Strategy 1: Android NativeBridge (Strict 5s timeout)
-              if (window.NativeBridge && window.NativeBridge.downloadBinary) {
-                try {
-                  buffer = await Promise.race([
-                    window.NativeBridge.downloadBinary(downloadUrl, { referer }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-                  ]);
-                } catch(_) {}
-              }
-
-              // Strategy 2: Direct Fetch (Node / Capacitor / CORS-enabled, strict 3.5s timeout)
-              if (!buffer || buffer.byteLength < 500) {
-                try {
-                  const ctrl = AC ? new AC() : null;
-                  const t = ctrl ? setTimeout(() => ctrl.abort(), 3500) : null;
-                  const fetchOpts = { signal: ctrl ? ctrl.signal : undefined };
-                  const res = await fetch(downloadUrl, fetchOpts);
-                  if (t) clearTimeout(t);
-                  if (res.ok) {
-                    const ct = res.headers.get('content-type') || '';
-                    if (ct.includes('image/')) detectedMime = ct.split(';')[0].trim();
-                    buffer = await res.arrayBuffer();
-                  }
-                } catch(_) {}
-              }
-
-              // Strategy 3: Dedicated High-Speed Image CDN & Proxy Pool (Prioritizes corsproxy.org for Cloudflare-shielded hosts like img.lnori.com)
-              if (!buffer || buffer.byteLength < 500) {
-                const cleanNoProto = downloadUrl.replace(/^https?:\/\//i, '');
-                const proxies = [
-                  () => `https://corsproxy.org/?url=${encodeURIComponent(downloadUrl)}`,
-                  () => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`,
-                  () => `https://api.allorigins.win/raw?url=${encodeURIComponent(downloadUrl)}`
-                ];
-                for (const getProxyUrl of proxies) {
-                  if (buffer && buffer.byteLength > 500) break;
+                // Strategy 1: Direct Fetch (Instant 80ms, no proxy delay or rate limits; works for Wattpad, Cloudflare Images, and CORS hosts)
+                if (!buffer || buffer.byteLength < 500) {
                   try {
                     const ctrl = AC ? new AC() : null;
-                    const t = ctrl ? setTimeout(() => ctrl.abort(), 4500) : null;
-                    const res = await fetch(getProxyUrl(), { signal: ctrl ? ctrl.signal : undefined });
+                    const t = ctrl ? setTimeout(() => ctrl.abort(), 4000) : null;
+                    const fetchOpts = { signal: ctrl ? ctrl.signal : undefined };
+                    const res = await fetch(downloadUrl, fetchOpts);
                     if (t) clearTimeout(t);
                     if (res.ok) {
                       const ct = res.headers.get('content-type') || '';
                       if (ct.includes('image/')) detectedMime = ct.split(';')[0].trim();
                       const b = await res.arrayBuffer();
-                      // Validate magic bytes to strictly reject HTML error pages disguised as 200 OK
                       const sniffed = sniffMime(b);
                       if (sniffed) {
                         buffer = b;
                         detectedMime = sniffed.mime;
-                        break;
                       }
                     }
                   } catch(_) {}
                 }
+
+                // Strategy 2: Android NativeBridge (Bypasses WebView CORS, direct native Java HTTP connection)
+                if ((!buffer || buffer.byteLength < 500) && window.NativeBridge && window.NativeBridge.downloadBinary) {
+                  try {
+                    const b = await Promise.race([
+                      window.NativeBridge.downloadBinary(downloadUrl, { referer }),
+                      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+                    ]);
+                    if (b && b.byteLength > 500) {
+                      const sniffed = sniffMime(b);
+                      if (sniffed) {
+                        buffer = b;
+                        detectedMime = sniffed.mime;
+                      }
+                    }
+                  } catch(_) {}
+                }
+
+                // Strategy 3: Dedicated High-Speed Image CDN & Proxy Pool (weserv.nl image CDN first, then corsproxy.org, then allorigins.win)
+                if (!buffer || buffer.byteLength < 500) {
+                  const cleanNoProto = downloadUrl.replace(/^https?:\/\//i, '');
+                  const proxies = [
+                    () => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`,
+                    () => `https://corsproxy.org/?url=${encodeURIComponent(downloadUrl)}`,
+                    () => `https://api.allorigins.win/raw?url=${encodeURIComponent(downloadUrl)}`
+                  ];
+                  for (const getProxyUrl of proxies) {
+                    if (buffer && buffer.byteLength > 500) break;
+                    try {
+                      const ctrl = AC ? new AC() : null;
+                      const t = ctrl ? setTimeout(() => ctrl.abort(), 5000) : null;
+                      const res = await fetch(getProxyUrl(), { signal: ctrl ? ctrl.signal : undefined });
+                      if (t) clearTimeout(t);
+                      if (res.ok) {
+                        const ct = res.headers.get('content-type') || '';
+                        if (ct.includes('image/')) detectedMime = ct.split(';')[0].trim();
+                        const b = await res.arrayBuffer();
+                        const sniffed = sniffMime(b);
+                        if (sniffed) {
+                          buffer = b;
+                          detectedMime = sniffed.mime;
+                          break;
+                        }
+                      }
+                    } catch(_) {}
+                  }
+                }
               }
-            }
 
             // Strategy 3.5: If Lnori JPG failed, attempt direct AVIF download (Lnori Cloudflare edge often caches .avif)
             if ((!buffer || buffer.byteLength < 500) && downloadUrl.includes('img.lnori.com') && downloadUrl.endsWith('.jpg')) {
@@ -1573,7 +1584,7 @@ hr {
             }
           };
 
-          const concurrency = 24;
+          const concurrency = 6;
           const imgQueue = [...imgUrlList];
           const pool = Array.from({ length: Math.min(concurrency, imgUrlList.length) }, async () => {
             while (imgQueue.length > 0) {

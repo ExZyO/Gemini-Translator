@@ -1213,9 +1213,9 @@
             const isImg = /\.(jpg|jpeg|png|webp|gif|avif)/i.test(url);
             const cleanNoProto = url.replace(/^https?:\/\//i, '');
             const proxies = [
-                (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
-                ...(isImg ? [(u) => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`] : []),
                 (u) => u,
+                ...(isImg ? [(u) => `https://images.weserv.nl/?url=${encodeURIComponent(cleanNoProto)}`] : []),
+                (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
                 (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u)
             ];
 

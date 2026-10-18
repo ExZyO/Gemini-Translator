@@ -71,7 +71,7 @@
         const storyId = storyIdMatch ? storyIdMatch[1] : null;
         if (storyId) {
           try {
-            const apiJsonStr = await fetchHtml(`https://www.wattpad.com/api/v3/stories/${storyId}?fields=id,title,url,cover,description,user(name,username),parts(id,title,url)`);
+            const apiJsonStr = await fetchHtml(`https://www.wattpad.com/api/v3/stories/${storyId}?fields=id,title,url,cover,description,user(name,username),parts(id,title,url,photoUrl,length)`);
             const parsed = JSON.parse(apiJsonStr);
             if (parsed && parsed.title) {
               storyData = parsed;
@@ -87,7 +87,8 @@
           order: idx + 1,
           id: String(p.id),
           partId: String(p.id),
-          length: p.length || 0
+          length: p.length || 0,
+          photoUrl: p.photoUrl || ''
         }));
 
         return {
@@ -160,13 +161,21 @@
           const fetchOpts = { allowEmpty: true, isSearch: true, timeout: 6000 };
           const allPages = [];
 
+          const isValidPage = (txt) => Boolean(
+            txt &&
+            typeof txt === 'string' &&
+            txt.trim().length > 0 &&
+            !txt.includes('not found') &&
+            !txt.includes('{"error"')
+          );
+
           // Batch 1: pages 1 to 4 in parallel
           const batch1 = await Promise.all([1, 2, 3, 4].map(p =>
             fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
           ));
 
           for (const txt of batch1) {
-            if (txt && typeof txt === 'string' && txt.includes('<p') && !txt.includes('not found') && !txt.includes('{"error"')) {
+            if (isValidPage(txt)) {
               allPages.push(txt);
             } else {
               break;
@@ -180,24 +189,54 @@
             ));
 
             for (const txt of batch2) {
-              if (txt && typeof txt === 'string' && txt.includes('<p') && !txt.includes('not found') && !txt.includes('{"error"')) {
+              if (isValidPage(txt)) {
                 allPages.push(txt);
               } else {
                 break;
               }
             }
 
-            // If all 8 pages had text, check batch 3 (pages 9 to 12) for exceptionally long epic chapters
+            // If all 8 pages had text, check batch 3 (pages 9 to 12)
             if (allPages.length === 8) {
               const batch3 = await Promise.all([9, 10, 11, 12].map(p =>
                 fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
               ));
 
               for (const txt of batch3) {
-                if (txt && typeof txt === 'string' && txt.includes('<p') && !txt.includes('not found') && !txt.includes('{"error"')) {
+                if (isValidPage(txt)) {
                   allPages.push(txt);
                 } else {
                   break;
+                }
+              }
+
+              // If all 12 pages had text, check batch 4 (pages 13 to 16)
+              if (allPages.length === 12) {
+                const batch4 = await Promise.all([13, 14, 15, 16].map(p =>
+                  fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
+                ));
+
+                for (const txt of batch4) {
+                  if (isValidPage(txt)) {
+                    allPages.push(txt);
+                  } else {
+                    break;
+                  }
+                }
+
+                // If all 16 pages had text, check batch 5 (pages 17 to 20) for massive art/image chapters
+                if (allPages.length === 16) {
+                  const batch5 = await Promise.all([17, 18, 19, 20].map(p =>
+                    fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
+                  ));
+
+                  for (const txt of batch5) {
+                    if (isValidPage(txt)) {
+                      allPages.push(txt);
+                    } else {
+                      break;
+                    }
+                  }
                 }
               }
             }
@@ -240,10 +279,14 @@
       if (!title) title = 'Chapter';
 
       // Clean up internal metadata attributes while preserving inline formatting and illustrations
-      const cleanContent = (rawContent || '')
+      let cleanContent = (rawContent || '')
         .replace(/\s*data-p-id="[^"]*"/gi, '')
         .replace(/<p>\s*<\/p>/gi, '')
         .trim();
+
+      if (options.photoUrl && typeof options.photoUrl === 'string' && options.photoUrl.trim() && !cleanContent.includes(options.photoUrl.trim())) {
+        cleanContent = `<p><img src="${options.photoUrl.trim()}" alt="Chapter Banner"></p>\n\n` + cleanContent;
+      }
 
       return {
         title,

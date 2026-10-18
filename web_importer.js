@@ -114,6 +114,8 @@
         // Strip resize/thumbnail query params for full original uncompressed resolution
         if (best.includes('wp.com') || best.includes('wordpress.com') || best.includes('witchculttranslation.com')) {
             best = best.replace(/\?w=\d+.*$/i, '').replace(/\?resize=\d+.*$/i, '').replace(/\?fit=\d+.*$/i, '');
+        } else if (best.includes('wattpad.com')) {
+            best = best.replace(/\?s=fit[^"'\s]*/i, '').replace(/\?w=\d+[^"'\s]*/i, '');
         } else if (best.includes('127.net') || best.includes('lofter.com')) {
             best = best.replace(/\?imageView.*$/i, '');
         } else if (best.includes('tumblr.com')) {
@@ -1838,7 +1840,8 @@
             volume: c.volume || c.arc || '',
             id: c.id || '',
             partId: c.partId || c.id || '',
-            length: c.length || 0
+            length: c.length || 0,
+            photoUrl: c.photoUrl || ''
         }));
 
         if (options.tocOnly || activeCrawlController?.tocOnly) {
@@ -1860,10 +1863,10 @@
         const { chapters, totalWords } = await crawlChapterPool(
             chapterLinks,
             async (item, idx) => {
-                const ch = await plugin.getChapter(item.url, { title: item.title, arc: item.arc, volume: item.volume, index: idx, id: item.id, partId: item.partId, length: item.length });
+                const ch = await plugin.getChapter(item.url, { title: item.title, arc: item.arc, volume: item.volume, index: idx, id: item.id, partId: item.partId, length: item.length, photoUrl: item.photoUrl });
                 return {
                     title: ch.title || item.title,
-                    text: cleanChapterHtmlWithImages(ch.content || ch.text || ''),
+                    text: cleanChapterHtmlWithImages(ch.content || ch.text || '', item.url || details.sourceUrl || ''),
                     arc: ch.arc || item.arc,
                     volume: ch.volume || item.volume
                 };
