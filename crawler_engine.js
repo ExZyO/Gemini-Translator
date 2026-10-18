@@ -637,6 +637,7 @@
         });
 
         try {
+          const isWattpad = Boolean(story.url && story.url.includes('wattpad.com'));
           const novelData = await window.WebNovelImporter.importUrl(story.url, (msg, pct) => {
             callbacks.setEpubPackagingModal?.({
               title: `${playlistTitle} (${i + 1}/${list.length})`,
@@ -646,8 +647,8 @@
           }, {
             ...options,
             scrapeImages: true,
-            concurrency: 6,
-            delayMs: 40
+            concurrency: isWattpad ? 2 : 6,
+            delayMs: isWattpad ? 150 : 40
           });
 
           if (!novelData || !novelData.chapters || novelData.chapters.length === 0) {

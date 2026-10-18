@@ -669,9 +669,10 @@
 
         // 1. JSON API bypass: Valid JSON responses from NovelBuddy/crawlers are never Cloudflare HTML challenge pages
         if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
-            if (!lower.includes('error 1015') && !lower.includes('error 429') && !lower.includes('access denied')) {
-                return { blocked: false, type: null };
+            if (lower.includes('"result":"error"') || lower.includes('"code":429') || lower.includes('too many requests') || lower.includes('error 1015') || lower.includes('error 429') || lower.includes('access denied') || lower.includes('"error_code"')) {
+                return { blocked: true, type: 'rate_limit', label: 'API 429 Rate Limit / Error' };
             }
+            return { blocked: false, type: null };
         }
 
         if (text.length < 80) return { blocked: true, type: 'empty_or_short' };
@@ -1841,7 +1842,8 @@
             id: c.id || '',
             partId: c.partId || c.id || '',
             length: c.length || 0,
-            photoUrl: c.photoUrl || ''
+            photoUrl: c.photoUrl || '',
+            pages: c.pages || 0
         }));
 
         if (options.tocOnly || activeCrawlController?.tocOnly) {
@@ -1860,10 +1862,24 @@
 
         progressCb?.(`Found ${chapterLinks.length} chapters via ${plugin.name}! Fetching...`, 20);
 
+        const isWattpad = plugin.id === 'wattpad' || (url && url.includes('wattpad.com'));
+        const poolConcurrency = options.concurrency || (isWattpad ? 2 : 6);
+        const poolDelayMs = options.delayMs !== undefined ? options.delayMs : (isWattpad ? 150 : 40);
+
         const { chapters, totalWords } = await crawlChapterPool(
             chapterLinks,
             async (item, idx) => {
-                const ch = await plugin.getChapter(item.url, { title: item.title, arc: item.arc, volume: item.volume, index: idx, id: item.id, partId: item.partId, length: item.length, photoUrl: item.photoUrl });
+                const ch = await plugin.getChapter(item.url, {
+                    title: item.title,
+                    arc: item.arc,
+                    volume: item.volume,
+                    index: idx,
+                    id: item.id,
+                    partId: item.partId,
+                    length: item.length,
+                    photoUrl: item.photoUrl,
+                    pages: item.pages
+                });
                 return {
                     title: ch.title || item.title,
                     text: cleanChapterHtmlWithImages(ch.content || ch.text || '', item.url || details.sourceUrl || ''),
@@ -1871,10 +1887,10 @@
                     volume: ch.volume || item.volume
                 };
             },
-            options.concurrency || 6,
+            poolConcurrency,
             progressCb,
             { title: details.title, author: details.author, summary: details.summary, cover: details.cover, chapterList: chapterLinks },
-            { delayMs: options.delayMs !== undefined ? options.delayMs : 40 }
+            { delayMs: poolDelayMs }
         );
 
         return {

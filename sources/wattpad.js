@@ -71,7 +71,7 @@
         const storyId = storyIdMatch ? storyIdMatch[1] : null;
         if (storyId) {
           try {
-            const apiJsonStr = await fetchHtml(`https://www.wattpad.com/api/v3/stories/${storyId}?fields=id,title,url,cover,description,user(name,username),parts(id,title,url,photoUrl,length)`);
+            const apiJsonStr = await fetchHtml(`https://www.wattpad.com/api/v3/stories/${storyId}?fields=id,title,url,cover,description,user(name,username),parts(id,title,url,photoUrl,length,pages)`);
             const parsed = JSON.parse(apiJsonStr);
             if (parsed && parsed.title) {
               storyData = parsed;
@@ -88,7 +88,8 @@
           id: String(p.id),
           partId: String(p.id),
           length: p.length || 0,
-          photoUrl: p.photoUrl || ''
+          photoUrl: p.photoUrl || '',
+          pages: typeof p.pages === 'number' ? p.pages : (p.pages ? parseInt(p.pages, 10) : 0)
         }));
 
         return {
@@ -155,107 +156,97 @@
       let title = options.title || '';
       let rawContent = '';
 
-      // Method 1: Fast direct text fetch via Wattpad apiv2 with parallel page batching
+      const isApiError = (txt) => {
+        if (!txt || typeof txt !== 'string') return true;
+        const t = txt.trim();
+        if (!t) return true;
+        if (t.startsWith('{') && (t.includes('"result"') || t.includes('"error"') || t.includes('"code"') || t.includes('"message"'))) return true;
+        if (t.includes('"result":"ERROR"') || t.includes('"Too many requests"') || t.includes('429 Too Many Requests') || t.includes('error_code') || t.includes('Request blocked') || t.includes('403 ERROR')) return true;
+        return false;
+      };
+
+      const isValidPage = (txt) => {
+        if (isApiError(txt)) return false;
+        return txt.includes('<p') || txt.includes('<div') || txt.includes('<img') || txt.trim().length > 15;
+      };
+
+      // Method 1: Fast direct text fetch via Wattpad apiv2 with paced page batching
       if (chapterId) {
         try {
-          const fetchOpts = { allowEmpty: true, isSearch: true, timeout: 6000 };
+          const fetchOpts = { allowEmpty: true, isSearch: true, timeout: 8000 };
           const allPages = [];
+          const totalExpectedPages = options.pages && options.pages > 0 ? options.pages : 0;
+          let hitRateLimit = false;
 
-          const isValidPage = (txt) => Boolean(
-            txt &&
-            typeof txt === 'string' &&
-            txt.trim().length > 0 &&
-            !txt.includes('not found') &&
-            !txt.includes('{"error"')
-          );
-
-          // Batch 1: pages 1 to 4 in parallel
-          const batch1 = await Promise.all([1, 2, 3, 4].map(p =>
-            fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
-          ));
-
-          for (const txt of batch1) {
-            if (isValidPage(txt)) {
-              allPages.push(txt);
-            } else {
-              break;
-            }
-          }
-
-          // If all 4 pages had text, check batch 2 (pages 5 to 8)
-          if (allPages.length === 4) {
-            const batch2 = await Promise.all([5, 6, 7, 8].map(p =>
-              fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
-            ));
-
-            for (const txt of batch2) {
-              if (isValidPage(txt)) {
-                allPages.push(txt);
-              } else {
-                break;
+          const fetchPageWithRetry = async (page) => {
+            try {
+              let text = await fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${page}`, fetchOpts);
+              if (text && isApiError(text)) {
+                // If rate limited or error, wait 1.2s and retry once
+                await new Promise(r => setTimeout(r, 1200));
+                text = await fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${page}`, fetchOpts);
               }
+              return text || '';
+            } catch (_) {
+              return '';
             }
+          };
 
-            // If all 8 pages had text, check batch 3 (pages 9 to 12)
-            if (allPages.length === 8) {
-              const batch3 = await Promise.all([9, 10, 11, 12].map(p =>
-                fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
-              ));
-
-              for (const txt of batch3) {
+          if (totalExpectedPages > 0) {
+            // Known page count: fetch in small paced batches of 2 in parallel
+            for (let p = 1; p <= totalExpectedPages; p += 2) {
+              if (hitRateLimit) break;
+              const batch = [p];
+              if (p + 1 <= totalExpectedPages) batch.push(p + 1);
+              const results = await Promise.all(batch.map(page => fetchPageWithRetry(page)));
+              for (const txt of results) {
                 if (isValidPage(txt)) {
                   allPages.push(txt);
-                } else {
+                } else if (isApiError(txt)) {
+                  hitRateLimit = true;
                   break;
                 }
               }
-
-              // If all 12 pages had text, check batch 4 (pages 13 to 16)
-              if (allPages.length === 12) {
-                const batch4 = await Promise.all([13, 14, 15, 16].map(p =>
-                  fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
-                ));
-
-                for (const txt of batch4) {
-                  if (isValidPage(txt)) {
-                    allPages.push(txt);
-                  } else {
-                    break;
-                  }
-                }
-
-                // If all 16 pages had text, check batch 5 (pages 17 to 20) for massive art/image chapters
-                if (allPages.length === 16) {
-                  const batch5 = await Promise.all([17, 18, 19, 20].map(p =>
-                    fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
-                  ));
-
-                  for (const txt of batch5) {
-                    if (isValidPage(txt)) {
-                      allPages.push(txt);
-                    } else {
-                      break;
-                    }
-                  }
+              if (p + 2 <= totalExpectedPages) {
+                await new Promise(r => setTimeout(r, 80));
+              }
+            }
+          } else {
+            // Unknown page count: fetch up to 12 pages in batches of 2
+            for (let p = 1; p <= 12; p += 2) {
+              if (hitRateLimit) break;
+              const batch = [p, p + 1];
+              const results = await Promise.all(batch.map(page => fetchPageWithRetry(page)));
+              let stopLoop = false;
+              for (const txt of results) {
+                if (isValidPage(txt)) {
+                  allPages.push(txt);
+                } else {
+                  if (isApiError(txt)) hitRateLimit = true;
+                  stopLoop = true;
+                  break;
                 }
               }
+              if (stopLoop) break;
+              await new Promise(r => setTimeout(r, 80));
             }
           }
 
-          if (allPages.length > 0) {
+          if (!hitRateLimit && allPages.length > 0) {
             rawContent = allPages.join('\n');
           }
         } catch (_) {}
       }
 
-      // Method 2: Fallback to full chapter HTML only if apiv2 missed or returned empty
-      if (!rawContent) {
+      // Method 2: Fallback to full chapter HTML if apiv2 hit error, rate-limit, or returned empty
+      if (!rawContent || isApiError(rawContent)) {
+        rawContent = '';
         let html = '';
         try {
           html = await fetchHtml(cleanChUrl);
         } catch (_) {}
 
-        if (html) {
+        if (html && !isApiError(html)) {
           if (!title) {
             const titleMatch = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || html.match(/<meta\s+property="og:title"\s+content="([^"]*)"/i);
             if (titleMatch) {
@@ -276,6 +267,10 @@
         }
       }
 
+      if (isApiError(rawContent)) {
+        rawContent = '';
+      }
+
       if (!title) title = 'Chapter';
 
       // Clean up internal metadata attributes while preserving inline formatting and illustrations
@@ -286,6 +281,10 @@
 
       if (options.photoUrl && typeof options.photoUrl === 'string' && options.photoUrl.trim() && !cleanContent.includes(options.photoUrl.trim())) {
         cleanContent = `<p><img src="${options.photoUrl.trim()}" alt="Chapter Banner"></p>\n\n` + cleanContent;
+      }
+
+      if (!cleanContent) {
+        throw new Error(`[Wattpad] Chapter "${title}" content could not be retrieved. Server temporarily busy, please retry in a moment.`);
       }
 
       return {
