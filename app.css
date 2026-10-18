@@ -872,6 +872,11 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
   align-items: center; 
   pointer-events: none; 
 }
+.toast-wrap.toast-wrap-bottom {
+  top: auto;
+  bottom: max(78px, calc(env(safe-area-inset-bottom) + 78px));
+  flex-direction: column-reverse;
+}
 .toast { 
   position: relative;
   padding: 14px 18px; 

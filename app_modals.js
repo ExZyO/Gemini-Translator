@@ -2612,31 +2612,57 @@
         setSmartGlossary: props.setSmartGlossary
       }),
 
-      // 5. Toasts (Swipe-to-Dismiss individual toasts & Swipe Down to Clear All)
-      (props.toasts && props.toasts.length > 0) && h('div', { className: 'toast-wrap' },
-        props.toasts.length > 1 && h('button', {
-          type: 'button',
-          className: 'toast-dismiss-all-pill',
-          onClick: (e) => {
-            e.stopPropagation();
-            if (typeof props.setToasts === 'function') props.setToasts([]);
-          }
-        }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('X', 12), `Swipe down or tap to clear all (${props.toasts.length})`)),
-        props.toasts.map(t => h(ToastItem, {
-          key: t.id,
-          toast: t,
-          onDismiss: (id) => {
-            if (typeof props.setToasts === 'function') {
-              props.setToasts(p => p.filter(item => item.id !== id));
-            }
+      // 5. Toasts (Swipe-to-Dismiss individual toasts & Swipe to Clear All)
+      // When checking for updates, toasts are docked to the bottom so top update buttons remain completely unobstructed.
+      (() => {
+        const toasts = props.toasts || [];
+        if (toasts.length === 0) return null;
+
+        const isCheckingAnyUpdate = Boolean(props.isBatchChecking || (props.checkingUpdates && Object.values(props.checkingUpdates).some(Boolean)));
+        const isBottomToast = (t) => t.isBottom || t.position === 'bottom' || (isCheckingAnyUpdate && /updat|version|chapter/i.test(t.msg));
+        const topToasts = toasts.filter(t => !isBottomToast(t));
+        const bottomToasts = toasts.filter(t => isBottomToast(t));
+
+        const renderWrap = (list, isBottom) => {
+          if (!list || list.length === 0) return null;
+          return h('div', {
+            key: isBottom ? 'toast-wrap-bottom' : 'toast-wrap-top',
+            className: `toast-wrap ${isBottom ? 'toast-wrap-bottom' : 'toast-wrap-top'}`
           },
-          onDismissAll: () => {
-            if (typeof props.setToasts === 'function') {
-              props.setToasts([]);
-            }
-          }
-        }))
-      ),
+            list.length > 1 && h('button', {
+              type: 'button',
+              className: 'toast-dismiss-all-pill',
+              onClick: (e) => {
+                e.stopPropagation();
+                if (typeof props.setToasts === 'function') {
+                  const idsToRemove = new Set(list.map(t => t.id));
+                  props.setToasts(p => p.filter(item => !idsToRemove.has(item.id)));
+                }
+              }
+            }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('X', 12), `Swipe or tap to clear all (${list.length})`)),
+            list.map(t => h(ToastItem, {
+              key: t.id,
+              toast: t,
+              onDismiss: (id) => {
+                if (typeof props.setToasts === 'function') {
+                  props.setToasts(p => p.filter(item => item.id !== id));
+                }
+              },
+              onDismissAll: () => {
+                if (typeof props.setToasts === 'function') {
+                  const idsToRemove = new Set(list.map(item => item.id));
+                  props.setToasts(p => p.filter(item => !idsToRemove.has(item.id)));
+                }
+              }
+            }))
+          );
+        };
+
+        return h(Fragment, null,
+          renderWrap(topToasts, false),
+          renderWrap(bottomToasts, true)
+        );
+      })(),
 
 
       // 7. EPUB Packaging Progress Dock

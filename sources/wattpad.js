@@ -85,7 +85,9 @@
           title: this.decodeHtml(p.title || `Part ${idx + 1}`),
           url: p.url || `https://www.wattpad.com/${p.id}`,
           order: idx + 1,
-          id: String(p.id)
+          id: String(p.id),
+          partId: String(p.id),
+          length: p.length || 0
         }));
 
         return {
@@ -147,36 +149,68 @@
 
       const cleanChUrl = (chapterUrl || '').split('?')[0].split('#')[0].trim();
       const idMatch = cleanChUrl.match(/wattpad\.com\/(\d+)/i);
-      const chapterId = idMatch ? idMatch[1] : null;
+      const chapterId = options.id || options.partId || (idMatch ? idMatch[1] : null);
 
       let title = options.title || '';
       let rawContent = '';
 
-      // Method 1: Fast direct text fetch via Wattpad apiv2
+      // Method 1: Fast direct text fetch via Wattpad apiv2 with parallel page batching
       if (chapterId) {
         try {
-          const page1 = await fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=1`);
-          if (page1 && page1.includes('<p')) {
-            const pageHtmls = [page1];
-            for (let p = 2; p <= 8; p++) {
-              try {
-                const nextP = await fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`);
-                if (nextP && nextP.includes('<p') && !nextP.includes('not found') && !nextP.includes('{"error"')) {
-                  pageHtmls.push(nextP);
-                } else {
-                  break;
-                }
-              } catch (_) {
+          const fetchOpts = { allowEmpty: true, isSearch: true, timeout: 6000 };
+          const allPages = [];
+
+          // Batch 1: pages 1 to 4 in parallel
+          const batch1 = await Promise.all([1, 2, 3, 4].map(p =>
+            fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
+          ));
+
+          for (const txt of batch1) {
+            if (txt && typeof txt === 'string' && txt.includes('<p') && !txt.includes('not found') && !txt.includes('{"error"')) {
+              allPages.push(txt);
+            } else {
+              break;
+            }
+          }
+
+          // If all 4 pages had text, check batch 2 (pages 5 to 8)
+          if (allPages.length === 4) {
+            const batch2 = await Promise.all([5, 6, 7, 8].map(p =>
+              fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
+            ));
+
+            for (const txt of batch2) {
+              if (txt && typeof txt === 'string' && txt.includes('<p') && !txt.includes('not found') && !txt.includes('{"error"')) {
+                allPages.push(txt);
+              } else {
                 break;
               }
             }
-            rawContent = pageHtmls.join('\n');
+
+            // If all 8 pages had text, check batch 3 (pages 9 to 12) for exceptionally long epic chapters
+            if (allPages.length === 8) {
+              const batch3 = await Promise.all([9, 10, 11, 12].map(p =>
+                fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${p}`, fetchOpts).catch(() => '')
+              ));
+
+              for (const txt of batch3) {
+                if (txt && typeof txt === 'string' && txt.includes('<p') && !txt.includes('not found') && !txt.includes('{"error"')) {
+                  allPages.push(txt);
+                } else {
+                  break;
+                }
+              }
+            }
+          }
+
+          if (allPages.length > 0) {
+            rawContent = allPages.join('\n');
           }
         } catch (_) {}
       }
 
-      // Method 2: Fallback to full chapter HTML if apiv2 missed or title is unknown
-      if (!rawContent || !title) {
+      // Method 2: Fallback to full chapter HTML only if apiv2 missed or returned empty
+      if (!rawContent) {
         let html = '';
         try {
           html = await fetchHtml(cleanChUrl);
@@ -190,16 +224,14 @@
             }
           }
 
-          if (!rawContent) {
-            const pMatches = [...html.matchAll(/<p\s+data-p-id="[^"]*"[^>]*>([\s\S]*?)<\/p>/gi)];
-            if (pMatches.length > 0) {
-              rawContent = pMatches.map(m => `<p>${m[1]}</p>`).join('\n');
-            } else {
-              const doc = new DOMParser().parseFromString(html, 'text/html');
-              const ps = doc.querySelectorAll('p[data-p-id], .story-part-text p, .panel-reading p');
-              if (ps.length > 0) {
-                rawContent = Array.from(ps).map(p => `<p>${p.innerHTML}</p>`).join('\n');
-              }
+          const pMatches = [...html.matchAll(/<p\s+data-p-id="[^"]*"[^>]*>([\s\S]*?)<\/p>/gi)];
+          if (pMatches.length > 0) {
+            rawContent = pMatches.map(m => `<p>${m[1]}</p>`).join('\n');
+          } else {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const ps = doc.querySelectorAll('p[data-p-id], .story-part-text p, .panel-reading p');
+            if (ps.length > 0) {
+              rawContent = Array.from(ps).map(p => `<p>${p.innerHTML}</p>`).join('\n');
             }
           }
         }

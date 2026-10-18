@@ -681,7 +681,12 @@
             const getEpubFileNameFn = options.getEpubFileName || (typeof window !== 'undefined' ? window.getEpubFileName : null);
             const epubFileName = getEpubFileNameFn ? getEpubFileNameFn(novelTitle, novelData.chapters.length, false) : `${novelTitle}.epub`;
             const getNovelFolderOptionsFn = options.getNovelFolderOptions || (typeof window !== 'undefined' ? window.getNovelFolderOptions : null);
-            const folderOpts = (typeof getNovelFolderOptionsFn === 'function') ? getNovelFolderOptionsFn(novelData) : {};
+            const baseFolderOpts = (typeof getNovelFolderOptionsFn === 'function') ? getNovelFolderOptionsFn(novelData) : {};
+            const folderOpts = {
+              ...baseFolderOpts,
+              suppressModal: true,
+              skipSuccessModal: true
+            };
 
             await saveUniversalBlobFn(blob, epubFileName, 'application/epub+zip', false, folderOpts);
           }

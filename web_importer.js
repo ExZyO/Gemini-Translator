@@ -657,7 +657,10 @@
     let localProxyState = null; // null = unverified, true = active, false = unavailable
     let lastLocalProxyCheck = 0;
 
-    function detectBlockOrChallenge(text) {
+    function detectBlockOrChallenge(text, options = {}) {
+        if (options && options.allowEmpty && (!text || typeof text !== 'string' || text.length < 80)) {
+            return { blocked: false, type: null };
+        }
         if (!text || typeof text !== 'string') return { blocked: true, type: 'empty' };
         const trimmed = text.trim();
         const lower = text.toLowerCase();
@@ -826,9 +829,9 @@
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Native fetch timed out')), timeoutMs))
                 ]);
                 if (res && (res.status || res.statusCode)) lastHttpStatus = res.status || res.statusCode;
-                if (res && res.data) {
+                if (res && res.data !== undefined && res.data !== null) {
                     const text = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
-                    const blockCheck = detectBlockOrChallenge(text);
+                    const blockCheck = detectBlockOrChallenge(text, options);
                     if (!blockCheck.blocked) {
                         clearTimeout(timer);
                         if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
@@ -874,7 +877,7 @@
                     clearTimeout(directTimer);
                     if (directRes.ok) {
                         const text = await directRes.text();
-                        const blockCheck = detectBlockOrChallenge(text);
+                        const blockCheck = detectBlockOrChallenge(text, options);
                         if (!blockCheck.blocked) {
                             clearTimeout(timer);
                             if (onExternalAbort && externalSignal) externalSignal.removeEventListener('abort', onExternalAbort);
@@ -917,7 +920,7 @@
                 clearTimeout(localTimer);
                 if (localRes.ok) {
                     const text = await localRes.text();
-                    const blockCheck = detectBlockOrChallenge(text);
+                    const blockCheck = detectBlockOrChallenge(text, options);
                     if (!blockCheck.blocked) {
                         localProxyState = true;
                         clearTimeout(timer);
@@ -990,7 +993,7 @@
 
                 if (res.ok) {
                     const text = await res.text();
-                    const blockCheck = detectBlockOrChallenge(text);
+                    const blockCheck = detectBlockOrChallenge(text, options);
                     if (blockCheck.blocked) {
                         lastDetectedBlock = blockCheck;
                         console.warn(`[Proxy Failover] Cloudflare challenge on ${proxy.name} (${blockCheck.label}), switching...`);
@@ -1832,7 +1835,10 @@
             title: c.title || `Chapter ${i + 1}`,
             url: c.url,
             arc: c.arc || c.volume || '',
-            volume: c.volume || c.arc || ''
+            volume: c.volume || c.arc || '',
+            id: c.id || '',
+            partId: c.partId || c.id || '',
+            length: c.length || 0
         }));
 
         if (options.tocOnly || activeCrawlController?.tocOnly) {
@@ -1854,7 +1860,7 @@
         const { chapters, totalWords } = await crawlChapterPool(
             chapterLinks,
             async (item, idx) => {
-                const ch = await plugin.getChapter(item.url, { title: item.title, arc: item.arc, volume: item.volume, index: idx });
+                const ch = await plugin.getChapter(item.url, { title: item.title, arc: item.arc, volume: item.volume, index: idx, id: item.id, partId: item.partId, length: item.length });
                 return {
                     title: ch.title || item.title,
                     text: cleanChapterHtmlWithImages(ch.content || ch.text || ''),

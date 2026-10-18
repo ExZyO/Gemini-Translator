@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.75';
+    let VERSION = '8.21.76';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1175,13 +1175,21 @@
       }, [activeTab]);
 
       // --- Core Toast Helper (Defined before any usage) ---
-      const toast = (msg, type = 'success', action = null) => {
+      const toast = (msg, type = 'success', action = null, opts = {}) => {
         if (!msg) return;
+        let actionObj = action;
+        let options = opts || {};
+        if (action && typeof action === 'object' && !action.onClick && !action.label && (action.position || action.isBottom !== undefined)) {
+          options = action;
+          actionObj = null;
+        }
+        const isUpdateToast = options.position === 'bottom' || options.isBottom || /updat(?:e|ing|ed)|latest version|new version|chapter\(s\)/i.test(msg);
+        const position = options.position || (isUpdateToast ? 'bottom' : 'top');
         setToasts(prev => {
           if (prev.some(t => t.msg === msg)) return prev;
           const id = genId();
-          setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), action ? 7500 : 3200);
-          return [...prev.slice(-2), { id, msg, type, action }];
+          setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), actionObj ? 7500 : 3200);
+          return [...prev.slice(-2), { id, msg, type, action: actionObj, position, isBottom: position === 'bottom' }];
         });
       };
 
@@ -2804,7 +2812,7 @@
           isOptimizingGlossary, importGlossaryFile, exportGlossaryTxt, smartGlossary, setSmartGlossary,
 
           // Toast System
-          toasts, setToasts,
+          toasts, setToasts, isBatchChecking, checkingUpdates,
 
           // Confirmation Dialog
           showModal, setShowModal, modalMessage, modalCallback, setModalCallback,
