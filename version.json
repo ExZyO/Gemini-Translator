@@ -1,9 +1,9 @@
 {
-  "version": "8.21.81",
-  "versionCode": 8492,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.81/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.81/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.81",
+  "version": "8.21.84",
+  "versionCode": 8495,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.84/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.84/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.84",
   "releaseDate": "2026-10-18",
-  "releaseNotes": "v8.21.81: Resilient multi-page chapter fetching and illustration rendering fix for web novels."
+  "releaseNotes": "v8.21.84: Apple Music Fullscreen & Frosted-Glass Mini-Bar audio player with 5s skips and conditional chapter jumps, and fixed library update badge and download/translate buttons."
 }

@@ -432,8 +432,9 @@
             const savedProg = window.getReadingProgress ? window.getReadingProgress(item.id || item.title) : null;
             const resumeCh = (savedProg && typeof savedProg.chapterIdx === 'number') ? (savedProg.chapterIdx + 1) : null;
             const pct = savedProg?.pct;
-            const updateBadge = novelUpdateBadges[item.id];
+            const updateBadge = (novelUpdateBadges && (novelUpdateBadges[item.id] || novelUpdateBadges[item.title])) || null;
             const unit = updateBadge?.isVolumeBased ? 'Vol' : 'Ch';
+            const newCount = updateBadge ? (updateBadge.newCount ?? updateBadge.count ?? 0) : 0;
             const isSelected = selectedBookIds.includes(item.id) || selectedBookIds.includes(item.title);
 
             return h('div', {
@@ -500,23 +501,86 @@
                 (pct > 0 || resumeCh) && h('div', { className: 'shelf-book-progress-badge' },
                   pct > 0 ? `${pct}%` : `Ch.${resumeCh}`
                 ),
-                updateBadge && h('div', {
+                newCount > 0 && h('div', {
                   style: {
                     position: 'absolute',
                     top: 6,
                     right: 6,
-                    background: '#3B82F6',
+                    background: '#2563eb',
                     color: '#FFFFFF',
                     fontSize: 10,
                     fontWeight: 700,
-                    padding: '2px 5px',
+                    padding: '2px 6px',
                     borderRadius: 4,
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)'
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                    zIndex: 5
                   }
-                }, `+${updateBadge.count} ${unit}`)
+                }, `+${newCount} ${unit}`)
               ),
               h('div', { className: 'shelf-book-title', title: item.title }, item.title || 'Untitled Book'),
-              h('div', { className: 'shelf-book-author' }, item.author || `${item.chapterCount || 0} chapters`)
+              h('div', { className: 'shelf-book-author' }, item.author || `${item.chapterCount || 0} chapters`),
+              newCount > 0 && h('div', {
+                style: {
+                  display: 'flex',
+                  gap: 4,
+                  marginTop: 6,
+                  width: '100%'
+                },
+                onClick: (e) => e.stopPropagation()
+              },
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn primary',
+                  title: 'Download new chapters',
+                  style: {
+                    flex: 1,
+                    padding: '4px 6px',
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    background: '#2563eb',
+                    color: '#ffffff',
+                    borderRadius: 6,
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 3
+                  },
+                  onClick: (e) => {
+                    e.stopPropagation();
+                    if (typeof handleDownloadNewChapters === 'function') {
+                      handleDownloadNewChapters(item);
+                    }
+                  }
+                }, ic(Download, 11), `Download (${newCount})`),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  title: 'Translate new chapters & export EPUB',
+                  style: {
+                    flex: 1,
+                    padding: '4px 6px',
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    color: '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 3
+                  },
+                  onClick: (e) => {
+                    e.stopPropagation();
+                    if (typeof handleUpdateTranslateAndMakeEpub === 'function') {
+                      handleUpdateTranslateAndMakeEpub(item);
+                    }
+                  }
+                }, ic(Globe, 11), 'Translate')
+              )
             );
           })
         )

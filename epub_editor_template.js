@@ -6,23 +6,23 @@
   'use strict';
 
     const editHtml = `
-    <div id="epub-edit-tab" style="width:100%;">
+    <div id="epub-edit-tab" style="width:100%; padding-bottom: calc(120px + env(safe-area-inset-bottom, 24px));">
         <input type="file" id="edit-epub-input" accept="*/*,.epub" class="hidden" onchange="if(this.files && this.files[0]) { if(window.loadEpubForEditing) window.loadEpubForEditing(this.files[0]); else if(window.EpubEditorPacker?.parseEpubFile) window.EpubEditorPacker.parseEpubFile(this.files[0]); }" />
         <input type="file" id="edit-cover-file-input" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
         <input type="file" id="edit-chapter-img-input" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
 
         <!-- 1. EMPTY / DROP ZONE -->
         <div id="edit-upload-section" class="tl-drop"
-             ondragover="event.preventDefault(); this.classList.add('ring-4','ring-indigo-400');"
-             ondragleave="this.classList.remove('ring-4','ring-indigo-400');"
-             ondrop="event.preventDefault(); this.classList.remove('ring-4','ring-indigo-400'); if(event.dataTransfer.files.length>0) window.loadEpubForEditing(event.dataTransfer.files[0]);">
+             ondragover="event.preventDefault(); this.classList.add('ring-2','ring-sky-500');"
+             ondragleave="this.classList.remove('ring-2','ring-sky-500');"
+             ondrop="event.preventDefault(); this.classList.remove('ring-2','ring-sky-500'); if(event.dataTransfer.files.length>0) window.loadEpubForEditing(event.dataTransfer.files[0]);">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
-                 stroke="var(--iris)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;">
+                 stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px;">
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
             <div id="edit-loading-spinner" class="hidden w-8 h-8 border-4 border-t-transparent rounded-full animate-spin"
-                 style="border-color: var(--iris); border-top-color: transparent; margin: 0 auto 8px;"></div>
+                 style="border-color: #38bdf8; border-top-color: transparent; margin: 0 auto 8px;"></div>
             <h3 id="edit-upload-title" style="font-size: 17px; font-weight: 700; color: var(--paper); margin-bottom: 4px;">
                 Open EPUB Book in Studio Editor
             </h3>
@@ -40,7 +40,7 @@
                 </div>
                 <div class="w-full rounded-full h-2 overflow-hidden" style="background: var(--ember-2);">
                     <div id="edit-load-progress-bar" class="h-2 rounded-full transition-all duration-200 ease-out"
-                         style="width: 0%; background: var(--iris);"></div>
+                         style="width: 0%; background: #38bdf8;"></div>
                 </div>
             </div>
         </div>
@@ -91,7 +91,7 @@
                     </div>
                     <!-- Live Statistics Bar -->
                     <div id="edit-stats-bar" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:11.5px; color:var(--slate); font-family:'IBM Plex Mono',monospace; padding-top:4px;">
-                        <span id="edit-stat-ch-count" style="color:var(--iris); font-weight:600;">0 chapters</span> ·
+                        <span id="edit-stat-ch-count" style="color:#38bdf8; font-weight:600;">0 chapters</span> ·
                         <span id="edit-stat-words">0 words</span> ·
                         <span id="edit-stat-images">0 images</span>
                     </div>
@@ -116,7 +116,7 @@
                     <button type="button" id="btn-edit-gallery" class="tl-btn" title="View all illustrations in book, set cover, or download">
                         Image Gallery
                     </button>
-                    <button type="button" id="btn-edit-add-chapter" class="tl-btn" style="color:var(--iris);" title="Add a new chapter">
+                    <button type="button" id="btn-edit-add-chapter" class="tl-btn" style="color:#38bdf8;" title="Add a new chapter">
                         Add Chapter
                     </button>
                 </div>
@@ -134,8 +134,8 @@
             <div class="stu-sec" style="border-bottom:none;">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap;">
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <span class="cap" style="font-size:12px; letter-spacing:.12em;">Table of Contents & Hierarchy</span>
-                        <span id="edit-toc-badge" class="chip-act" style="background:rgba(99,102,241,.15); color:var(--iris); border-color:transparent;">0 Chapters</span>
+                        <span class="cap" style="font-size:12px; letter-spacing:normal;">Table of Contents & Hierarchy</span>
+                        <span id="edit-toc-badge" class="chip-act" style="background:rgba(56,189,248,.12); color:#38bdf8; border-color:transparent;">0 Chapters</span>
                         <button type="button" id="btn-edit-open-toc-manager" class="tl-btn accent" style="padding:4px 11px; font-size:11.5px; font-weight:700;" title="Open full Table of Contents editor to edit titles, levels, and order">
                             Edit TOC
                         </button>
@@ -158,16 +158,16 @@
         </div>
 
         <!-- ═══ MODAL 1: CHAPTER PROSE & IN-CHAPTER IMAGE EDITOR ═══ -->
-        <div id="edit-chapter-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
-             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
+        <div id="edit-chapter-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-0 sm:p-5"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px); z-index:1000;"
              onclick="if(event.target===this) (window.requestCloseChapterModal ? window.requestCloseChapterModal() : this.classList.add('hidden'));">
-            <div class="rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden"
-                 style="background:var(--ember); border:1px solid var(--hairline); height:90vh; height:90dvh; max-height:90dvh; display:flex; flex-direction:column;">
+            <div class="rounded-none sm:rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden"
+                 style="background:var(--ember); border:1px solid var(--hairline); height:100%; height:100dvh; max-height:100dvh; sm:height:90dvh; sm:max-height:90dvh; display:flex; flex-direction:column;">
                 <!-- Modal Top Header -->
                 <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
                     <div class="flex items-center gap-3 flex-1 min-w-0 pr-4">
                         <span id="edit-ch-modal-idx" class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-                              style="background:rgba(99,102,241,.2); color:var(--iris);">#1</span>
+                              style="background:rgba(56,189,248,.15); color:#38bdf8;">#1</span>
                         <input type="text" id="edit-ch-modal-title" placeholder="Chapter Title" class="tl-field"
                                 style="font-size:15px; font-weight:700; color:var(--paper); margin:0; flex:1;">
                         <!-- Level Switcher -->
@@ -266,7 +266,7 @@
                 </div>
 
                 <!-- Modal Footer -->
-                <div class="p-3 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                <div class="p-3 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2); padding-bottom:max(16px, env(safe-area-inset-bottom, 16px));">
                     <div class="flex gap-2">
                         <button type="button" id="btn-edit-modal-prev-ch" class="tl-btn" style="padding:6px 12px; font-size:12px;">← Previous Chapter</button>
                         <button type="button" id="btn-edit-modal-next-ch" class="tl-btn" style="padding:6px 12px; font-size:12px;">Next Chapter →</button>
@@ -280,8 +280,8 @@
         </div>
 
         <!-- ═══ MODAL 1.5: UNSAVED CHANGES CONFIRMATION DIALOG ═══ -->
-        <div id="edit-unsaved-confirm-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4"
-             style="background:rgba(0,0,0,.75); backdrop-filter:blur(6px);"
+        <div id="edit-unsaved-confirm-modal" class="hidden fixed inset-0 z-[1010] flex items-center justify-center p-4"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(6px); z-index:1010;"
              onclick="if(event.target===this) document.getElementById('edit-unsaved-confirm-modal').classList.add('hidden');">
             <div class="rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center"
                  style="background:var(--ember); border:1px solid var(--hairline);"
@@ -299,8 +299,8 @@
         </div>
 
         <!-- ═══ MODAL 1.8: NOVEL ILLUSTRATION PICKER MODAL (INSERT INTO CHAPTER) ═══ -->
-        <div id="edit-novel-image-picker-modal" class="hidden fixed inset-0 z-[65] flex items-center justify-center p-3 sm:p-5"
-             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
+        <div id="edit-novel-image-picker-modal" class="hidden fixed inset-0 z-[1005] flex items-center justify-center p-3 sm:p-5"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px); z-index:1005;"
              onclick="if(event.target===this) document.getElementById('edit-novel-image-picker-modal').classList.add('hidden');">
             <div class="rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden"
                  style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh; max-height:85dvh;">
@@ -336,7 +336,7 @@
                     <div>
                         <div class="flex items-center gap-2">
                             <h3 class="font-bold text-sm sm:text-base text-white">Book Illustration & Cover Gallery</h3>
-                            <span id="edit-gallery-total" class="text-xs px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono">0 images</span>
+                            <span id="edit-gallery-total" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-mono">0 images</span>
                         </div>
                         <p class="text-xs text-slate-400">View covers, chapter art, set book cover, or inspect full-size</p>
                     </div>
@@ -351,7 +351,7 @@
             <!-- Filter Tabs & Controls -->
             <div class="flex items-center justify-between px-4 sm:px-6 py-2.5 bg-[#0e111a] border-b border-slate-800 shrink-0 flex-wrap gap-2">
                 <div class="flex items-center gap-1.5" id="gallery-filter-tabs">
-                    <button type="button" class="gallery-tab active px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white" data-filter="all">All Images</button>
+                    <button type="button" class="gallery-tab active px-3 py-1 rounded-lg text-xs font-semibold bg-slate-700 text-white" data-filter="all">All Images</button>
                     <button type="button" class="gallery-tab px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800" data-filter="covers">Covers</button>
                     <button type="button" class="gallery-tab px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800" data-filter="chapters">Chapter Art</button>
                 </div>
@@ -365,7 +365,7 @@
             </div>
 
             <!-- Footer Bar -->
-            <div class="px-4 sm:px-6 py-3 flex items-center justify-between border-t border-slate-800 bg-[#0d0f17] shrink-0">
+            <div class="px-4 sm:px-6 py-3 flex items-center justify-between border-t border-slate-800 bg-[#0d0f17] shrink-0" style="padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));">
                 <span class="text-xs text-slate-400 font-mono">100% original illustrations & covers preserved</span>
                 <button type="button" onclick="if(window.closeGalleryModal) window.closeGalleryModal(); else document.getElementById('edit-gallery-modal').style.display='none';" class="tl-btn accent" style="padding:7px 20px;">Done</button>
             </div>
@@ -395,8 +395,8 @@
         </div>
 
         <!-- ═══ MODAL 3: GLOBAL FIND & REPLACE ═══ -->
-        <div id="edit-find-replace-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
-             style="background:rgba(0,0,0,.7); backdrop-filter:blur(6px);"
+        <div id="edit-find-replace-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4"
+             style="background:rgba(0,0,0,.7); backdrop-filter:blur(6px); z-index:1000;"
              onclick="if(event.target===this) document.getElementById('edit-find-replace-modal').classList.add('hidden');">
             <div class="rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" style="background:var(--ember); border:1px solid var(--hairline);">
                 <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
@@ -425,10 +425,10 @@
                                 <input type="checkbox" id="edit-find-in-titles" checked> Also in Titles
                             </label>
                         </div>
-                        <span id="edit-find-matches-count" class="text-xs font-mono" style="color:var(--iris);">0 occurrences</span>
+                        <span id="edit-find-matches-count" class="text-xs font-mono" style="color:#38bdf8;">0 occurrences</span>
                     </div>
                 </div>
-                <div class="p-4 flex items-center justify-end gap-2" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                <div class="p-4 flex items-center justify-end gap-2" style="border-top:1px solid var(--hairline); background:var(--ember-2); padding-bottom:max(16px, env(safe-area-inset-bottom, 16px));">
                     <button type="button" onclick="document.getElementById('edit-find-replace-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
                     <button type="button" id="btn-edit-do-replace" class="tl-btn accent">Replace in All Chapters</button>
                 </div>
@@ -436,8 +436,8 @@
         </div>
 
         <!-- ═══ MODAL 4: AUTO-NUMBERING ═══ -->
-        <div id="edit-autonumber-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
-             style="background:rgba(0,0,0,.7); backdrop-filter:blur(6px);"
+        <div id="edit-autonumber-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4"
+             style="background:rgba(0,0,0,.7); backdrop-filter:blur(6px); z-index:1000;"
              onclick="if(event.target===this) document.getElementById('edit-autonumber-modal').classList.add('hidden');">
             <div class="rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style="background:var(--ember); border:1px solid var(--hairline);">
                 <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--hairline); background:var(--ember-2);">
@@ -481,7 +481,7 @@
                         </label>
                     </div>
                 </div>
-                <div class="p-4 flex items-center justify-end gap-2" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                <div class="p-4 flex items-center justify-end gap-2" style="border-top:1px solid var(--hairline); background:var(--ember-2); padding-bottom:max(16px, env(safe-area-inset-bottom, 16px));">
                     <button type="button" onclick="document.getElementById('edit-autonumber-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
                     <button type="button" id="btn-edit-do-autonumber" class="tl-btn accent">Apply Auto-Numbering</button>
                 </div>
@@ -489,8 +489,8 @@
         </div>
 
         <!-- ═══ MODAL 5: LOAD FROM LIBRARY PICKER ═══ -->
-        <div id="edit-library-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
-             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
+        <div id="edit-library-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-5"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px); z-index:1000;"
              onclick="if(event.target===this) document.getElementById('edit-library-modal').classList.add('hidden');">
             <div class="rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
                  style="background:var(--ember); border:1px solid var(--hairline);">
@@ -509,8 +509,8 @@
         </div>
 
         <!-- ═══ MODAL 6: MOVE & HIERARCHY SHEET (MOBILE-FIRST) ═══ -->
-        <div id="edit-move-chapter-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-             style="background:rgba(0,0,0,.75); backdrop-filter:blur(6px);"
+        <div id="edit-move-chapter-modal" class="hidden fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-0 sm:p-4"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(6px); z-index:1000;"
              onclick="if(event.target===this) document.getElementById('edit-move-chapter-modal').classList.add('hidden');">
             <div class="rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
                  style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh;">
@@ -547,15 +547,15 @@
                         </div>
                     </div>
                 </div>
-                <div class="p-3 flex justify-end" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                <div class="p-3 flex justify-end" style="border-top:1px solid var(--hairline); background:var(--ember-2); padding-bottom:max(16px, env(safe-area-inset-bottom, 16px));">
                     <button type="button" onclick="document.getElementById('edit-move-chapter-modal').classList.add('hidden')" class="tl-btn w-full justify-center" style="padding:10px; font-weight:700;">Done</button>
                 </div>
             </div>
         </div>
 
         <!-- ═══ MODAL 7: RENAME CHAPTER MODAL (MOBILE-FIRST) ═══ -->
-        <div id="edit-rename-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
-             style="background:rgba(0,0,0,.75); backdrop-filter:blur(6px);"
+        <div id="edit-rename-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-4"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(6px); z-index:1000;"
              onclick="if(event.target===this) document.getElementById('edit-rename-modal').classList.add('hidden');">
             <div class="rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
                  style="background:var(--ember); border:1px solid var(--hairline);">
@@ -564,7 +564,7 @@
                     <button type="button" onclick="document.getElementById('edit-rename-modal').classList.add('hidden')"
                             class="w-8 h-8 flex items-center justify-center font-bold" style="color:var(--slate);" title="Close">&times;</button>
                 </div>
-                <div class="p-4">
+                <div class="p-4" style="padding-bottom:max(16px, env(safe-area-inset-bottom, 16px));">
                     <label class="cap" style="display:block; margin-bottom:6px;">Chapter Title</label>
                     <input type="text" id="edit-rename-input" class="tl-field" style="width:100%; font-size:14px; padding:10px 12px; margin-bottom:14px;">
                     <div class="flex gap-2 justify-end">
@@ -576,8 +576,8 @@
         </div>
 
         <!-- ═══ MODAL 8: SANITIZE TITLES VISUAL PREVIEW MODAL ═══ -->
-        <div id="edit-sanitize-preview-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
-             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
+        <div id="edit-sanitize-preview-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-5"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px); z-index:1000;"
              onclick="if(event.target===this) document.getElementById('edit-sanitize-preview-modal').classList.add('hidden');">
             <div class="rounded-2xl shadow-2xl w-full max-w-xl flex flex-col overflow-hidden"
                  style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh;">
@@ -597,7 +597,7 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2); padding-bottom:max(16px, env(safe-area-inset-bottom, 16px));">
                     <button type="button" onclick="document.getElementById('edit-sanitize-preview-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
                     <button type="button" id="btn-sanitize-apply-confirm" class="tl-btn accent font-bold" style="padding:8px 18px;">Apply Clean Titles</button>
                 </div>
@@ -605,8 +605,8 @@
         </div>
 
         <!-- ═══ MODAL 9: AUTO-HIERARCHY VISUAL ASSISTANT MODAL ═══ -->
-        <div id="edit-hierarchy-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
-             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
+        <div id="edit-hierarchy-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-5"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px); z-index:1000;"
              onclick="if(event.target===this) document.getElementById('edit-hierarchy-modal').classList.add('hidden');">
             <div class="rounded-2xl shadow-2xl w-full max-w-xl flex flex-col overflow-hidden"
                  style="background:var(--ember); border:1px solid var(--hairline); max-height:85vh;">
@@ -622,7 +622,7 @@
 
                 <!-- Detection Summary Banner -->
                 <div id="hierarchy-modal-banner" class="px-4 py-3 flex items-center justify-between text-xs"
-                     style="background:rgba(99,102,241,0.12); border-bottom:1px solid rgba(99,102,241,0.25); color:#c7d2fe;">
+                     style="background:rgba(56,189,248,0.08); border-bottom:1px solid rgba(56,189,248,0.2); color:#bae6fd;">
                     <!-- Populated dynamically -->
                 </div>
 
@@ -632,7 +632,7 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-2 shrink-0 flex-wrap" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-2 shrink-0 flex-wrap" style="border-top:1px solid var(--hairline); background:var(--ember-2); padding-bottom:max(16px, env(safe-area-inset-bottom, 16px));">
                     <button type="button" id="btn-hierarchy-flatten-all" class="tl-btn text-xs" style="color:var(--slate);" title="Reset all chapters to Level 1 flat main chapters">Flatten All (Level 1)</button>
                     <div class="flex items-center gap-2">
                         <button type="button" onclick="document.getElementById('edit-hierarchy-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
@@ -643,8 +643,8 @@
         </div>
 
         <!-- ═══ MODAL 10: FULL TABLE OF CONTENTS MANAGER MODAL ═══ -->
-        <div id="edit-toc-manager-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
-             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px);"
+        <div id="edit-toc-manager-modal" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-5"
+             style="background:rgba(0,0,0,.75); backdrop-filter:blur(8px); z-index:1000;"
              onclick="if(event.target===this) document.getElementById('edit-toc-manager-modal').classList.add('hidden');">
             <div class="rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden"
                  style="background:var(--ember); border:1px solid var(--hairline); height:88vh; height:88dvh; max-height:88dvh;">
@@ -676,7 +676,7 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2);">
+                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3 shrink-0" style="border-top:1px solid var(--hairline); background:var(--ember-2); padding-bottom:max(16px, env(safe-area-inset-bottom, 16px));">
                     <button type="button" onclick="document.getElementById('edit-toc-manager-modal').classList.add('hidden')" class="tl-btn">Cancel</button>
                     <button type="button" id="btn-toc-manager-save-all" class="tl-btn accent font-bold" style="padding:8px 20px;">Save TOC Changes</button>
                 </div>

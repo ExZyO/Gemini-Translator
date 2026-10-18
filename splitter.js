@@ -780,10 +780,10 @@ async function processSplitFile(file) {
     }
 }
 
-async function executeSplit(selectedIdrefs, rangeSuffix) {
+async function executeSplit(selectedIdrefs, rangeSuffix, splitOpts = {}) {
     logMsg(`Starting export...`);
     const btnCustom = document.getElementById('btn-export-custom');
-    btnCustom.disabled = true;
+    if (btnCustom) btnCustom.disabled = true;
 
     try {
         const newZip = new JSZip();
@@ -1050,10 +1050,16 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
         // Store for share button
         lastExportBlob = blob;
 
-        await (window.saveUniversalBlob || saveUniversalBlob)(blob, `${sanitizeFilename(finalDisplayName)}.epub`, 'application/epub+zip');
+        await (window.saveUniversalBlob || saveUniversalBlob)(
+            blob,
+            `${sanitizeFilename(finalDisplayName)}.epub`,
+            'application/epub+zip',
+            false,
+            { suppressModal: true, skipSuccessModal: true, ...splitOpts }
+        );
 
         logMsg(`Success.`);
-        showToast(`Exported`, "success");
+        showToast(`Exported ${finalDisplayName}`, "success");
         addExportEntry(finalDisplayName, 'split', rangeSuffix);
 
         // Quick EPUB Validation
@@ -1083,7 +1089,7 @@ async function executeSplit(selectedIdrefs, rangeSuffix) {
             if (valIssues.length === 0) {
                 logMsg(' Validation passed. EPUB looks healthy!');
             } else {
-                valIssues.forEach(issue => logMsg(`\u26a0\ufe0f ${issue}`));
+                valIssues.forEach(issue => logMsg(`Warning: ${issue}`));
                 showToast(`${valIssues.length} validation warning(s)`, 'warn');
             }
         } catch (valErr) {
@@ -1126,19 +1132,22 @@ document.getElementById('btn-export-range').addEventListener('click', () => {
 });
 
 document.getElementById('btn-export-chunks').addEventListener('click', async () => {
-    const mode = document.querySelector('input[name="split-mode"]:checked').value;
+    const mode = document.querySelector('input[name="split-mode"]:checked')?.value || 'chapters';
 
     if (mode === 'chapters') {
         const size = parseInt(document.getElementById('chunk-size').value);
         if (!size || size < 1) return showToast("Invalid chunk size.", "warn");
 
+        const totalChunks = Math.ceil(storyChapters.length / size);
+        showToast(`Splitting into ${totalChunks} volumes...`, "info");
         for (let i = 0; i < storyChapters.length; i += size) {
             const chunk = storyChapters.slice(i, i + size);
             const start = chunk[0].displayIndex;
             const end = chunk[chunk.length - 1].displayIndex;
             const selected = chunk.map(c => c.idref);
-            await executeSplit(selected, `${start}-${end}`);
+            await executeSplit(selected, `${start}-${end}`, { suppressModal: true, skipSuccessModal: true });
         }
+        showToast(`Exported all ${totalChunks} volumes successfully.`, "success");
     } else {
         const targetMb = parseFloat(document.getElementById('chunk-size-mb').value);
         if (!targetMb || targetMb <= 0) return showToast("Invalid target size.", "warn");
@@ -1182,13 +1191,15 @@ document.getElementById('btn-export-chunks').addEventListener('click', async () 
         }
         if (currentChunk.length > 0) chunks.push(currentChunk);
 
+        showToast(`Splitting into ${chunks.length} parts...`, "info");
         for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i];
             const start = chunk[0].displayIndex;
             const end = chunk[chunk.length - 1].displayIndex;
             const selected = chunk.map(c => c.idref);
-            await executeSplit(selected, `Part ${i + 1}`);
+            await executeSplit(selected, `Part ${i + 1}`, { suppressModal: true, skipSuccessModal: true });
         }
+        showToast(`Exported all ${chunks.length} parts successfully.`, "success");
     }
 });
 

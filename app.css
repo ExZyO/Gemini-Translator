@@ -331,17 +331,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Layout shells (Ambient Mesh Glow & Glassmorphism) ── */
+/* ── Layout shells (Clean Dark Editorial Canvas) ── */
 .tl-app {
   min-height: 100vh;
-  background:
-    radial-gradient(ellipse 90% 45% at 50% -12%, rgba(99, 102, 241, 0.18), transparent 70%),
-    radial-gradient(circle 500px at 85% 25%, rgba(168, 85, 247, 0.1), transparent 70%),
-    radial-gradient(circle 600px at 15% 75%, rgba(16, 185, 129, 0.06), transparent 70%),
-    var(--void);
+  background: var(--void, #0d1117);
   color: var(--paper);
   overflow-x: clip;
-  padding-bottom: 110px;
+  padding-bottom: calc(110px + env(safe-area-inset-bottom, 24px));
 }
 .tl-wrap {
   max-width: 780px;
@@ -672,6 +668,29 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   -webkit-user-select: none;
   touch-action: none;
   isolation: isolate;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+
+/* Automatically slide down and hide bottom nav dock when modals or overlays are open */
+body:has(#edit-chapter-modal:not(.hidden)) .bottomnav,
+body:has(#edit-unsaved-confirm-modal:not(.hidden)) .bottomnav,
+body:has(#edit-novel-image-picker-modal:not(.hidden)) .bottomnav,
+body:has(#edit-gallery-modal:not([style*="display: none"]):not(.hidden)) .bottomnav,
+body:has(#edit-gallery-lightbox:not([style*="display: none"]):not(.hidden)) .bottomnav,
+body:has(#edit-find-replace-modal:not(.hidden)) .bottomnav,
+body:has(#edit-autonumber-modal:not(.hidden)) .bottomnav,
+body:has(#edit-library-modal:not(.hidden)) .bottomnav,
+body:has(#edit-move-chapter-modal:not(.hidden)) .bottomnav,
+body:has(#edit-rename-modal:not(.hidden)) .bottomnav,
+body:has(#edit-sanitize-preview-modal:not(.hidden)) .bottomnav,
+body:has(#edit-hierarchy-modal:not(.hidden)) .bottomnav,
+body:has(#edit-toc-manager-modal:not(.hidden)) .bottomnav,
+body:has(#chapter-preview-modal:not(.hidden)) .bottomnav,
+body:has(#ai-toc-polish-modal:not(.hidden)) .bottomnav,
+body:has(.gloss-overlay) .bottomnav {
+  transform: translateY(140px) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* Sliding Liquid Glass Pill Indicator */
@@ -682,11 +701,11 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
   left: 5px;
   width: calc((100% - 10px) / 5);
   border-radius: 9999px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.38) 0%, rgba(168, 85, 247, 0.28) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow:
-    0 4px 22px rgba(99, 102, 241, 0.5),
-    0 1px 1px rgba(255, 255, 255, 0.35) inset,
+    0 2px 10px rgba(0, 0, 0, 0.35),
+    0 1px 1px rgba(255, 255, 255, 0.25) inset,
     0 -1px 1px rgba(0, 0, 0, 0.3) inset;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -1008,21 +1027,21 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
 .studio-host [class*="bg-indigo-600"] { background-color: var(--iris) !important; }
 .studio-host input[type="text"], .studio-host input:not([type]), .studio-host textarea, .studio-host select { background-color: rgba(255, 255, 255, 0.04) !important; color: var(--paper) !important; border-color: rgba(255, 255, 255, 0.08) !important; border-radius: 4px !important; }
 .studio-host button[class*="text-white"] { color: #FFFFFF !important; }
-.studio-host .cap { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); }
-.studio-host .tl-field { width: 100%; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--hairline); border-radius: 4px; padding: 11px 14px; font-size: 13.5px; color: var(--paper); outline: none; transition: all .15s ease; }
-.studio-host .tl-field:focus { border-color: var(--iris); background: rgba(99, 112, 255, 0.06); }
-.studio-host .tl-drop { border: 1.5px dashed rgba(255, 255, 255, 0.14); border-radius: 6px; padding: 28px 16px; text-align: center; cursor: pointer; background: rgba(255, 255, 255, 0.02); transition: border-color .15s ease; }
-.studio-host .tl-drop:hover { border-color: var(--iris); }
-.studio-host .tl-btn { font-size: 13px; font-weight: 600; color: var(--paper-dim); border: 1px solid var(--hairline); background: rgba(255, 255, 255, 0.06); border-radius: 4px; padding: 9px 15px; cursor: pointer; transition: all .15s ease; }
-.studio-host .tl-btn.primary { color: #FFFFFF; background: var(--iris); border-color: var(--iris); }
-.studio-host .tl-btn.accent { color: #FFFFFF; background: var(--iris); }
+.studio-host .cap { font-size: 12px; font-weight: 600; letter-spacing: normal; text-transform: none; color: #94a3b8; }
+.studio-host .tl-field { width: 100%; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--hairline); border-radius: 6px; padding: 10px 13px; font-size: 13.5px; color: var(--paper); outline: none; transition: all .15s ease; }
+.studio-host .tl-field:focus { border-color: #38bdf8; background: rgba(56, 189, 248, 0.04); }
+.studio-host .tl-drop { border: 1.5px dashed rgba(255, 255, 255, 0.14); border-radius: 8px; padding: 28px 16px; text-align: center; cursor: pointer; background: rgba(255, 255, 255, 0.02); transition: border-color .15s ease; }
+.studio-host .tl-drop:hover { border-color: #38bdf8; }
+.studio-host .tl-btn { font-size: 13px; font-weight: 600; color: var(--paper-dim); border: 1px solid var(--hairline); background: rgba(255, 255, 255, 0.06); border-radius: 6px; padding: 8px 14px; cursor: pointer; transition: all .15s ease; }
+.studio-host .tl-btn.primary { color: #FFFFFF; background: #238636; border-color: rgba(255, 255, 255, 0.15); }
+.studio-host .tl-btn.accent { color: #FFFFFF; background: #1f6feb; border-color: rgba(255, 255, 255, 0.15); }
 .studio-host .tl-btn.danger { color: var(--rose); background: rgba(255, 69, 58, 0.1); border-color: rgba(255, 69, 58, 0.25); }
 .studio-host .tl-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--paper); cursor: pointer; }
-.studio-host .tl-check input { accent-color: var(--iris); width: 16px; height: 16px; border-radius: 3px; }
-.studio-host .tl-console { background: #08090C; border: 1px solid var(--hairline); border-radius: 4px; padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--slate); }
-.studio-host .tl-list { border: 1px solid var(--hairline); border-radius: 4px; background: rgba(255, 255, 255, 0.02); }
-.studio-host .ring-4 { box-shadow: 0 0 0 2px rgba(99, 112, 255, 0.4) !important; }
-.studio-host .ring-indigo-400 { border-color: var(--iris) !important; }
+.studio-host .tl-check input { accent-color: #38bdf8; width: 16px; height: 16px; border-radius: 3px; }
+.studio-host .tl-console { background: #08090C; border: 1px solid var(--hairline); border-radius: 6px; padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--slate); }
+.studio-host .tl-list { border: 1px solid var(--hairline); border-radius: 6px; background: rgba(255, 255, 255, 0.02); }
+.studio-host .ring-4 { box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.4) !important; }
+.studio-host .ring-indigo-400 { border-color: #38bdf8 !important; }
 .studio-host .stu-sec { padding: 16px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
 .studio-host .stu-sec:first-of-type { padding-top: 8px; }
 
@@ -1675,35 +1694,46 @@ input, textarea, [contenteditable="true"] {
 /* ── Studio Floating Segmented Pill Bar ── */
 .studio-pill-bar {
   display: flex;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
   padding: 4px;
   gap: 4px;
   margin-bottom: 16px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.studio-pill-bar::-webkit-scrollbar {
+  display: none;
 }
 .studio-pill-btn {
-  flex: 1;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 13px;
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
   font-weight: 600;
   color: #94A3B8;
-  background: none;
-  border: none;
+  background: transparent;
+  border: 1px solid transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.15s ease;
+}
+.studio-pill-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.04);
 }
 .studio-pill-btn.active {
-  background: #6366F1;
-  color: #FFFFFF;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  background: #21262d;
+  color: #f8fafc;
+  border: 1px solid #30363d;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Apple Books Translate Deck Styles ── */
@@ -1951,32 +1981,32 @@ input, textarea, [contenteditable="true"] {
 
 /* ── Studio Canvas & Dropzone ── */
 .studio-canvas {
-  background: #141724;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  padding: 18px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   margin-bottom: 20px;
 }
 .studio-dropzone,
 #epub-drop-zone,
 #split-drop-zone,
 #merge-drop-zone {
-  border: 2px dashed rgba(99, 102, 241, 0.35) !important;
-  background: rgba(99, 102, 241, 0.04) !important;
-  border-radius: 20px !important;
-  padding: 36px 20px !important;
+  border: 1.5px dashed #30363d !important;
+  background: rgba(22, 27, 34, 0.5) !important;
+  border-radius: 8px !important;
+  padding: 32px 16px !important;
   text-align: center !important;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transition: border-color 0.15s ease, background 0.15s ease !important;
   cursor: pointer !important;
 }
 .studio-dropzone:hover,
 #epub-drop-zone:hover,
 #split-drop-zone:hover,
 #merge-drop-zone:hover {
-  border-color: #6366F1 !important;
-  background: rgba(99, 102, 241, 0.08) !important;
-  transform: translateY(-2px);
+  border-color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.04) !important;
+  transform: none !important;
 }
 
 /* ═══════════════════════════════════════════════════════════

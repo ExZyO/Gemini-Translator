@@ -1,5 +1,5 @@
 (function() {
-const splitHtml = `<div id="epub-split-tab" style="width:100%;">
+const splitHtml = `<div id="epub-split-tab" style="width:100%; padding-bottom: calc(120px + env(safe-area-inset-bottom, 24px));">
             <input type="file" id="epub-input" accept="*/*,.epub" class="hidden" />
 
             <div id="upload-section"
@@ -8,7 +8,7 @@ const splitHtml = `<div id="epub-split-tab" style="width:100%;">
                 ondragleave="this.classList.remove('ring-4','ring-indigo-400');"
                 ondrop="event.preventDefault(); this.classList.remove('ring-4','ring-indigo-400'); if(event.dataTransfer.files.length>0 && event.dataTransfer.files[0].name.toLowerCase().endsWith('.epub')) processSplitFile(event.dataTransfer.files[0]);">
                 <svg id="upload-icon" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
-                    fill="none" stroke="var(--iris)" stroke-width="2" stroke-linecap="round"
+                    fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"
                     stroke-linejoin="round" style="margin-bottom:8px;">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="17 8 12 3 7 8" />
@@ -16,7 +16,7 @@ const splitHtml = `<div id="epub-split-tab" style="width:100%;">
                 </svg>
                 <div id="loading-spinner"
                     class="hidden w-8 h-8 border-4 border-t-transparent rounded-full animate-spin"
-                    style="border-color: var(--iris); border-top-color: transparent; margin: 0 auto 8px;">
+                    style="border-color: #38bdf8; border-top-color: transparent; margin: 0 auto 8px;">
                 </div>
                 <h3 id="upload-title" style="font-size: 17px; font-weight: 700; color: var(--paper); margin-bottom: 4px;">Select your .epub file to Split</h3>
                 <p id="upload-desc" style="font-size: 12px; color: var(--slate); font-weight: 500;">Click here or drag and drop your EPUB book</p>
@@ -27,7 +27,7 @@ const splitHtml = `<div id="epub-split-tab" style="width:100%;">
                     </div>
                     <div class="w-full rounded-full h-2 overflow-hidden" style="background: var(--ember-2);">
                         <div id="loading-progress-bar" class="h-2 rounded-full transition-all duration-200 ease-out"
-                            style="width: 0%; background: var(--iris);"></div>
+                            style="width: 0%; background: #38bdf8;"></div>
                     </div>
                 </div>
             </div>
@@ -38,7 +38,7 @@ const splitHtml = `<div id="epub-split-tab" style="width:100%;">
                     <div style="flex:1; min-width:220px;">
                         <input type="text" id="split-title-input" placeholder="Book Title"
                             style="width:100%; background:transparent; border:none; border-bottom:1px solid var(--hairline); font-size:20px; font-weight:700; color:var(--paper); padding:0 0 8px; outline:none;">
-                        <p id="chapter-count" style="font-size:11.5px; color:var(--iris); font-weight:600; margin-top:8px; font-family:'IBM Plex Mono',monospace;">0 books · 0 ch · 0 words · 0.0 MB</p>
+                        <p id="chapter-count" style="font-size:11.5px; color:#38bdf8; font-weight:600; margin-top:8px; font-family:'IBM Plex Mono',monospace;">0 books · 0 ch · 0 words · 0.0 MB</p>
                     </div>
                     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                         <input type="file" id="split-cover-input" accept="image/jpeg, image/png, image/webp" class="hidden">
@@ -63,7 +63,7 @@ const splitHtml = `<div id="epub-split-tab" style="width:100%;">
 
                 <div class="stu-sec">
                     <div class="flex items-center justify-between mb-3">
-                        <span class="cap" style="font-size:11.5px; letter-spacing:.14em;">1 · Extract Range</span>
+                        <span style="font-size:13px; font-weight:700; color:var(--paper);">Extract chapter range</span>
                         <button type="button" id="btn-quick-range-preset" class="chip-act">Select Range in List</button>
                     </div>
                     <div class="flex items-end gap-3 flex-wrap">
@@ -82,7 +82,7 @@ const splitHtml = `<div id="epub-split-tab" style="width:100%;">
                 </div>
 
                 <div class="stu-sec">
-                    <span class="cap" style="font-size:11.5px; letter-spacing:.14em; display:block; margin-bottom:12px;">2 · Split into Parts</span>
+                    <span style="font-size:13px; font-weight:700; color:var(--paper); display:block; margin-bottom:12px;">Split into volumes</span>
 
                     <div class="flex gap-4 mb-3">
                         <label class="tl-check">
@@ -138,9 +138,9 @@ const splitHtml = `<div id="epub-split-tab" style="width:100%;">
 
                 <div class="stu-sec">
                     <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
-                        <span class="cap" style="font-size:11.5px; letter-spacing:.14em;">3 · Chapter Selection</span>
+                        <span class="cap" style="font-size:12px; letter-spacing:normal;">Chapter Selection</span>
                         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                            <button type="button" id="btn-ai-polish-toc" class="chip-act" title="AI automatically standardizes and cleans all chapter names & TOC">✦ AI Polish TOC</button>
+                            <button type="button" id="btn-ai-polish-toc" class="chip-act" title="AI automatically standardizes and cleans all chapter names & TOC">AI Polish TOC</button>
                             <button id="btn-select-all" class="chip-act">Select All</button>
                             <button id="btn-deselect-all" class="chip-act">Deselect All</button>
                             <button id="btn-invert-select" class="chip-act" style="color:var(--lamp);">Invert</button>
@@ -148,8 +148,8 @@ const splitHtml = `<div id="epub-split-tab" style="width:100%;">
                         </div>
                     </div>
 
-                    <div class="flex items-center px-3 py-1.5 rounded-xl mb-3" style="background:rgba(124,135,255,.1); border:1px solid var(--iris-deep);">
-                        <span id="preview-count" class="mono" style="font-size:11px; font-weight:700; color:var(--iris);">0 selected</span>
+                    <div class="flex items-center px-3 py-1.5 rounded-xl mb-3" style="background:rgba(56,189,248,.08); border:1px solid rgba(56,189,248,.25);">
+                        <span id="preview-count" class="mono" style="font-size:11px; font-weight:700; color:#38bdf8;">0 selected</span>
                     </div>
 
                     <input type="text" id="chapter-search" placeholder="Search chapters..." class="tl-field" style="margin-bottom:10px;">
@@ -192,7 +192,7 @@ const splitHtml = `<div id="epub-split-tab" style="width:100%;">
         </div>
         `;
 
-const mergeHtml = `<div id="epub-merge-tab" style="width:100%;">
+const mergeHtml = `<div id="epub-merge-tab" style="width:100%; padding-bottom: calc(120px + env(safe-area-inset-bottom, 24px));">
             <div style="max-width: 680px; margin: 0 auto;">
                 <div style="text-align:center; margin-bottom:16px;">
                     <h2 style="font-size:19px; font-weight:700; color:var(--paper);">Smart Novel Merger</h2>
@@ -205,18 +205,18 @@ const mergeHtml = `<div id="epub-merge-tab" style="width:100%;">
 
                 <input type="file" id="merge-input" accept="*/*,.epub" multiple class="hidden" />
                 <div id="merge-upload-box" class="tl-drop" style="margin-bottom:16px;">
-                    <span style="font-size:14px; font-weight:700; color:var(--iris);">Click to Select EPUB Books</span>
+                    <span style="font-size:14px; font-weight:700; color:var(--paper);">Click to Select EPUB Books</span>
                     <span class="block" style="font-size:11.5px; color:var(--slate); margin-top:4px;">or drag and drop them here</span>
                     <div class="mt-3">
-                        <span class="px-3 py-1 rounded-lg text-[11px] font-semibold" style="background:rgba(124,135,255,.1); color:var(--iris); border:1px solid var(--iris-deep);">
-                             Phone Tip: Long-press to multi-select, or add books sequentially
+                        <span class="px-3 py-1 rounded-lg text-[11px] font-semibold" style="background:rgba(255,255,255,0.05); color:#94a3b8; border:1px solid rgba(255,255,255,0.1);">
+                            Phone Tip: Long-press to multi-select, or add books sequentially
                         </span>
                     </div>
                 </div>
 
                 <div id="merge-list-container" class="hidden">
                     <div class="flex items-center justify-between flex-wrap gap-2" style="margin-bottom:10px;">
-                        <span class="cap" style="font-size:11.5px; letter-spacing:.14em;">Files to Merge</span>
+                        <span style="font-size:13px; font-weight:700; color:var(--paper);">Files to merge</span>
                         <div class="flex items-center gap-3 flex-wrap">
                             <button id="btn-sort-merge-natural" type="button" class="chip-act" title="Sort files by natural number ordering (Book 1, Book 2... Book 10)">Sort A–Z (Natural)</button>
                             <button id="btn-clear-all-merge" class="hidden chip-act" style="color:var(--rose);">Clear All</button>
@@ -231,7 +231,7 @@ const mergeHtml = `<div id="epub-merge-tab" style="width:100%;">
                         <div class="flex gap-3 flex-wrap">
                             <div style="flex:1; min-width:200px;">
                                 <label class="cap" style="display:block; margin-bottom:6px;">New Book Title</label>
-                                <input type="text" id="merge-title" placeholder="e.g. Reverend Insanity (Complete)" class="tl-field">
+                                <input type="text" id="merge-title" placeholder="e.g. Web Novel (Complete Edition)" class="tl-field">
                             </div>
                             <div style="flex:1; min-width:200px;">
                                 <label class="cap" style="display:block; margin-bottom:6px;">Custom Cover (Optional)</label>
@@ -317,20 +317,20 @@ const mergeHtml = `<div id="epub-merge-tab" style="width:100%;">
 const modalHtml = `<!-- Chapter Preview Modal -->
     <div id="chapter-preview-modal"
         class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
-        style="background: rgba(0,0,0,.65); backdrop-filter: blur(6px); -webkit-overflow-scrolling: touch;"
+        style="background: rgba(0,0,0,.75); backdrop-filter: blur(8px); z-index: 1000; -webkit-overflow-scrolling: touch;"
         onclick="if(event.target===this)this.classList.add('hidden')">
         <div class="rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden"
             style="background: var(--ember); border: 1px solid var(--hairline); min-height:0;">
             <div class="flex items-center justify-between p-4 shrink-0" style="border-bottom: 1px solid var(--hairline); background: var(--ember-2);">
                 <h3 id="preview-modal-title" class="font-bold truncate" style="color: var(--paper);">Chapter Preview</h3>
                 <button onclick="document.getElementById('chapter-preview-modal').classList.add('hidden')"
-                    class="w-8 h-8 flex items-center justify-center text-lg font-bold" style="color: var(--slate);">✕</button>
+                    class="w-8 h-8 flex items-center justify-center text-lg font-bold" style="color: var(--slate);">&times;</button>
             </div>
             <div id="preview-modal-body"
                 class="p-6 overflow-y-auto custom-scrollbar text-sm leading-relaxed font-serif flex-1"
                 style="color: var(--paper-dim); min-height:0; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: contain;">
             </div>
-            <div class="p-3 flex items-center justify-end shrink-0" style="border-top: 1px solid var(--hairline); background: var(--ember-2);">
+            <div class="p-3 flex items-center justify-end shrink-0" style="border-top: 1px solid var(--hairline); background: var(--ember-2); padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));">
                 <button type="button" onclick="document.getElementById('chapter-preview-modal').classList.add('hidden')" class="tl-btn accent" style="padding: 6px 14px; font-weight:700;">Close</button>
             </div>
         </div>
@@ -338,25 +338,25 @@ const modalHtml = `<!-- Chapter Preview Modal -->
 
     <!-- AI Polish TOC Modal -->
     <div id="ai-toc-polish-modal"
-        class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
-        style="background: rgba(0,0,0,.7); backdrop-filter: blur(8px);"
+        class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4"
+        style="background: rgba(0,0,0,.75); backdrop-filter: blur(8px); z-index: 1000;"
         onclick="if(event.target===this)this.classList.add('hidden')">
         <div class="rounded-2xl shadow-2xl max-w-3xl w-full max-h-[88vh] flex flex-col overflow-hidden"
             style="background: var(--ember); border: 1px solid var(--hairline);">
             <div class="flex items-center justify-between p-4 sm:p-5" style="border-bottom: 1px solid var(--hairline); background: var(--ember-2);">
                 <div class="flex items-center gap-2.5">
-                    <span class="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black"
-                        style="background: rgba(124,135,255,.15); color: var(--iris);">✦</span>
+                    <span class="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
+                        style="background: rgba(56,189,248,.12); color: #38bdf8;">TOC</span>
                     <div>
                         <h3 class="font-extrabold text-base sm:text-lg" style="color: var(--paper);">AI Table of Contents & Title Polisher</h3>
                         <p class="text-xs" style="color: var(--slate);">Standardize chapter numbering, clean scraped tags, and organize arcs</p>
                     </div>
                 </div>
                 <button onclick="document.getElementById('ai-toc-polish-modal').classList.add('hidden')"
-                    class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color: var(--slate);">✕</button>
+                    class="w-8 h-8 rounded-lg flex items-center justify-center font-bold" style="color: var(--slate);">&times;</button>
             </div>
 
-            <div class="p-4 sm:p-5 text-xs flex items-center justify-between gap-3 flex-wrap" style="border-bottom: 1px solid var(--hairline); background: rgba(124,135,255,.06); color: var(--paper-dim);">
+            <div class="p-4 sm:p-5 text-xs flex items-center justify-between gap-3 flex-wrap" style="border-bottom: 1px solid var(--hairline); background: rgba(255,255,255,0.02); color: var(--paper-dim);">
                 <div class="flex items-center gap-2 flex-wrap">
                     <label class="font-bold" style="color: var(--paper-dim);">Provider:</label>
                     <select id="ai-polish-provider-select" class="tl-field" style="width:auto;">
@@ -367,14 +367,14 @@ const modalHtml = `<!-- Chapter Preview Modal -->
                     </select>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
-                    <button type="button" id="btn-instant-extract-toc" class="tl-btn" title="Extract real chapter headings directly from XHTML without using any API">⌁ Instant Extract (Offline)</button>
+                    <button type="button" id="btn-instant-extract-toc" class="tl-btn" title="Extract real chapter headings directly from XHTML without using any API">Offline Extract</button>
                     <button type="button" id="btn-run-ai-toc-polish" class="tl-btn accent"><span id="ai-polish-btn-text">Generate AI Cleaned TOC</span></button>
                 </div>
             </div>
 
             <div class="px-4 py-2.5 sm:px-5 sm:py-3" style="border-bottom: 1px solid var(--hairline); background: var(--ember-2);">
                 <div class="flex items-center gap-2.5">
-                    <span class="text-xs font-bold shrink-0" style="color: var(--paper-dim);">✦ Custom Prompt (Optional):</span>
+                    <span class="text-xs font-bold shrink-0" style="color: var(--paper-dim);">Custom Prompt (Optional):</span>
                     <input type="text" id="ai-toc-custom-instruction" placeholder="e.g. Keep Year & Volume names, format Side Stories as 'SS - Name', keep decimals like 1.1"
                         class="tl-field" style="flex:1; margin:0;">
                 </div>
@@ -384,7 +384,7 @@ const modalHtml = `<!-- Chapter Preview Modal -->
                 <p class="italic text-center py-8" style="color: var(--slate);">Click "Generate AI Cleaned TOC" above to start analyzing and standardizing chapter titles.</p>
             </div>
 
-            <div class="p-4 sm:p-5 flex items-center justify-between gap-3" style="border-top: 1px solid var(--hairline); background: var(--ember-2);">
+            <div class="p-4 sm:p-5 flex items-center justify-between gap-3" style="border-top: 1px solid var(--hairline); background: var(--ember-2); padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));">
                 <span id="ai-toc-stats" class="text-xs" style="color: var(--slate);">0 chapters ready</span>
                 <div class="flex gap-2">
                     <button onclick="document.getElementById('ai-toc-polish-modal').classList.add('hidden')" class="tl-btn">Cancel</button>

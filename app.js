@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.81';
+    let VERSION = '8.21.84';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -180,7 +180,7 @@
       const [activeAudiobook, setActiveAudiobook] = useState(null);
       const [audioPlayerState, setAudioPlayerState] = useState(() => window.SwiftAudioEngine?.Player?.getState() || { isLoaded: false });
       const [isFullPlayerOpen, setIsFullPlayerOpen] = useState(false);
-      const [isPlayerFullscreen, setIsPlayerFullscreen] = useState(false);
+      const [isPlayerFullscreen, setIsPlayerFullscreen] = useState(true);
       const [downloadingTrackId, setDownloadingTrackId] = useState(null);
       const [audioDownloadModal, setAudioDownloadModal] = useState(null);
 
@@ -2830,7 +2830,8 @@
           // Library Novel Action Sheet
           activeBookMenuNovel, setActiveBookMenuNovel, getNovelFolderOptions, setRenameModalNovel,
           setNewNovelTitleInput, setAssignWebsiteModalNovel, setNewNovelWebsiteUrlInput, getCustomTitle, loadFullNovel, setActiveTab, setStudioSubTab,
-          handleCheckNovelUpdate, handleOpenContinuationForNovel, handleOpenAutoGlossary,
+          handleCheckNovelUpdate, handleDownloadNewChapters, handleUpdateTranslateAndMakeEpub, novelUpdateBadges,
+          handleOpenContinuationForNovel, handleOpenAutoGlossary,
           toggleNovelSavedSpace, handleSetNovelFolder, handleOpenNovelHealthModal,
           handleEnrichNovelMetadata, handleUpgradeNovelIllustrations, handleSplitNovelIntoArcs, confirmAction, deleteNovelFromHistory, setWebImportHistory,
 
