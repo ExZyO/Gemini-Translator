@@ -1672,7 +1672,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
 
                 String userAgent = call.getString("userAgent", getDefaultUserAgent());
-                String currentUrl = targetUrl;
+                String currentUrl = targetUrl.replace("[", "%5B").replace("]", "%5D").replace(" ", "%20");
                 HttpURLConnection conn = null;
                 int redirects = 0;
                 int statusCode = 0;
@@ -1722,7 +1722,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             if (!loc.startsWith("http")) {
                                 loc = new URL(url, loc).toString();
                             }
-                            currentUrl = loc;
+                            currentUrl = loc.replace("[", "%5B").replace("]", "%5D").replace(" ", "%20");
                             conn.disconnect();
                             redirects++;
                             continue;
@@ -1737,6 +1737,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
 
                 InputStream is = conn.getInputStream();
+                is = wrapDecompressStream(conn, is);
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 byte[] buffer = new byte[32768];
                 int len;
@@ -2333,78 +2334,6 @@ public class NativeAndroidBridgePlugin extends Plugin {
             } catch (Exception e) {
                 Log.e(TAG, "Native fetch error: " + e.getMessage(), e);
                 call.reject("Native fetch error: " + e.getMessage());
-            } finally {
-                if (conn != null) conn.disconnect();
-            }
-        }).start();
-    }
-
-    @PluginMethod
-    public void downloadBinaryNative(PluginCall call) {
-        String urlStr = call.getString("url");
-        if (urlStr == null || urlStr.isEmpty()) {
-            call.reject("Missing URL");
-            return;
-        }
-
-        new Thread(() -> {
-            HttpURLConnection conn = null;
-            try {
-                String currentUrl = urlStr.replace("[", "%5B").replace("]", "%5D").replace(" ", "%20");
-                int redirects = 0;
-                int status = 0;
-
-                while (redirects < 5) {
-                    URL url = new URL(currentUrl);
-                    conn = (HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("GET");
-                    conn.setConnectTimeout(15000);
-                    conn.setReadTimeout(15000);
-                    conn.setInstanceFollowRedirects(false);
-                    conn.setRequestProperty("User-Agent", getDefaultUserAgent());
-                    String referer = call.getString("referer");
-                    if (referer != null && !referer.isEmpty()) {
-                        conn.setRequestProperty("Referer", referer);
-                    }
-
-                    status = conn.getResponseCode();
-                    if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM || status == 307 || status == 308) {
-                        String loc = conn.getHeaderField("Location");
-                        if (loc != null && !loc.isEmpty()) {
-                            if (!loc.startsWith("http")) {
-                                loc = new URL(url, loc).toString();
-                            }
-                            currentUrl = loc.replace("[", "%5B").replace("]", "%5D").replace(" ", "%20");
-                            conn.disconnect();
-                            redirects++;
-                            continue;
-                        }
-                    }
-                    break;
-                }
-
-                if (status >= 200 && status < 400) {
-                    InputStream is = conn.getInputStream();
-                    is = wrapDecompressStream(conn, is);
-                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-                    byte[] data = new byte[8192];
-                    int nRead;
-                    while ((nRead = is.read(data, 0, data.length)) != -1) {
-                        buffer.write(data, 0, nRead);
-                    }
-                    buffer.flush();
-                    byte[] imageBytes = buffer.toByteArray();
-                    String base64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP);
-                    JSObject ret = new JSObject();
-                    ret.put("success", true);
-                    ret.put("status", status);
-                    ret.put("base64", base64);
-                    call.resolve(ret);
-                } else {
-                    call.reject("HTTP " + status);
-                }
-            } catch (Exception e) {
-                call.reject("Native binary download error: " + e.getMessage());
             } finally {
                 if (conn != null) conn.disconnect();
             }

@@ -1,9 +1,9 @@
 {
-  "version": "8.21.77",
-  "versionCode": 8488,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.77/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.77/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.77",
+  "version": "8.21.78",
+  "versionCode": 8489,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.78/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.78/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.78",
   "releaseDate": "2026-10-18",
-  "releaseNotes": "v8.21.77: Full uncompressed Wattpad image downloading with native Android binary bridge, direct CORS-first image streaming, 6-worker concurrency guard, and chapter banner photo preservation."
+  "releaseNotes": "v8.21.78: Fix Android bridge compilation by deduplicating native binary downloader with decompress stream and URL escaping."
 }
