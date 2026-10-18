@@ -74,23 +74,23 @@
         className: 'swift-mini-player',
         style: {
           position: 'fixed',
-          bottom: 'calc(72px + env(safe-area-inset-bottom, 12px))',
+          bottom: 'calc(88px + env(safe-area-inset-bottom, 16px))',
           left: 12,
           right: 12,
-          maxWidth: 520,
+          maxWidth: 480,
           margin: '0 auto',
-          height: 64,
+          height: 60,
           background: amoledMode ? 'rgba(0, 0, 0, 0.94)' : 'rgba(15, 23, 42, 0.88)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          border: '1px solid rgba(255, 255, 255, 0.14)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
           borderRadius: 18,
           display: 'flex',
           alignItems: 'center',
           padding: '0 10px',
-          gap: 10,
+          gap: 8,
           zIndex: 995,
-          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.65), 0 0 24px rgba(99, 102, 241, 0.18)',
+          boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(99, 102, 241, 0.20)',
           cursor: 'pointer',
           overflow: 'hidden',
           userSelect: 'none'
@@ -102,10 +102,10 @@
           style: {
             position: 'absolute',
             bottom: 0,
-            left: 12,
-            right: 12,
-            height: 2.5,
-            background: 'rgba(255, 255, 255, 0.08)',
+            left: 10,
+            right: 10,
+            height: 2,
+            background: 'rgba(255, 255, 255, 0.10)',
             borderRadius: 99,
             overflow: 'hidden'
           }
@@ -114,7 +114,7 @@
             style: {
               height: '100%',
               width: `${progressPercent}%`,
-              background: 'linear-gradient(90deg, #6366f1, #a855f7, #ec4899)',
+              background: 'linear-gradient(90deg, #6366f1, #a855f7)',
               boxShadow: '0 0 8px rgba(99, 102, 241, 0.8)',
               transition: 'width 0.25s linear'
             }
@@ -128,27 +128,27 @@
           referrerPolicy: 'no-referrer',
           onError: (e) => { e.target.style.display = 'none'; },
           style: {
-            width: 42,
-            height: 42,
+            width: 40,
+            height: 40,
             borderRadius: 10,
             objectFit: 'cover',
             flexShrink: 0,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.50)',
-            border: '1px solid rgba(255, 255, 255, 0.15)'
+            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.40)',
+            border: '1px solid rgba(255, 255, 255, 0.12)'
           }
         }) : h('div', {
           style: {
-            width: 42,
-            height: 42,
+            width: 40,
+            height: 40,
             borderRadius: 10,
-            background: 'rgba(255, 255, 255, 0.06)',
-            border: '1px solid rgba(255, 255, 255, 0.10)',
+            background: 'linear-gradient(135deg, #6366f1, #a855f7)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexShrink: 0
+            flexShrink: 0,
+            border: '1px solid rgba(255, 255, 255, 0.15)'
           }
-        }, ic('Headphones', 20, 'text-indigo-400')),
+        }, ic('BookOpen', 18, 'text-white')),
 
         // Book & Chapter Title Info
         h('div', { style: { flex: 1, minWidth: 0 } },
@@ -156,7 +156,7 @@
             style: {
               fontSize: 13,
               fontWeight: 700,
-              color: 'var(--paper)',
+              color: '#ffffff',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -166,7 +166,7 @@
           h('div', {
             style: {
               fontSize: 11,
-              color: 'var(--slate)',
+              color: '#94a3b8',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -185,127 +185,121 @@
           },
           onClick: e => e.stopPropagation()
         },
-          // Previous Chapter Button (only if more chapters available before)
+          // Previous Chapter Button (visible only if more chapters available before)
           currentTrackIndex > 0 && h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
             style: {
-              width: 30,
-              height: 30,
+              width: 28,
+              height: 28,
               borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: 0,
-              color: 'var(--paper)',
-              border: 'none',
-              background: 'rgba(255, 255, 255, 0.05)'
+              color: '#ffffff',
+              cursor: 'pointer'
             },
             title: 'Previous chapter',
             onClick: () => window.SwiftAudioEngine?.Player?.previousTrack()
-          }, ic('SkipBack', 15)),
+          }, ic('SkipBack', 14)),
 
-          // Fine -5s Skip Button
+          // Sleek -5s Jump Button
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
             style: {
-              padding: '4px 6px',
               minWidth: 28,
               height: 28,
-              fontSize: 11,
-              fontWeight: 800,
-              borderRadius: 7,
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.10)',
-              color: 'var(--paper)',
+              borderRadius: 8,
+              background: 'rgba(255, 255, 255, 0.10)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              color: '#ffffff',
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer'
             },
-            title: 'Skip back 5 seconds',
+            title: 'Rewind 5 seconds',
             onClick: () => window.SwiftAudioEngine?.Player?.skipBackward5()
           }, '-5s'),
 
           // Apple Music White Hero Play/Pause Button
           h('button', {
             type: 'button',
-            className: 'mini-btn',
             style: {
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
               background: '#ffffff',
               color: '#0f172a',
-              width: 38,
-              height: 38,
-              borderRadius: '50%',
+              border: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: 0,
-              border: 'none',
-              boxShadow: '0 4px 16px rgba(255, 255, 255, 0.25), 0 0 12px rgba(99, 102, 241, 0.35)',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(255, 255, 255, 0.25)',
               margin: '0 2px'
             },
             title: isPlaying ? 'Pause' : 'Play',
             onClick: () => window.SwiftAudioEngine?.Player?.togglePlay()
           }, isPlaying ? ic('Pause', 18, 'text-slate-900') : ic('Play', 18, 'text-slate-900 ml-0.5')),
 
-          // Fine +5s Skip Button
+          // Sleek +5s Jump Button
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
             style: {
-              padding: '4px 6px',
               minWidth: 28,
               height: 28,
-              fontSize: 11,
-              fontWeight: 800,
-              borderRadius: 7,
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.10)',
-              color: 'var(--paper)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            },
-            title: 'Skip forward 5 seconds',
-            onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
-          }, '+5s'),
-
-          // Next Chapter Button (only if more chapters available ahead)
-          currentTrackIndex < totalTracks - 1 && h('button', {
-            type: 'button',
-            className: 'mini-btn ghost',
-            style: {
-              width: 30,
-              height: 30,
-              borderRadius: '50%',
+              borderRadius: 8,
+              background: 'rgba(255, 255, 255, 0.10)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: 0,
-              color: 'var(--paper)',
-              border: 'none',
-              background: 'rgba(255, 255, 255, 0.05)'
+              color: '#ffffff',
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer'
+            },
+            title: 'Forward 5 seconds',
+            onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
+          }, '+5s'),
+
+          // Next Chapter Button (visible only if more chapters available ahead)
+          currentTrackIndex < totalTracks - 1 && h('button', {
+            type: 'button',
+            style: {
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              cursor: 'pointer'
             },
             title: 'Next chapter',
             onClick: () => window.SwiftAudioEngine?.Player?.nextTrack()
-          }, ic('SkipForward', 15)),
+          }, ic('SkipForward', 14)),
 
           // Clean Close Button
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
             style: {
               width: 26,
               height: 26,
               borderRadius: '50%',
-              padding: 0,
-              color: 'var(--slate)',
+              background: 'transparent',
+              border: 'none',
+              color: '#94a3b8',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'transparent',
-              border: 'none',
+              cursor: 'pointer',
               marginLeft: 2
             },
             title: 'Close player',
@@ -318,318 +312,304 @@
       ),
 
       // ══════════════════════════════════════════════════════════════════════
-      // 2. FULL APPLE MUSIC GLASS AUDIOBOOK PLAYER MODAL
+      // 2. TRUE FULLSCREEN APPLE MUSIC AUDIOBOOK PLAYER (1:1 with Visual Showcase)
       // ══════════════════════════════════════════════════════════════════════
       hasFull && h('div', {
-        className: 'modal-overlay',
+        className: 'apple-music-fullscreen-root',
         style: {
-          zIndex: 1000,
           position: 'fixed',
           inset: 0,
+          zIndex: 99999,
+          width: '100vw',
+          height: '100vh',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 0,
-          background: amoledMode ? '#000000' : 'rgba(8, 12, 22, 0.98)',
-          backdropFilter: 'blur(30px)',
-          WebkitBackdropFilter: 'blur(30px)'
+          justifyContent: 'space-between',
+          padding: 'calc(16px + env(safe-area-inset-top, 0px)) 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px',
+          background: amoledMode
+            ? '#000000'
+            : 'linear-gradient(180deg, #1e1b4b 0%, #0f172a 45%, #020617 100%)',
+          color: '#ffffff',
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          userSelect: 'none'
         },
-        onClick: () => setIsFullPlayerOpen(false)
+        onClick: e => e.stopPropagation()
       },
+        // Ambient Radial Glow behind artwork
         h('div', {
-          className: 'modal-box swift-player-drawer',
           style: {
-            maxWidth: '100%',
-            width: '100%',
-            height: '100%',
-            maxHeight: '100vh',
-            background: amoledMode ? '#000000' : 'rgba(15, 23, 42, 0.96)',
-            backdropFilter: 'blur(30px)',
-            WebkitBackdropFilter: 'blur(30px)',
-            border: 'none',
-            borderRadius: 0,
+            position: 'absolute',
+            top: '-5%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 320,
+            height: 320,
+            background: 'rgba(99, 102, 241, 0.35)',
+            borderRadius: 9999,
+            filter: 'blur(75px)',
+            pointerEvents: 'none',
+            zIndex: 0
+          }
+        }),
+
+        // Top Bar
+        h('div', {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            position: 'relative',
+            zIndex: 10,
+            paddingTop: 4
+          }
+        },
+          // Minimize button (top left)
+          h('button', {
+            type: 'button',
+            style: {
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.10)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              cursor: 'pointer'
+            },
+            title: 'Minimize player',
+            onClick: () => setIsFullPlayerOpen(false)
+          }, ic('ChevronDown', 18)),
+
+          // Title & Chapter Info
+          h('div', { style: { textAlign: 'center', minWidth: 0, flex: 1, padding: '0 12px' } },
+            h('div', {
+              style: {
+                fontSize: 11,
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: '#a5b4fc'
+              }
+            }, 'Audiobook'),
+            h('div', {
+              style: {
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: '#cbd5e1',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }
+            }, `Chapter ${currentTrackIndex + 1} of ${totalTracks}`)
+          ),
+
+          // Options / Library / Close group (top right)
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            // In Library Star
+            (() => {
+              const inLib = isAudiobookInLibrary ? isAudiobookInLibrary(currentBook) : false;
+              return h('button', {
+                type: 'button',
+                style: {
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: inLib ? 'rgba(245, 158, 11, 0.20)' : 'rgba(255, 255, 255, 0.10)',
+                  border: inLib ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid rgba(255, 255, 255, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: inLib ? '#fbbf24' : '#ffffff',
+                  cursor: 'pointer'
+                },
+                title: inLib ? 'Saved in Library' : 'Add to Library',
+                onClick: () => {
+                  if (inLib) {
+                    if (removeAudiobookFromLibrary) removeAudiobookFromLibrary(currentBook);
+                  } else {
+                    if (saveAudiobookToLibrary) saveAudiobookToLibrary(currentBook);
+                  }
+                }
+              }, ic('Star', 16, inLib ? 'text-amber-400' : 'text-slate-300'));
+            })(),
+
+            // Close button
+            h('button', {
+              type: 'button',
+              style: {
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.10)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#cbd5e1',
+                cursor: 'pointer'
+              },
+              title: 'Close player',
+              onClick: () => {
+                setIsFullPlayerOpen(false);
+                window.SwiftAudioEngine?.Player?.close();
+              }
+            }, ic('X', 16))
+          )
+        ),
+
+        // Centered Artwork Card (Matching visual mockup)
+        h('div', {
+          style: {
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            margin: 'auto 0',
+            position: 'relative',
+            zIndex: 10
+          }
+        },
+          currentBook.cover ? h('img', {
+            src: currentBook.cover,
+            alt: 'Cover',
+            referrerPolicy: 'no-referrer',
+            onError: (e) => { e.target.style.display = 'none'; },
+            style: {
+              width: 'min(240px, 34vh)',
+              height: 'min(240px, 34vh)',
+              borderRadius: 22,
+              objectFit: 'cover',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(99, 102, 241, 0.35)',
+              border: '1px solid rgba(255, 255, 255, 0.20)',
+              transform: isPlaying ? 'scale(1.02)' : 'scale(1)',
+              transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+            }
+          }) : h('div', {
+            style: {
+              width: 'min(240px, 34vh)',
+              height: 'min(240px, 34vh)',
+              borderRadius: 22,
+              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(99, 102, 241, 0.35)',
+              border: '1px solid rgba(255, 255, 255, 0.20)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16,
+              textAlign: 'center'
+            }
+          },
+            h('div', {
+              style: {
+                width: 48,
+                height: 48,
+                borderRadius: 14,
+                background: 'rgba(255, 255, 255, 0.15)',
+                backdropFilter: 'blur(10px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 12
+              }
+            }, ic('BookOpen', 24, 'text-white')),
+            h('div', { style: { fontSize: 13, fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.05em' } }, currentBook.title || 'Web Novel'),
+            h('div', { style: { fontSize: 11, color: 'rgba(255, 255, 255, 0.8)', marginTop: 2 } }, currentBook.author || 'Audio Edition')
+          )
+        ),
+
+        // Track Info, Scrubber & Controls (Matching visual mockup)
+        h('div', {
+          style: {
+            position: 'relative',
+            zIndex: 10,
             display: 'flex',
             flexDirection: 'column',
-            padding: 0,
-            overflow: 'hidden',
-            overflowX: 'hidden',
-            boxSizing: 'border-box',
-            position: 'relative'
-          },
-          onClick: e => e.stopPropagation()
+            gap: 16,
+            maxWidth: 480,
+            margin: '0 auto',
+            width: '100%',
+            boxSizing: 'border-box'
+          }
         },
-          // Apple Music Ambient Blurred Cover Glow
-          h('div', {
-            style: {
-              position: 'absolute',
-              top: '-10%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: '120vw',
-              maxWidth: 640,
-              height: '55vh',
-              background: 'radial-gradient(ellipse at center, rgba(99, 102, 241, 0.38) 0%, rgba(168, 85, 247, 0.22) 45%, transparent 75%)',
-              filter: 'blur(60px)',
-              pointerEvents: 'none',
-              zIndex: 0
-            }
-          }),
-
-          // Top Header Bar
+          // Track Title & Subtitle + Badge
           h('div', {
             style: {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '16px 20px 12px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-              position: 'relative',
-              zIndex: 2
+              gap: 10
             }
           },
-            // Left Minimize Chevron
-            h('button', {
-              type: 'button',
-              className: 'mini-btn ghost',
-              style: {
-                width: 36,
-                height: 36,
-                borderRadius: '50%',
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.10)',
-                color: 'var(--paper)'
-              },
-              title: 'Minimize player to bottom bar',
-              onClick: () => setIsFullPlayerOpen(false)
-            }, ic('ChevronDown', 20)),
-
-            // Center Title & Counter
-            h('div', { style: { textAlign: 'center', minWidth: 0, flex: 1, padding: '0 12px' } },
-              h('div', { style: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#a5b4fc' } }, 'Audiobook Player'),
-              h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--slate)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-                `Chapter ${currentTrackIndex + 1} of ${totalTracks}`
-              )
-            ),
-
-            // Right Group: Library Pin, Poweramp, Close
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-              // In Library Pin
-              (() => {
-                const inLib = isAudiobookInLibrary ? isAudiobookInLibrary(currentBook) : false;
-                return h('button', {
-                  type: 'button',
-                  className: 'mini-btn ghost',
-                  style: {
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: inLib ? 'rgba(245, 158, 11, 0.16)' : 'rgba(255, 255, 255, 0.06)',
-                    border: inLib ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid rgba(255, 255, 255, 0.10)',
-                    color: inLib ? '#f59e0b' : 'var(--paper)'
-                  },
-                  title: inLib ? 'Saved in Library' : 'Add to Library',
-                  onClick: () => {
-                    if (inLib) {
-                      if (removeAudiobookFromLibrary) removeAudiobookFromLibrary(currentBook);
-                    } else {
-                      if (saveAudiobookToLibrary) saveAudiobookToLibrary(currentBook);
-                    }
-                  }
-                }, ic('Star', 16, inLib ? 'text-amber-400' : 'text-slate-400'));
-              })(),
-
-              // Quick Poweramp Pill
-              h('button', {
-                type: 'button',
-                className: 'mini-btn',
+            h('div', { style: { minWidth: 0, flex: 1 } },
+              h('h3', {
                 style: {
-                  padding: '6px 10px',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  background: 'rgba(99, 102, 241, 0.20)',
-                  border: '1px solid rgba(99, 102, 241, 0.45)',
-                  color: '#a5b4fc',
-                  borderRadius: 99,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5
-                },
-                title: 'Open in Poweramp app',
-                onClick: () => window.SwiftAudioEngine?.Player?.openInPoweramp()
-              }, ic('ExternalLink', 12), 'Poweramp'),
-
-              // Close Button
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: {
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--slate)',
-                  border: 'none',
-                  background: 'rgba(255, 255, 255, 0.04)'
-                },
-                title: 'Close player',
-                onClick: () => {
-                  setIsFullPlayerOpen(false);
-                  window.SwiftAudioEngine?.Player?.close();
-                }
-              }, ic('X', 17))
-            )
-          ),
-
-          // Scrollable Body
-          h('div', {
-            style: {
-              padding: '16px 20px 32px',
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              flex: 1,
-              boxSizing: 'border-box',
-              position: 'relative',
-              zIndex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              maxWidth: 580,
-              margin: '0 auto',
-              width: '100%'
-            }
-          },
-            // Hero Cover Art
-            h('div', {
-              style: {
-                position: 'relative',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                padding: '12px 0 16px',
-                flexShrink: 0
-              }
-            },
-              // Ambient soft glow behind hero cover
-              h('div', {
-                style: {
-                  position: 'absolute',
-                  width: 'min(280px, 42vh)',
-                  height: 'min(280px, 42vh)',
-                  borderRadius: 28,
-                  background: 'radial-gradient(circle, rgba(99, 102, 241, 0.50) 0%, rgba(99, 102, 241, 0.12) 65%, transparent 80%)',
-                  filter: 'blur(30px)',
-                  pointerEvents: 'none',
-                  zIndex: 0
-                }
-              }),
-              currentBook.cover ? h('img', {
-                src: currentBook.cover,
-                alt: 'Cover',
-                referrerPolicy: 'no-referrer',
-                onError: (e) => { e.target.style.display = 'none'; },
-                style: {
-                  width: 'min(280px, 40vh)',
-                  height: 'min(280px, 40vh)',
-                  borderRadius: 22,
-                  objectFit: 'cover',
-                  boxShadow: isPlaying
-                    ? '0 20px 48px rgba(0, 0, 0, 0.75), 0 0 35px rgba(99, 102, 241, 0.35)'
-                    : '0 14px 32px rgba(0, 0, 0, 0.65)',
-                  border: '1px solid rgba(255, 255, 255, 0.16)',
-                  transform: isPlaying ? 'scale(1.02)' : 'scale(1)',
-                  transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease',
-                  position: 'relative',
-                  zIndex: 1
-                }
-              }) : h('div', {
-                style: {
-                  width: 'min(280px, 40vh)',
-                  height: 'min(280px, 40vh)',
-                  borderRadius: 22,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  position: 'relative',
-                  zIndex: 1,
-                  boxShadow: '0 14px 32px rgba(0, 0, 0, 0.65)'
-                }
-              }, ic('Headphones', 52, 'text-indigo-400'))
-            ),
-
-            // Novel Title & Chapter Info
-            h('div', { style: { textAlign: 'center', marginBottom: 14, flexShrink: 0 } },
-              h('div', {
-                style: {
-                  fontSize: 18,
+                  fontSize: 17,
                   fontWeight: 800,
-                  color: 'var(--paper)',
-                  lineHeight: 1.25,
-                  letterSpacing: '-0.02em',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  padding: '0 12px'
-                }
-              }, currentBook.title || 'Audiobook'),
-              h('div', {
-                style: {
-                  fontSize: 13,
-                  color: 'var(--slate)',
-                  marginTop: 3,
+                  color: '#ffffff',
+                  margin: 0,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis'
                 }
-              }, currentBook.author ? `by ${currentBook.author}` : 'SwiftAudiobooks'),
+              }, currentBook.title || 'Audiobook'),
+              h('p', {
+                style: {
+                  fontSize: 13,
+                  color: '#94a3b8',
+                  margin: '2px 0 0',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }
+              }, currentTrack?.title || `Chapter ${currentTrackIndex + 1}: Story Audio`)
+            ),
+            h('span', {
+              style: {
+                padding: '3px 8px',
+                borderRadius: 6,
+                fontSize: 10,
+                fontWeight: 800,
+                background: 'rgba(99, 102, 241, 0.20)',
+                color: '#a5b4fc',
+                border: '1px solid rgba(99, 102, 241, 0.35)',
+                flexShrink: 0,
+                letterSpacing: '0.05em'
+              }
+            }, 'HQ AUDIO')
+          ),
+
+          // Fluid Time Scrubber
+          h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+            h('div', {
+              style: {
+                position: 'relative',
+                width: '100%',
+                height: 6,
+                background: 'rgba(255, 255, 255, 0.20)',
+                borderRadius: 99,
+                overflow: 'hidden'
+              }
+            },
               h('div', {
                 style: {
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '5px 14px',
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  height: '100%',
+                  width: `${progressPercent}%`,
+                  background: '#ffffff',
                   borderRadius: 99,
-                  background: 'rgba(99, 102, 241, 0.14)',
-                  border: '1px solid rgba(99, 102, 241, 0.35)',
-                  color: '#a5b4fc',
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                  marginTop: 8,
-                  maxWidth: '92%',
-                  overflow: 'hidden'
+                  transition: scrubTime !== null ? 'none' : 'width 0.25s linear'
                 }
-              },
-                h('span', {
-                  style: {
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }
-                }, currentTrack?.title || `Chapter ${currentTrackIndex + 1}`)
-              )
-            ),
-
-            // Precision Time Scrubber Bar with Countdown Time
-            h('div', { style: { marginBottom: 16, flexShrink: 0 } },
+              }),
               h('input', {
                 type: 'range',
                 min: 0,
                 max: duration || 100,
                 step: 0.5,
-                disabled: !duration || duration <= 0,
                 value: displayTime || 0,
                 onInput: e => setScrubTime(parseFloat(e.target.value)),
                 onChange: e => {
@@ -638,401 +618,317 @@
                   window.SwiftAudioEngine?.Player?.seekTo(val);
                 },
                 style: {
+                  position: 'absolute',
+                  inset: 0,
                   width: '100%',
-                  accentColor: 'var(--accent, #6366f1)',
-                  cursor: duration > 0 ? 'pointer' : 'default',
-                  height: 6,
-                  borderRadius: 99
+                  height: '100%',
+                  opacity: 0,
+                  cursor: 'pointer'
                 }
-              }),
-              h('div', {
-                style: {
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontSize: 11.5,
-                  color: 'var(--slate)',
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  marginTop: 4
-                }
-              },
-                h('span', null, window.SwiftAudioEngine?.formatDuration(displayTime) || '0:00'),
-                h('span', { style: { opacity: 0.55, fontSize: 10.5 } },
-                  `${duration > 0 ? Math.round((displayTime / duration) * 100) : 0}%`
-                ),
-                h('span', null, window.SwiftAudioEngine?.formatCountdown(displayTime, duration) || '-0:00')
-              )
+              })
             ),
-
-            // Apple Music Primary Transport Controls
-            h('div', {
-              style: {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 14,
-                marginBottom: 16,
-                flexShrink: 0
-              }
-            },
-              // Previous Chapter Button (disabled/dimmed if currentTrackIndex <= 0)
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                disabled: currentTrackIndex <= 0,
-                style: {
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 0,
-                  color: currentTrackIndex > 0 ? 'var(--paper)' : 'rgba(255, 255, 255, 0.25)',
-                  border: '1px solid rgba(255, 255, 255, 0.10)',
-                  background: currentTrackIndex > 0 ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-                  opacity: currentTrackIndex > 0 ? 1 : 0.35,
-                  cursor: currentTrackIndex > 0 ? 'pointer' : 'default',
-                  transition: 'opacity 0.2s ease'
-                },
-                title: currentTrackIndex > 0 ? 'Previous chapter' : 'No previous chapters',
-                onClick: () => {
-                  if (currentTrackIndex > 0) window.SwiftAudioEngine?.Player?.previousTrack();
-                }
-              }, ic('SkipBack', 18)),
-
-              // Fine 5-Second Rewind Button
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: {
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 0,
-                  fontSize: 12.5,
-                  fontWeight: 900,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.16)',
-                  color: 'var(--paper)',
-                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)'
-                },
-                title: 'Rewind 5 seconds',
-                onClick: () => window.SwiftAudioEngine?.Player?.skipBackward5()
-              }, '-5s'),
-
-              // Apple Music Hero Play/Pause Circle
-              h('button', {
-                type: 'button',
-                className: 'mini-btn',
-                style: {
-                  background: '#ffffff',
-                  color: '#0f172a',
-                  width: 68,
-                  height: 68,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 0,
-                  border: 'none',
-                  boxShadow: '0 8px 30px rgba(255, 255, 255, 0.25), 0 0 20px rgba(99, 102, 241, 0.40)',
-                  transition: 'transform 0.15s ease'
-                },
-                title: isPlaying ? 'Pause' : 'Play',
-                onClick: () => window.SwiftAudioEngine?.Player?.togglePlay()
-              }, isPlaying ? ic('Pause', 28, 'text-slate-900') : ic('Play', 28, 'text-slate-900 ml-1')),
-
-              // Fine 5-Second Forward Button
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                style: {
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 0,
-                  fontSize: 12.5,
-                  fontWeight: 900,
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.16)',
-                  color: 'var(--paper)',
-                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)'
-                },
-                title: 'Forward 5 seconds',
-                onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
-              }, '+5s'),
-
-              // Next Chapter Button (disabled/dimmed if currentTrackIndex >= totalTracks - 1)
-              h('button', {
-                type: 'button',
-                className: 'mini-btn ghost',
-                disabled: currentTrackIndex >= totalTracks - 1,
-                style: {
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 0,
-                  color: currentTrackIndex < totalTracks - 1 ? 'var(--paper)' : 'rgba(255, 255, 255, 0.25)',
-                  border: '1px solid rgba(255, 255, 255, 0.10)',
-                  background: currentTrackIndex < totalTracks - 1 ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-                  opacity: currentTrackIndex < totalTracks - 1 ? 1 : 0.35,
-                  cursor: currentTrackIndex < totalTracks - 1 ? 'pointer' : 'default',
-                  transition: 'opacity 0.2s ease'
-                },
-                title: currentTrackIndex < totalTracks - 1 ? 'Next chapter' : 'No more chapters',
-                onClick: () => {
-                  if (currentTrackIndex < totalTracks - 1) window.SwiftAudioEngine?.Player?.nextTrack();
-                }
-              }, ic('SkipForward', 18))
-            ),
-
-            // Speed & Sleep Tuning Glass Bar
             h('div', {
               style: {
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                padding: '8px 12px',
-                borderRadius: 14,
-                marginBottom: 10,
-                flexWrap: 'wrap',
-                gap: 8,
-                flexShrink: 0
+                fontSize: 11.5,
+                color: '#94a3b8',
+                fontFamily: "'IBM Plex Mono', monospace"
               }
             },
-              // Speed Pill Selector
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: 5 } },
-                h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 700 } }, 'Speed:'),
-                [0.75, 1.0, 1.25, 1.5, 2.0].map(sp => {
-                  const isActive = Math.abs(playbackRate - sp) < 0.05;
-                  return h('button', {
-                    key: sp,
-                    type: 'button',
-                    className: 'mini-btn',
-                    style: {
-                      padding: '4px 7px',
-                      fontSize: 10.5,
-                      fontWeight: 700,
-                      borderRadius: 8,
-                      background: isActive ? 'var(--accent, #6366f1)' : 'rgba(255, 255, 255, 0.04)',
-                      color: isActive ? '#fff' : 'var(--paper-dim)',
-                      border: isActive ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                      boxShadow: isActive ? '0 0 10px rgba(99, 102, 241, 0.40)' : 'none'
-                    },
-                    onClick: () => window.SwiftAudioEngine?.Player?.setPlaybackRate(sp)
-                  }, `${sp}x`);
-                })
-              ),
+              h('span', null, window.SwiftAudioEngine?.formatDuration(displayTime) || '0:00'),
+              h('span', null, window.SwiftAudioEngine?.formatCountdown(displayTime, duration) || '-0:00')
+            )
+          ),
 
-              // Sleep Timer Selector
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                h('span', { style: { fontSize: 11, color: 'var(--slate)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 } },
-                  ic('Clock', 12),
-                  'Sleep:'
-                ),
-                audioPlayerState?.sleepTimerRemainingSeconds > 0 && h('span', {
-                  style: {
-                    fontSize: 10.5,
-                    color: '#a5b4fc',
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    padding: '2px 6px',
-                    borderRadius: 6,
-                    background: 'rgba(99, 102, 241, 0.16)',
-                    border: '1px solid rgba(99, 102, 241, 0.35)'
-                  }
-                }, window.SwiftAudioEngine?.formatDuration(audioPlayerState.sleepTimerRemainingSeconds)),
-                h('select', {
-                  value: audioPlayerState?.sleepAtEndOfChapter ? 'end_of_chapter' : (audioPlayerState?.sleepTimerMinutes ? String(audioPlayerState.sleepTimerMinutes) : (audioPlayerState?.sleepTimerRemainingSeconds ? String(Math.ceil(audioPlayerState.sleepTimerRemainingSeconds / 60)) : 'off')),
-                  onChange: e => {
-                    const val = e.target.value;
-                    if (val === 'off') window.SwiftAudioEngine?.Player?.clearSleepTimer();
-                    else window.SwiftAudioEngine?.Player?.setSleepTimer(val);
-                  },
-                  style: {
-                    background: 'rgba(0, 0, 0, 0.45)',
-                    color: 'var(--paper)',
-                    border: '1px solid rgba(255, 255, 255, 0.14)',
-                    borderRadius: 8,
-                    padding: '4px 8px',
-                    fontSize: 11
-                  }
-                },
-                  h('option', { value: 'off' }, 'Off'),
-                  h('option', { value: '15' }, '15 min'),
-                  h('option', { value: '30' }, '30 min'),
-                  h('option', { value: '45' }, '45 min'),
-                  h('option', { value: '60' }, '60 min'),
-                  h('option', { value: 'end_of_chapter' }, 'End of Chapter')
-                )
-              )
-            ),
-
-            // Hero Poweramp Action Button
+          // Primary Controls (Previous Chapter, -5s, Play/Pause 64x64, +5s, Next Chapter)
+          h('div', {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 16,
+              padding: '4px 0'
+            }
+          },
+            // Previous Chapter Button (disabled if currentTrackIndex <= 0)
             h('button', {
               type: 'button',
-              className: 'mini-btn',
+              disabled: currentTrackIndex <= 0,
               style: {
-                width: '100%',
-                padding: '11px 16px',
-                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(79, 70, 229, 0.35))',
-                border: '1px solid rgba(99, 102, 241, 0.50)',
-                borderRadius: 14,
-                color: '#e0e7ff',
-                fontWeight: 700,
-                fontSize: 13,
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                background: currentTrackIndex > 0 ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
-                cursor: 'pointer',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4), 0 0 16px rgba(99, 102, 241, 0.20)',
-                marginBottom: 10,
-                flexShrink: 0
+                color: currentTrackIndex > 0 ? '#ffffff' : 'rgba(255, 255, 255, 0.25)',
+                cursor: currentTrackIndex > 0 ? 'pointer' : 'default',
+                opacity: currentTrackIndex > 0 ? 1 : 0.35,
+                transition: 'all 0.15s ease'
               },
-              title: 'Open and play in Poweramp player on Android',
-              onClick: () => window.SwiftAudioEngine?.Player?.openInPoweramp()
+              title: currentTrackIndex > 0 ? 'Previous Chapter' : 'No previous chapters',
+              onClick: () => {
+                if (currentTrackIndex > 0) window.SwiftAudioEngine?.Player?.previousTrack();
+              }
+            }, ic('SkipBack', 20)),
+
+            // Sleek -5s Jump Button
+            h('button', {
+              type: 'button',
+              style: {
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.10)',
+                border: '1px solid rgba(255, 255, 255, 0.16)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                fontSize: 12.5,
+                fontWeight: 900,
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)'
+              },
+              title: 'Rewind 5 seconds',
+              onClick: () => window.SwiftAudioEngine?.Player?.skipBackward5()
+            }, '-5s'),
+
+            // Hero Play/Pause Circle (White circle with dark icon)
+            h('button', {
+              type: 'button',
+              style: {
+                width: 64,
+                height: 64,
+                borderRadius: '50%',
+                background: '#ffffff',
+                color: '#0f172a',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 8px 30px rgba(255, 255, 255, 0.25), 0 0 20px rgba(99, 102, 241, 0.40)',
+                transform: 'scale(1)',
+                transition: 'transform 0.15s ease'
+              },
+              title: isPlaying ? 'Pause' : 'Play',
+              onClick: () => window.SwiftAudioEngine?.Player?.togglePlay()
+            }, isPlaying ? ic('Pause', 28, 'text-slate-900') : ic('Play', 28, 'text-slate-900 ml-1')),
+
+            // Sleek +5s Jump Button
+            h('button', {
+              type: 'button',
+              style: {
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.10)',
+                border: '1px solid rgba(255, 255, 255, 0.16)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                fontSize: 12.5,
+                fontWeight: 900,
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)'
+              },
+              title: 'Forward 5 seconds',
+              onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
+            }, '+5s'),
+
+            // Next Chapter Button (disabled if currentTrackIndex >= totalTracks - 1)
+            h('button', {
+              type: 'button',
+              disabled: currentTrackIndex >= totalTracks - 1,
+              style: {
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                background: currentTrackIndex < totalTracks - 1 ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: currentTrackIndex < totalTracks - 1 ? '#ffffff' : 'rgba(255, 255, 255, 0.25)',
+                cursor: currentTrackIndex < totalTracks - 1 ? 'pointer' : 'default',
+                opacity: currentTrackIndex < totalTracks - 1 ? 1 : 0.35,
+                transition: 'all 0.15s ease'
+              },
+              title: currentTrackIndex < totalTracks - 1 ? 'Next Chapter' : 'No more chapters',
+              onClick: () => {
+                if (currentTrackIndex < totalTracks - 1) window.SwiftAudioEngine?.Player?.nextTrack();
+              }
+            }, ic('SkipForward', 20))
+          ),
+
+          // Bottom Function Bar (Matching visual mockup)
+          h('div', {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingTop: 12,
+              borderTop: '1px solid rgba(255, 255, 255, 0.10)',
+              fontSize: 12
+            }
+          },
+            // Speed Pill
+            h('button', {
+              type: 'button',
+              style: {
+                padding: '5px 12px',
+                borderRadius: 99,
+                background: 'rgba(255, 255, 255, 0.10)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+                fontWeight: 700,
+                cursor: 'pointer'
+              },
+              title: 'Cycle speed (1.0x, 1.25x, 1.5x, 2.0x, 0.75x)',
+              onClick: () => {
+                const rates = [1.0, 1.25, 1.5, 2.0, 0.75];
+                const curIdx = rates.findIndex(r => Math.abs(r - playbackRate) < 0.05);
+                const nextRate = rates[(curIdx + 1) % rates.length];
+                window.SwiftAudioEngine?.Player?.setPlaybackRate(nextRate);
+              }
+            }, `${playbackRate}x`),
+
+            // Sleep Timer Pill
+            h('button', {
+              type: 'button',
+              style: {
+                padding: '5px 12px',
+                borderRadius: 99,
+                background: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.10)',
+                border: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? '1px solid rgba(99, 102, 241, 0.50)' : '1px solid rgba(255, 255, 255, 0.15)',
+                color: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? '#a5b4fc' : '#cbd5e1',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                fontWeight: 600,
+                cursor: 'pointer'
+              },
+              title: 'Sleep timer (Off, 15m, 30m, 45m, 60m)',
+              onClick: () => {
+                const remaining = audioPlayerState?.sleepTimerRemainingSeconds || 0;
+                if (remaining <= 0) window.SwiftAudioEngine?.Player?.setSleepTimer('30');
+                else if (remaining > 1800) window.SwiftAudioEngine?.Player?.clearSleepTimer();
+                else window.SwiftAudioEngine?.Player?.setSleepTimer('60');
+              }
             },
-              ic('ExternalLink', 15, 'text-indigo-300'),
-              'Play in Poweramp (Android)'
+              ic('Clock', 13),
+              audioPlayerState?.sleepTimerRemainingSeconds > 0
+                ? window.SwiftAudioEngine?.formatDuration(audioPlayerState.sleepTimerRemainingSeconds)
+                : 'Sleep Off'
             ),
 
-            // Collapsible Chapter Queue Drawer Bar
-            h('div', { style: { marginTop: 4, flexShrink: 0 } },
-              h('div', {
+            // Chapters Queue Drawer Trigger
+            h('button', {
+              type: 'button',
+              style: {
+                padding: '5px 12px',
+                borderRadius: 99,
+                background: isChapterQueueOpen ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.10)',
+                border: isChapterQueueOpen ? '1px solid rgba(99, 102, 241, 0.50)' : '1px solid rgba(255, 255, 255, 0.15)',
+                color: isChapterQueueOpen ? '#a5b4fc' : '#cbd5e1',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                fontWeight: 600,
+                cursor: 'pointer'
+              },
+              title: 'Open Chapters Drawer',
+              onClick: () => setIsChapterQueueOpen(prev => !prev)
+            },
+              ic('ListMusic', 13),
+              'Chapters'
+            ),
+
+            // Poweramp Quick Pill
+            h('button', {
+              type: 'button',
+              style: {
+                padding: '5px 10px',
+                borderRadius: 99,
+                background: 'rgba(99, 102, 241, 0.20)',
+                border: '1px solid rgba(99, 102, 241, 0.40)',
+                color: '#a5b4fc',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: 'pointer'
+              },
+              title: 'Open in Poweramp app',
+              onClick: () => window.SwiftAudioEngine?.Player?.openInPoweramp()
+            },
+              ic('ExternalLink', 12),
+              'Poweramp'
+            )
+          ),
+
+          // Chapter Queue Overlay Sheet
+          isChapterQueueOpen && h('div', {
+            style: {
+              background: 'rgba(15, 23, 42, 0.96)',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              borderRadius: 16,
+              padding: 12,
+              maxHeight: 220,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.7)'
+            }
+          },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid rgba(255, 255, 255, 0.08)' } },
+              h('span', { style: { fontSize: 12, fontWeight: 700, color: '#ffffff' } }, `All Chapters (${totalTracks})`),
+              h('button', {
+                type: 'button',
                 style: {
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '10px 12px',
-                  background: 'rgba(255, 255, 255, 0.04)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: 12,
+                  fontSize: 11,
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  color: '#ffffff',
                   cursor: 'pointer'
                 },
-                onClick: () => setIsChapterQueueOpen(prev => !prev)
-              },
-                h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                  ic('ListMusic', 15, 'text-indigo-400'),
-                  h('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--paper)' } }, `Chapters & Queue (${totalTracks})`),
-                  ic(isChapterQueueOpen ? 'ChevronUp' : 'ChevronDown', 14, 'text-slate-400')
-                ),
-                h('button', {
-                  type: 'button',
-                  className: 'mini-btn ghost',
-                  style: {
-                    fontSize: 11,
-                    padding: '3px 8px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.10)',
-                    borderRadius: 6
-                  },
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    if (handleOpenAudioDownload) handleOpenAudioDownload(currentBook);
-                  }
-                }, ic('Download', 13), 'Download MP3s')
-              ),
-
-              // Expandable Chapter Queue Body
-              isChapterQueueOpen && h('div', {
+                onClick: () => {
+                  if (handleOpenAudioDownload) handleOpenAudioDownload(currentBook);
+                }
+              }, 'Download MP3s')
+            ),
+            (currentBook.tracks || []).map((t, idx) => {
+              const isCur = idx === currentTrackIndex;
+              return h('div', {
+                key: idx,
                 style: {
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
-                  maxHeight: 260,
-                  overflowY: 'auto',
-                  marginTop: 8,
-                  padding: '4px 0'
-                }
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  background: isCur ? 'rgba(99, 102, 241, 0.20)' : 'rgba(255, 255, 255, 0.03)',
+                  border: isCur ? '1px solid rgba(99, 102, 241, 0.45)' : '1px solid transparent',
+                  cursor: 'pointer'
+                },
+                onClick: () => window.SwiftAudioEngine?.Player?.playTrack(idx)
               },
-                (currentBook.tracks || []).map((t, idx) => {
-                  const isCur = idx === currentTrackIndex;
-                  return h('div', {
-                    key: idx,
-                    style: {
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      background: isCur ? 'rgba(99, 102, 241, 0.16)' : 'rgba(255, 255, 255, 0.03)',
-                      border: isCur ? '1px solid rgba(99, 102, 241, 0.45)' : '1px solid rgba(255, 255, 255, 0.05)',
-                      boxShadow: isCur ? '0 0 12px rgba(99, 102, 241, 0.15)' : 'none',
-                      cursor: 'pointer'
-                    },
-                    onClick: () => window.SwiftAudioEngine?.Player?.playTrack(idx)
-                  },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
-                      h('span', {
-                        style: {
-                          fontSize: 11,
-                          color: isCur ? 'var(--accent, #6366f1)' : 'var(--slate)',
-                          width: 22,
-                          fontWeight: 700
-                        }
-                      }, `${idx + 1}`),
-                      h('span', {
-                        style: {
-                          fontSize: 12,
-                          color: isCur ? 'var(--accent, #6366f1)' : 'var(--paper)',
-                          fontWeight: isCur ? 700 : 500,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }
-                      }, t.title)
-                    ),
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 } },
-                      t.duration && h('span', { style: { fontSize: 11, color: 'var(--slate)', fontFamily: "'IBM Plex Mono', monospace" } }, t.duration),
-                      h('button', {
-                        type: 'button',
-                        className: 'mini-btn ghost',
-                        style: {
-                          padding: '3px 6px',
-                          fontSize: 11,
-                          color: downloadingTrackId === idx ? '#fbbf24' : 'var(--slate)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        },
-                        title: `Download Track ${idx + 1}: ${t.title}`,
-                        disabled: downloadingTrackId === idx,
-                        onClick: async (e) => {
-                          e.stopPropagation();
-                          try {
-                            setDownloadingTrackId(idx);
-                            toast(`Downloading Track ${idx + 1}: "${t.title}"...`, 'info');
-                            const fOpts = getNovelFolderOptions ? getNovelFolderOptions(currentBook) : {};
-                            await window.SwiftAudioEngine.Downloader.downloadSingleTrack(t, currentBook, fOpts);
-                            toast(`Downloaded Track ${idx + 1}: "${t.title}"!`, 'success');
-                          } catch (err) {
-                            toast(`Download failed: ${err.message}`, 'error');
-                          } finally {
-                            setDownloadingTrackId(null);
-                          }
-                        }
-                      }, downloadingTrackId === idx ? ic('Loader2', 13, 'animate-spin') : ic('Download', 13)),
-                      isCur && h('span', { style: { display: 'inline-flex', alignItems: 'center', color: 'var(--accent, #6366f1)' } }, isPlaying ? ic('Play', 12) : ic('Pause', 12))
-                    )
-                  );
-                })
-              )
-            )
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
+                  h('span', { style: { fontSize: 11, fontWeight: 700, color: isCur ? '#818cf8' : '#64748b', width: 22 } }, `${idx + 1}`),
+                  h('span', { style: { fontSize: 12, fontWeight: isCur ? 700 : 500, color: isCur ? '#ffffff' : '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t.title)
+                ),
+                isCur && h('span', { style: { color: '#818cf8' } }, isPlaying ? ic('Play', 12) : ic('Pause', 12))
+              );
+            })
           )
         )
       ),

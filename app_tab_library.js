@@ -772,37 +772,56 @@
         })
       ),
 
-      h('div', { className: 'studio-pill-bar', style: { marginBottom: 14, overflowX: 'auto', scrollbarWidth: 'none' } },
-        h('button', {
-          type: 'button',
-          className: `studio-pill-btn ${libTab === 'all' ? 'active' : ''}`,
-          onClick: () => setLibTab('all')
-        }, ic(Library, 12), ` All (${allCountLabel})`),
-        h('button', {
-          type: 'button',
-          className: `studio-pill-btn ${libTab === 'audio' ? 'active' : ''}`,
-          onClick: () => setLibTab('audio')
-        }, ic(Volume2, 12), ` Audio (${filteredAudiobooks.length})`),
-        h('button', {
-          type: 'button',
-          className: `studio-pill-btn ${libTab === 'saved' ? 'active' : ''}`,
-          onClick: () => setLibTab('saved')
-        }, ic(Star, 12), ` Saved (${savedSpaceCount})`),
-        h('button', {
-          type: 'button',
-          className: `studio-pill-btn ${libTab === 'translated' ? 'active' : ''}`,
-          onClick: () => setLibTab('translated')
-        }, ic(Globe, 12), ` Translated (${transCount})`),
-        h('button', {
-          type: 'button',
-          className: `studio-pill-btn ${libTab === 'incomplete' ? 'active' : ''}`,
-          onClick: () => setLibTab('incomplete')
-        }, ic(Clock, 12), ` Incomplete (${incCount})`),
-        h('button', {
-          type: 'button',
-          className: `studio-pill-btn ${libTab === 'trash' ? 'active' : ''}`,
-          onClick: () => { setLibTab('trash'); loadTrashCount(); }
-        }, ic(Trash2, 12), ` Trash (${trashCount})`)
+      h('div', {
+        className: 'library-tab-filter-bar',
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 16,
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+          padding: '2px 0 6px 0',
+          width: '100%'
+        }
+      },
+        [
+          { id: 'all', label: `All (${allCountLabel})`, icon: 'BookOpen' },
+          { id: 'audio', label: `Audio (${filteredAudiobooks.length})`, icon: 'Headphones' },
+          { id: 'saved', label: `Saved (${savedSpaceCount})`, icon: 'Star' },
+          { id: 'translated', label: `Translated (${transCount})`, icon: 'Languages' },
+          { id: 'incomplete', label: `Incomplete (${incCount})`, icon: 'Clock' },
+          { id: 'trash', label: `Trash (${trashCount})`, icon: 'Trash2' }
+        ].map(tab => {
+          const isActive = libTab === tab.id;
+          return h('button', {
+            key: tab.id,
+            type: 'button',
+            className: `library-tab-chip ${isActive ? 'active' : ''}`,
+            style: {
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '7px 14px',
+              borderRadius: 99,
+              fontSize: 12.5,
+              fontWeight: isActive ? 700 : 500,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              border: isActive ? '1px solid rgba(99, 102, 241, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
+              background: isActive ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+              color: isActive ? '#ffffff' : 'var(--slate)',
+              boxShadow: isActive ? '0 0 12px rgba(99, 102, 241, 0.25)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            },
+            onClick: () => {
+              setLibTab(tab.id);
+              if (tab.id === 'trash') loadTrashCount();
+            }
+          }, ic(tab.icon, 13, isActive ? 'text-indigo-400' : 'text-slate-400'), tab.label);
+        })
       ),
 
               // AUDIOBOOK SHELF IN LIBRARY
