@@ -89,7 +89,7 @@
             best.includes('s.w.org') || best.includes('pixel.wp.com') || best.includes('widgets') ||
             best.includes('badge') || best.includes('button') || best.includes('icon') ||
             best.includes('paypal') || best.includes('patreon') || best.includes('discord') ||
-            best.includes('sharedaddy') || best.includes('logo') || best.includes('banner') ||
+            best.includes('sharedaddy') || best.includes('logo') || best.includes('ad-banner') || best.includes('ad_banner') ||
             best.includes('smilies') || best.includes('reaction') || best.includes('jp-carousel') ||
             best.includes('the-artifice.com') ||
             best.includes('jp.png') || best.includes('France-Flag') || best.includes('flag') ||
@@ -98,6 +98,7 @@
 
         // Resolve relative URLs if baseUrl provided & aggressively sanitize malformed host/path spaces (e.g., 'https://img. lnori. com/ 13125-06. jpg')
         best = best.trim()
+            .replace(/&amp;/g, '&')
             .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, '')) // Remove spaces inside hostname
             .replace(/^https?:\/\/[^\/]+\/\s+/i, (m) => m.trim()) // Remove leading slash spaces
             .replace(/\s+/g, '') // Strip remaining interior whitespace in image URL
@@ -115,7 +116,7 @@
         if (best.includes('wp.com') || best.includes('wordpress.com') || best.includes('witchculttranslation.com')) {
             best = best.replace(/\?w=\d+.*$/i, '').replace(/\?resize=\d+.*$/i, '').replace(/\?fit=\d+.*$/i, '');
         } else if (best.includes('wattpad.com')) {
-            best = best.replace(/\?s=fit[^"'\s]*/i, '').replace(/\?w=\d+[^"'\s]*/i, '');
+            best = best.replace(/\?s=fit[^"'\s]*/i, '').replace(/\?w=\d+[^"'\s]*/i, '').replace(/&amp;/g, '&');
         } else if (best.includes('127.net') || best.includes('lofter.com')) {
             best = best.replace(/\?imageView.*$/i, '');
         } else if (best.includes('tumblr.com')) {
@@ -336,26 +337,43 @@
             .replace(/<(?:strong|b|em|i)\b[^>]*>\s*(?:(?:\*[\s\u00A0]*){2,}|(?:-[\s\u00A0]*){2,}|(?:_[\s\u00A0]*){2,})\s*<\/(?:strong|b|em|i)>/gi, (m) => m.replace(/<[^>]+>/g, ''));
 
         // 5. Preserve Alignment (Center & Right)
+        const wrapCenter = (str) => {
+            const trimmed = (str || '').trim();
+            if (!trimmed) return '';
+            if (/^!\[.*?\]\([^\)]+\)$/i.test(trimmed) || /^<img\b[^>]*>$/i.test(trimmed)) {
+                return trimmed;
+            }
+            return `[center]${trimmed}[/center]`;
+        };
+        const wrapRight = (str) => {
+            const trimmed = (str || '').trim();
+            if (!trimmed) return '';
+            if (/^!\[.*?\]\([^\)]+\)$/i.test(trimmed) || /^<img\b[^>]*>$/i.test(trimmed)) {
+                return trimmed;
+            }
+            return `[right]${trimmed}[/right]`;
+        };
+
         processed = processed
             .replace(/<(?:p|div)\b[^>]*class="[^"]*(?:text-center|align-center|aligncenter|has-text-align-center|center)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, (m, inner) => {
                 const parts = inner.split(/<br\s*[\/]?>/gi);
-                return '\n\n' + parts.map(p => `[center]${p.trim()}[/center]`).join('\n') + '\n\n';
+                return '\n\n' + parts.map(wrapCenter).filter(Boolean).join('\n') + '\n\n';
             })
             .replace(/<(?:p|div)\b[^>]*style="[^"]*text-align:\s*center[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, (m, inner) => {
                 const parts = inner.split(/<br\s*[\/]?>/gi);
-                return '\n\n' + parts.map(p => `[center]${p.trim()}[/center]`).join('\n') + '\n\n';
+                return '\n\n' + parts.map(wrapCenter).filter(Boolean).join('\n') + '\n\n';
             })
             .replace(/<center\b[^>]*>([\s\S]*?)<\/center>/gi, (m, inner) => {
                 const parts = inner.split(/<br\s*[\/]?>/gi);
-                return '\n\n' + parts.map(p => `[center]${p.trim()}[/center]`).join('\n') + '\n\n';
+                return '\n\n' + parts.map(wrapCenter).filter(Boolean).join('\n') + '\n\n';
             })
             .replace(/<(?:p|div)\b[^>]*class="[^"]*(?:text-right|align-right|has-text-align-right)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, (m, inner) => {
                 const parts = inner.split(/<br\s*[\/]?>/gi);
-                return '\n\n' + parts.map(p => `[right]${p.trim()}[/right]`).join('\n') + '\n\n';
+                return '\n\n' + parts.map(wrapRight).filter(Boolean).join('\n') + '\n\n';
             })
             .replace(/<(?:p|div)\b[^>]*style="[^"]*text-align:\s*right[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div)>/gi, (m, inner) => {
                 const parts = inner.split(/<br\s*[\/]?>/gi);
-                return '\n\n' + parts.map(p => `[right]${p.trim()}[/right]`).join('\n') + '\n\n';
+                return '\n\n' + parts.map(wrapRight).filter(Boolean).join('\n') + '\n\n';
             });
 
         // 6. Preserve Blockquotes & Author Notes

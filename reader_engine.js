@@ -965,7 +965,13 @@
       const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
 
       for (let li = 0; li < lines.length; li++) {
-        const rawLine = lines[li];
+        let rawLine = lines[li];
+        // Strip [center], [right], or <center> wrappers around images
+        const centerImgWrap = rawLine.match(/^(?:\[(?:center|right)\]|<center>|<p\s+class="(?:text-center|text-right)">)\s*(!\[.*?\]\([^\)]+\)|<img\b[^>]*>)\s*(?:\[\/(?:center|right)\]|<\/center>|<\/p>)?$/i);
+        if (centerImgWrap) {
+          rawLine = centerImgWrap[1].trim();
+        }
+
         // 1. Standalone markdown image: ![alt](url)
         const mdImg = rawLine.match(/^!\[(.*?)\]\(([^\)]+)\)\s*$/i);
         if (mdImg) {

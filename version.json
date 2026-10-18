@@ -1,9 +1,9 @@
 {
-  "version": "8.21.79",
-  "versionCode": 8490,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.79/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.79/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.79",
+  "version": "8.21.81",
+  "versionCode": 8492,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.81/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.81/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.81",
   "releaseDate": "2026-10-18",
-  "releaseNotes": "v8.21.79: Fix Wattpad 429 rate-limiting with paced page batching, JSON error rejection, automatic backoff retry, and exact page count extraction."
+  "releaseNotes": "v8.21.81: Resilient multi-page chapter fetching and illustration rendering fix for web novels."
 }

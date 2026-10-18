@@ -328,6 +328,10 @@
       s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
       // 5. Inline code: `text`
       s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+      // Convert any lingering markdown image syntax to HTML img tag
+      s = s.replace(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/gi, (m, alt, u) => {
+        return `<img src="${u}" alt="${alt || 'Illustration'}" class="illustration"/>`;
+      });
       return s.trim();
     };
 
@@ -372,11 +376,14 @@
           const inner = (centerMatch[1] || '').replace(/\[\/?center\]/gi, '').trim();
           if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
             bodyHtml.push('<hr/>');
+            continue;
+          } else if (/!\[.*?\]\([^\)]+\)/i.test(inner) || /<img\b/i.test(inner) || inner.startsWith('<div class="illustration')) {
+            trimmed = inner;
           } else {
             bodyHtml.push(`<p class="text-center">${smartFormat(inner, useSmartQuotes)}</p>`);
             hasEncounteredParagraph = true;
+            continue;
           }
-          continue;
         }
 
         // Right-aligned elements [right]...[/right]
@@ -386,11 +393,14 @@
           const inner = (rightMatch[1] || '').replace(/\[\/?right\]/gi, '').trim();
           if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
             bodyHtml.push('<hr/>');
+            continue;
+          } else if (/!\[.*?\]\([^\)]+\)/i.test(inner) || /<img\b/i.test(inner) || inner.startsWith('<div class="illustration')) {
+            trimmed = inner;
           } else {
             bodyHtml.push(`<p class="text-right">${smartFormat(inner, useSmartQuotes)}</p>`);
             hasEncounteredParagraph = true;
+            continue;
           }
-          continue;
         }
 
         // Markdown headings
@@ -406,9 +416,14 @@
           continue;
         }
 
-        // Illustrations (already processed to <div class="illustration">...</div> in appendChaptersToExistingEpub)
+        // Illustrations (already processed to <div class="illustration">...</div> in appendChaptersToExistingEpub or raw markdown)
         if (trimmed.startsWith('<div class="illustration"') || trimmed.startsWith('<div class="illustration-wrap"')) {
           bodyHtml.push(trimmed);
+          continue;
+        }
+        if (/^!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)$/i.test(trimmed)) {
+          const m = trimmed.match(/^!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)$/i);
+          bodyHtml.push(`<div class="illustration-wrap"><img src="${m[2]}" alt="${escapeXml(m[1] || 'Illustration')}" class="illustration"/></div>`);
           continue;
         }
 
@@ -1139,11 +1154,12 @@ hr {
         // Step 1: Scan and strictly filter unique illustration URLs (supports Markdown & HTML img tags)
         const uniqueImgUrls = new Set();
         for (const ch of exportChapters) {
-          const contentStr = ch.content || '';
+          const contentStr = ch.content || ch.text || '';
           const mdMatches = contentStr.matchAll(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/g);
           for (const imgMatch of mdMatches) {
             if (imgMatch && imgMatch[2]) {
               let u = imgMatch[2].trim()
+                .replace(/&amp;/g, '&')
                 .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
                 .replace(/\s+/g, '')
                 .replace(/\.jppg$/i, '.jpg');
@@ -1154,7 +1170,7 @@ hr {
                   !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
                   !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
                   !u.includes('paypal') && !u.includes('patreon') && !u.includes('discord') &&
-                  !u.includes('sharedaddy') && !u.includes('logo') && !u.includes('banner') &&
+                  !u.includes('sharedaddy') && !u.includes('logo') && !u.includes('ad-banner') && !u.includes('ad_banner') && !u.includes('advertisement') &&
                   !u.includes('reaction') && !u.includes('smilies') && !u.includes('jp-carousel')) {
                 uniqueImgUrls.add(u);
               }
@@ -1163,9 +1179,10 @@ hr {
           const htmlMatches = contentStr.matchAll(/<img\s+([^>]*?)>/gi);
           for (const imgMatch of htmlMatches) {
             const inner = imgMatch[1] || '';
-            const srcM = inner.match(/src=["'](https?:\/\/[^"']+)["']/i);
+            const srcM = inner.match(/(?:src|data-src)=["'](https?:\/\/[^"'\s>]+)["']/i);
             if (srcM && srcM[1]) {
               let u = srcM[1].trim()
+                .replace(/&amp;/g, '&')
                 .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
                 .replace(/\s+/g, '')
                 .replace(/\.jppg$/i, '.jpg');
@@ -1180,7 +1197,7 @@ hr {
                   !u.includes('s.w.org') && !u.includes('pixel.wp.com') && !u.includes('widgets') &&
                   !u.includes('badge') && !u.includes('button') && !u.includes('icon') &&
                   !u.includes('paypal') && !u.includes('patreon') && !u.includes('discord') &&
-                  !u.includes('sharedaddy') && !u.includes('logo') && !u.includes('banner') &&
+                  !u.includes('sharedaddy') && !u.includes('logo') && !u.includes('ad-banner') && !u.includes('ad_banner') && !u.includes('advertisement') &&
                   !u.includes('reaction') && !u.includes('smilies') && !u.includes('jp-carousel')) {
                 uniqueImgUrls.add(u);
               }
@@ -1368,6 +1385,8 @@ hr {
             try {
               if (downloadUrl.includes('pximg.net') || downloadUrl.includes('pixiv.re')) {
                 referer = 'https://www.pixiv.net/';
+              } else if (downloadUrl.includes('wattpad.com')) {
+                referer = 'https://www.wattpad.com/';
               } else if (downloadUrl.includes('witchculttranslation.com')) {
                 referer = 'https://witchculttranslation.com/';
               } else {
@@ -1410,14 +1429,12 @@ hr {
                   try {
                     const b = await Promise.race([
                       window.NativeBridge.downloadBinary(downloadUrl, { referer }),
-                      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+                      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
                     ]);
                     if (b && b.byteLength > 500) {
                       const sniffed = sniffMime(b);
-                      if (sniffed) {
-                        buffer = b;
-                        detectedMime = sniffed.mime;
-                      }
+                      buffer = b;
+                      detectedMime = sniffed ? sniffed.mime : (detectedMime || 'image/jpeg');
                     }
                   } catch(_) {}
                 }
@@ -1566,6 +1583,10 @@ hr {
               try {
                 imageCache.set(encodeURI(url), entry);
                 imageCache.set(decodeURI(url), entry);
+                imageCache.set(url.replace(/&amp;/g, '&'), entry);
+                imageCache.set(url.replace(/&/g, '&amp;'), entry);
+                imageCache.set(downloadUrl.replace(/&amp;/g, '&'), entry);
+                imageCache.set(downloadUrl.replace(/&/g, '&amp;'), entry);
                 imageCache.set(url.split('?')[0], entry);
                 imageCache.set(url.split('#')[0], entry);
                 imageCache.set(downloadUrl.split('?')[0], entry);
@@ -1768,12 +1789,16 @@ hr {
             s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
             // 5. Inline code: `text`
             s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // Convert any lingering markdown image syntax to HTML img tag
+            s = s.replace(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/gi, (m, alt, u) => {
+              return `<img src="${u}" alt="${alt || 'Illustration'}" class="illustration"/>`;
+            });
             return s;
           };
 
           let hasEncounteredParagraph = false;
           for (let li = 0; li < rawLines.length; li++) {
-            const trimmed = rawLines[li].trim();
+            let trimmed = rawLines[li].trim();
             if (!trimmed) continue;
 
             // Suppress prompt template placeholder leaks anywhere in chapter
@@ -1790,6 +1815,9 @@ hr {
               const inner = (centerMatch[1] || '').replace(/\[\/?center\]/gi, '').trim();
               if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
                 bodyHtml.push('<hr/>');
+                continue;
+              } else if (/!\[.*?\]\([^\)]+\)/i.test(inner) || /<img\b/i.test(inner) || inner.startsWith('<div class="illustration')) {
+                trimmed = inner;
               } else {
                 if (!hasEncounteredParagraph) {
                   const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
@@ -1799,8 +1827,8 @@ hr {
                 }
                 bodyHtml.push(`<p class="text-center">${smartFormat(inner)}</p>`);
                 hasEncounteredParagraph = true;
+                continue;
               }
-              continue;
             }
 
             // Right-aligned elements [right]...[/right]
@@ -1810,11 +1838,14 @@ hr {
               const inner = (rightMatch[1] || '').replace(/\[\/?right\]/gi, '').trim();
               if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:✦[\s\u00A0]*){2,}|(?:★[\s\u00A0]*){2,}|(?:☆[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
                 bodyHtml.push('<hr/>');
+                continue;
+              } else if (/!\[.*?\]\([^\)]+\)/i.test(inner) || /<img\b/i.test(inner) || inner.startsWith('<div class="illustration')) {
+                trimmed = inner;
               } else {
                 bodyHtml.push(`<p class="text-right">${smartFormat(inner)}</p>`);
                 hasEncounteredParagraph = true;
+                continue;
               }
-              continue;
             }
 
             // Before first narrative paragraph, check if line is a duplicate title echo!
@@ -1870,6 +1901,7 @@ hr {
                   .replace(/\.jppg$/i, '.jpg');
 
                 const cached = imageCache.get(imgUrl) || imageCache.get(rawImgUrl) ||
+                               imageCache.get(imgUrl.replace(/&amp;/g, '&')) || imageCache.get(rawImgUrl.replace(/&amp;/g, '&')) ||
                                imageCache.get(encodeURI(imgUrl)) || imageCache.get(decodeURI(imgUrl)) ||
                                imageCache.get(imgUrl.split('?')[0]) || imageCache.get(imgUrl.split('#')[0]) ||
                                imageCache.get(imgUrl.split(/[#?]/)[0]);
@@ -1896,6 +1928,7 @@ hr {
                   .replace(/\s+/g, '')
                   .replace(/\.jppg$/i, '.jpg');
                 const cached = imageCache.get(cleanUrl) || imageCache.get(srcUrl) ||
+                               imageCache.get(cleanUrl.replace(/&amp;/g, '&')) || imageCache.get(srcUrl.replace(/&amp;/g, '&')) ||
                                imageCache.get(encodeURI(cleanUrl)) || imageCache.get(decodeURI(cleanUrl)) ||
                                imageCache.get(cleanUrl.split('?')[0]) || imageCache.get(cleanUrl.split('#')[0]) ||
                                imageCache.get(cleanUrl.split(/[#?]/)[0]);

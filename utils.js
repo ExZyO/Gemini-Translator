@@ -296,6 +296,11 @@ function isTitleEcho(line, title, originalTitle) {
     const cleanLine = line.trim();
     if (!cleanLine) return false;
 
+    // Never strip illustrations or image tags at the beginning of a chapter
+    if (/^!\[|^<img|^<div\b[^>]*class=["'][^"']*illustration/i.test(cleanLine)) {
+        return false;
+    }
+
     // Check special notes that must NEVER be stripped
     if (/^(?:author'?s?\s*note|translator'?s?\s*note|editor'?s?\s*note|t\/n|a\/n|synopsis|summary|foreword|preface|prologue|epilogue|afterword|interlude|warning|content\s*warning)\b/i.test(cleanLine.replace(/^#{1,6}\s*/, '').replace(/^(?:\[center\]|<center>|<p[^>]*>)\s*/i, '').trim())) {
         return false;
@@ -474,7 +479,7 @@ function cleanNovelProse(text) {
 
     // Restore protected tokens exactly as originally formatted
     placeholders.forEach((token, idx) => {
-        t = t.replace(`__PROTECTED_TOKEN_${idx}__`, token);
+        t = t.replace(`__PROTECTED_TOKEN_${idx}__`, () => token);
     });
 
     return t.trim();

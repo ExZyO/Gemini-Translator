@@ -65,19 +65,33 @@
         } catch (_) {}
       }
 
-      // 2. Fallback to Wattpad API v3 endpoint
-      if (!storyData) {
-        const storyIdMatch = targetUrl.match(/wattpad\.com\/story\/(\d+)/i) || targetUrl.match(/wattpad\.com\/(\d+)/i);
-        const storyId = storyIdMatch ? storyIdMatch[1] : null;
-        if (storyId) {
-          try {
-            const apiJsonStr = await fetchHtml(`https://www.wattpad.com/api/v3/stories/${storyId}?fields=id,title,url,cover,description,user(name,username),parts(id,title,url,photoUrl,length,pages)`);
-            const parsed = JSON.parse(apiJsonStr);
-            if (parsed && parsed.title) {
+      // 2. Enrich or fallback to Wattpad API v3 endpoint (parts in Remix lack photoUrl and pages)
+      const storyIdMatch = targetUrl.match(/wattpad\.com\/story\/(\d+)/i) || targetUrl.match(/wattpad\.com\/(\d+)/i);
+      const storyId = storyData?.id || (storyIdMatch ? storyIdMatch[1] : null);
+      if (storyId && (!storyData || !storyData.parts || storyData.parts.length === 0 || storyData.parts.some(p => !p.photoUrl || !p.pages))) {
+        try {
+          const apiJsonStr = await fetchHtml(`https://www.wattpad.com/api/v3/stories/${storyId}?fields=id,title,url,cover,description,user(name,username),parts(id,title,url,photoUrl,length,pages)`);
+          const parsed = JSON.parse(apiJsonStr);
+          if (parsed && parsed.title) {
+            if (!storyData) {
               storyData = parsed;
+            } else if (Array.isArray(parsed.parts) && parsed.parts.length > 0) {
+              const photoMap = new Map();
+              parsed.parts.forEach(p => {
+                photoMap.set(String(p.id), { photoUrl: p.photoUrl || '', pages: p.pages || 0 });
+              });
+              storyData.parts = (storyData.parts || []).map(p => {
+                const enriched = photoMap.get(String(p.id));
+                return {
+                  ...p,
+                  photoUrl: p.photoUrl || enriched?.photoUrl || '',
+                  pages: (typeof enriched?.pages === 'number' && enriched.pages > 0) ? enriched.pages : (p.pages || 0)
+                };
+              });
+              if (!storyData.cover && parsed.cover) storyData.cover = parsed.cover;
             }
-          } catch (_) {}
-        }
+          }
+        } catch (_) {}
       }
 
       if (storyData) {
@@ -155,35 +169,45 @@
 
       let title = options.title || '';
       let rawContent = '';
+      let photoUrl = (options.photoUrl || '').trim();
+      let totalExpectedPages = (typeof options.pages === 'number' && options.pages > 0) ? options.pages : (options.pages ? parseInt(options.pages, 10) : 0);
 
-      const isApiError = (txt) => {
-        if (!txt || typeof txt !== 'string') return true;
-        const t = txt.trim();
-        if (!t) return true;
-        if (t.startsWith('{') && (t.includes('"result"') || t.includes('"error"') || t.includes('"code"') || t.includes('"message"'))) return true;
-        if (t.includes('"result":"ERROR"') || t.includes('"Too many requests"') || t.includes('429 Too Many Requests') || t.includes('error_code') || t.includes('Request blocked') || t.includes('403 ERROR')) return true;
-        return false;
+      if ((!photoUrl || !totalExpectedPages) && chapterId) {
+        try {
+          const v4Json = await fetchHtml(`https://www.wattpad.com/v4/parts/${chapterId}?fields=id,title,photoUrl,pages`, { allowEmpty: true, isSearch: true, timeout: 5000 });
+          const parsedV4 = JSON.parse(v4Json);
+          if (parsedV4) {
+            if (!photoUrl && parsedV4.photoUrl) photoUrl = String(parsedV4.photoUrl).trim();
+            if (!totalExpectedPages && typeof parsedV4.pages === 'number' && parsedV4.pages > 0) {
+              totalExpectedPages = parsedV4.pages;
+            }
+          }
+        } catch (_) {}
+      }
+
+      const isRateLimitOrBlocked = (txt) => {
+        if (!txt || typeof txt !== 'string') return false;
+        const t = txt.trim().toLowerCase();
+        return t.includes('too many requests') || t.includes('"result":"error"') || t.includes('error 1015') || t.includes('rate limit') || t.includes('429 too many') || t.includes('request blocked') || t.includes('403 error');
       };
 
       const isValidPage = (txt) => {
-        if (isApiError(txt)) return false;
+        if (!txt || typeof txt !== 'string') return false;
+        if (isRateLimitOrBlocked(txt)) return false;
         return txt.includes('<p') || txt.includes('<div') || txt.includes('<img') || txt.trim().length > 15;
       };
 
-      // Method 1: Fast direct text fetch via Wattpad apiv2 with paced page batching
+      // Method 1: Direct multi-page story text fetch via Wattpad apiv2
       if (chapterId) {
         try {
-          const fetchOpts = { allowEmpty: true, isSearch: true, timeout: 8000 };
+          const fetchOpts = { allowEmpty: true, isSearch: true, timeout: 10000 };
           const allPages = [];
-          const totalExpectedPages = options.pages && options.pages > 0 ? options.pages : 0;
-          let hitRateLimit = false;
 
-          const fetchPageWithRetry = async (page) => {
+          const fetchPage = async (page) => {
             try {
               let text = await fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${page}`, fetchOpts);
-              if (text && isApiError(text)) {
-                // If rate limited or error, wait 1.2s and retry once
-                await new Promise(r => setTimeout(r, 1200));
+              if (isRateLimitOrBlocked(text)) {
+                await new Promise(r => setTimeout(r, 1500));
                 text = await fetchHtml(`https://www.wattpad.com/apiv2/?m=storytext&id=${chapterId}&page=${page}`, fetchOpts);
               }
               return text || '';
@@ -192,61 +216,44 @@
             }
           };
 
-          if (totalExpectedPages > 0) {
-            // Known page count: fetch in small paced batches of 2 in parallel
-            for (let p = 1; p <= totalExpectedPages; p += 2) {
-              if (hitRateLimit) break;
-              const batch = [p];
-              if (p + 1 <= totalExpectedPages) batch.push(p + 1);
-              const results = await Promise.all(batch.map(page => fetchPageWithRetry(page)));
-              for (const txt of results) {
-                if (isValidPage(txt)) {
-                  allPages.push(txt);
-                } else if (isApiError(txt)) {
-                  hitRateLimit = true;
-                  break;
-                }
+          const maxPages = totalExpectedPages > 0 ? totalExpectedPages : 30;
+          for (let p = 1; p <= maxPages; p++) {
+            let txt = await fetchPage(p);
+            if (isValidPage(txt)) {
+              allPages.push(txt);
+              if (p < maxPages) await new Promise(r => setTimeout(r, 40));
+            } else if (isRateLimitOrBlocked(txt)) {
+              // Wait 2s and retry this specific page once
+              await new Promise(r => setTimeout(r, 2000));
+              txt = await fetchPage(p);
+              if (isValidPage(txt)) {
+                allPages.push(txt);
+                if (p < maxPages) await new Promise(r => setTimeout(r, 40));
+              } else {
+                // If still blocked after retry, stop loop but preserve all pages downloaded so far
+                break;
               }
-              if (p + 2 <= totalExpectedPages) {
-                await new Promise(r => setTimeout(r, 80));
-              }
-            }
-          } else {
-            // Unknown page count: fetch up to 12 pages in batches of 2
-            for (let p = 1; p <= 12; p += 2) {
-              if (hitRateLimit) break;
-              const batch = [p, p + 1];
-              const results = await Promise.all(batch.map(page => fetchPageWithRetry(page)));
-              let stopLoop = false;
-              for (const txt of results) {
-                if (isValidPage(txt)) {
-                  allPages.push(txt);
-                } else {
-                  if (isApiError(txt)) hitRateLimit = true;
-                  stopLoop = true;
-                  break;
-                }
-              }
-              if (stopLoop) break;
-              await new Promise(r => setTimeout(r, 80));
+            } else {
+              // Clean EOF: end of chapter reached
+              break;
             }
           }
 
-          if (!hitRateLimit && allPages.length > 0) {
+          if (allPages.length > 0) {
             rawContent = allPages.join('\n');
           }
         } catch (_) {}
       }
 
-      // Method 2: Fallback to full chapter HTML if apiv2 hit error, rate-limit, or returned empty
-      if (!rawContent || isApiError(rawContent)) {
+      // Method 2: Fallback to full chapter HTML if apiv2 returned 0 pages
+      if (!rawContent || isRateLimitOrBlocked(rawContent)) {
         rawContent = '';
         let html = '';
         try {
           html = await fetchHtml(cleanChUrl);
         } catch (_) {}
 
-        if (html && !isApiError(html)) {
+        if (html && !isRateLimitOrBlocked(html)) {
           if (!title) {
             const titleMatch = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || html.match(/<meta\s+property="og:title"\s+content="([^"]*)"/i);
             if (titleMatch) {
@@ -254,20 +261,48 @@
             }
           }
 
-          const pMatches = [...html.matchAll(/<p\s+data-p-id="[^"]*"[^>]*>([\s\S]*?)<\/p>/gi)];
-          if (pMatches.length > 0) {
-            rawContent = pMatches.map(m => `<p>${m[1]}</p>`).join('\n');
-          } else {
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            const ps = doc.querySelectorAll('p[data-p-id], .story-part-text p, .panel-reading p');
-            if (ps.length > 0) {
-              rawContent = Array.from(ps).map(p => `<p>${p.innerHTML}</p>`).join('\n');
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          if (!photoUrl) {
+            const headerImg = doc.querySelector('.part-header img, .media-item.image img, .story-part-header img');
+            if (headerImg && headerImg.src) photoUrl = headerImg.src.trim();
+          }
+
+          const extractNodes = (d) => {
+            const nodes = d.querySelectorAll('p[data-p-id], .story-part-text p, .panel-reading p, .media-item.image, .story-part-text .media-item');
+            if (nodes.length > 0) {
+              return Array.from(nodes).map(el => {
+                if (el.tagName.toLowerCase() === 'p') return `<p>${el.innerHTML}</p>`;
+                const img = el.querySelector('img');
+                if (img && img.src) return `<p><img src="${img.src.trim()}" alt="Chapter Illustration"></p>`;
+                return '';
+              }).filter(Boolean).join('\n');
+            } else {
+              const pMatches = [...d.documentElement.innerHTML.matchAll(/<p\s+data-p-id="[^"]*"[^>]*>([\s\S]*?)<\/p>/gi)];
+              if (pMatches.length > 0) {
+                return pMatches.map(m => `<p>${m[1]}</p>`).join('\n');
+              }
+            }
+            return '';
+          };
+
+          const m2Pages = [extractNodes(doc)];
+          if (totalExpectedPages > 1) {
+            for (let p = 2; p <= totalExpectedPages; p++) {
+              try {
+                const pHtml = await fetchHtml(`${cleanChUrl}/page/${p}`);
+                if (pHtml && !isRateLimitOrBlocked(pHtml)) {
+                  const pDoc = new DOMParser().parseFromString(pHtml, 'text/html');
+                  const pContent = extractNodes(pDoc);
+                  if (pContent) m2Pages.push(pContent);
+                }
+              } catch (_) {}
             }
           }
+          rawContent = m2Pages.filter(Boolean).join('\n');
         }
       }
 
-      if (isApiError(rawContent)) {
+      if (isRateLimitOrBlocked(rawContent)) {
         rawContent = '';
       }
 
@@ -279,8 +314,8 @@
         .replace(/<p>\s*<\/p>/gi, '')
         .trim();
 
-      if (options.photoUrl && typeof options.photoUrl === 'string' && options.photoUrl.trim() && !cleanContent.includes(options.photoUrl.trim())) {
-        cleanContent = `<p><img src="${options.photoUrl.trim()}" alt="Chapter Banner"></p>\n\n` + cleanContent;
+      if (photoUrl && !cleanContent.includes(photoUrl)) {
+        cleanContent = `<p><img src="${photoUrl}" alt="Chapter Illustration"></p>\n\n` + cleanContent;
       }
 
       if (!cleanContent) {
