@@ -397,7 +397,7 @@
       try { window.NativeBridge?.clearProgressNotification?.(false); } catch (e) {}
       if (ctrl?.isPaused) {
         callbacks.setIsFetchingPaused?.(true);
-        try { window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', 'Fetch paused. Progress saved.'); } catch (e) {}
+        try { window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused', 'Fetch paused. Progress saved.'); } catch (e) {}
         safeToast(callbacks, ctrl?.pauseReason || 'Fetch paused. Progress saved.', 'info');
         callbacks.onPaused?.(latestSessionSnapshot, ctrl);
       } else if (ctrl?.isCancelled) {
@@ -444,7 +444,7 @@
     try { window.WebNovelImporter?.pause?.(); } catch (e) {}
     try {
       window.NativeBridge?.clearProgressNotification?.(false);
-      window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused ⏸', 'Fetch paused. Current progress saved.');
+      window.NativeBridge?.showCompletionNotification?.('Novel Ingestion Paused', 'Fetch paused. Current progress saved.');
       window.NativeBridge?.releaseWakeLock?.();
     } catch (e) {}
     callbacks.setIsFetchingPaused?.(true);

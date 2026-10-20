@@ -209,7 +209,7 @@
               cursor: 'pointer'
             },
             title: 'Previous chapter',
-            onClick: () => window.SwiftAudioEngine?.Player?.previousTrack()
+            onClick: (e) => { if (e) e.stopPropagation(); window.SwiftAudioEngine?.Player?.previousTrack(); }
           }, ic('SkipBack', 14)),
 
           // Sleek -5s Jump Button
@@ -230,7 +230,7 @@
               cursor: 'pointer'
             },
             title: 'Rewind 5 seconds',
-            onClick: () => window.SwiftAudioEngine?.Player?.skipBackward5()
+            onClick: (e) => { if (e) e.stopPropagation(); window.SwiftAudioEngine?.Player?.skipBackward5(); }
           }, '-5s'),
 
           // Apple Music White Hero Play/Pause Button
@@ -251,7 +251,7 @@
               margin: '0 2px'
             },
             title: isPlaying ? 'Pause' : 'Play',
-            onClick: () => window.SwiftAudioEngine?.Player?.togglePlay()
+            onClick: (e) => { if (e) e.stopPropagation(); window.SwiftAudioEngine?.Player?.togglePlay(); }
           }, isPlaying ? ic('Pause', 18, 'text-slate-900') : ic('Play', 18, 'text-slate-900 ml-0.5')),
 
           // Sleek +5s Jump Button
@@ -272,7 +272,7 @@
               cursor: 'pointer'
             },
             title: 'Forward 5 seconds',
-            onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
+            onClick: (e) => { if (e) e.stopPropagation(); window.SwiftAudioEngine?.Player?.skipForward5(); }
           }, '+5s'),
 
           // Next Chapter Button (visible only if more chapters available ahead)
@@ -291,7 +291,7 @@
               cursor: 'pointer'
             },
             title: 'Next chapter',
-            onClick: () => window.SwiftAudioEngine?.Player?.nextTrack()
+            onClick: (e) => { if (e) e.stopPropagation(); window.SwiftAudioEngine?.Player?.nextTrack(); }
           }, ic('SkipForward', 14)),
 
           // Clean Close Button
@@ -702,7 +702,7 @@
                 boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)'
               },
               title: 'Rewind 5 seconds',
-              onClick: () => window.SwiftAudioEngine?.Player?.skipBackward5()
+              onClick: (e) => { if (e) e.stopPropagation(); window.SwiftAudioEngine?.Player?.skipBackward5(); }
             }, '-5s'),
 
             // Hero Play/Pause Circle (White circle with dark icon)
@@ -746,7 +746,7 @@
                 boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)'
               },
               title: 'Forward 5 seconds',
-              onClick: () => window.SwiftAudioEngine?.Player?.skipForward5()
+              onClick: (e) => { if (e) e.stopPropagation(); window.SwiftAudioEngine?.Player?.skipForward5(); }
             }, '+5s'),
 
             // Next Chapter Button (disabled if currentTrackIndex >= totalTracks - 1)

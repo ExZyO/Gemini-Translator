@@ -1558,7 +1558,7 @@
 
     if (typeof window !== 'undefined' && window.NativeBridge) {
       window.NativeBridge.clearProgressNotification?.(false);
-      window.NativeBridge.showCompletionNotification?.('Translation Paused ⏸', 'Translation paused. Progress safely saved.');
+      window.NativeBridge.showCompletionNotification?.('Translation Paused', 'Translation paused. Progress safely saved.');
     }
     if (typeof params.toast === 'function') {
       params.toast('Translation paused. All progress safely saved to database.', 'info');
@@ -2145,7 +2145,7 @@
           if (typeof window !== 'undefined' && window.NativeBridge) {
             window.NativeBridge.releaseWakeLock?.();
             window.NativeBridge.clearProgressNotification?.(false);
-            window.NativeBridge.showCompletionNotification?.('Translation Paused ⏸', `Ch. ${completedCount}/${totalCount} translated. Tap to resume!`);
+            window.NativeBridge.showCompletionNotification?.('Translation Paused', `Ch. ${completedCount}/${totalCount} translated. Tap to resume!`);
           }
         } catch (_) {}
         return res;

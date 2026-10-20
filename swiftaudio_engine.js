@@ -651,31 +651,39 @@
         }
 
         seekRelative(seconds) {
-            if (!this.audioEl) return;
-            try {
-                const cur = this.audioEl.currentTime || 0;
-                const dur = this.audioEl.duration || this.duration || 0;
-                let target = cur + seconds;
-                if (dur > 0) {
-                    target = Math.max(0, Math.min(target, dur));
-                } else {
-                    target = Math.max(0, target);
-                }
-                this.audioEl.currentTime = target;
-                this.currentTime = target;
-                this._savePosition(true);
-                this._notify();
-                this._updateMediaSession();
-            } catch (e) {
-                console.warn('Seek error:', e);
+            if (typeof seconds !== 'number' || isNaN(seconds)) return;
+            const dur = this.duration || (this.audioEl?.duration || 0);
+            let target = (this.currentTime || (this.audioEl?.currentTime || 0)) + seconds;
+            if (dur > 0) {
+                target = Math.max(0, Math.min(target, dur));
+            } else {
+                target = Math.max(0, target);
             }
+            this.seekTo(target);
         }
 
         skipBackward5() {
+            if (this._isNativeAndroid() && window.NativeBridge?.skipBackward5NativeAudio) {
+                window.NativeBridge.skipBackward5NativeAudio();
+                this.currentTime = Math.max(0, (this.currentTime || 0) - 5);
+                this._savePosition(true);
+                this._notify();
+                return;
+            }
             this.seekRelative(-5);
         }
 
         skipForward5() {
+            if (this._isNativeAndroid() && window.NativeBridge?.skipForward5NativeAudio) {
+                window.NativeBridge.skipForward5NativeAudio();
+                const dur = this.duration || 0;
+                let target = (this.currentTime || 0) + 5;
+                if (dur > 0) target = Math.min(dur, target);
+                this.currentTime = target;
+                this._savePosition(true);
+                this._notify();
+                return;
+            }
             this.seekRelative(5);
         }
 

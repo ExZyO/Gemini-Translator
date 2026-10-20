@@ -827,7 +827,8 @@
             try {
                 const bridge = getBridge();
                 if (bridge && bridge.seekNativeAudio) {
-                    return await bridge.seekNativeAudio({ position: positionSec });
+                    const pos = typeof positionSec === 'object' && positionSec !== null ? (positionSec.position || 0) : (positionSec || 0);
+                    return await bridge.seekNativeAudio({ position: pos });
                 }
             } catch (e) {
                 console.warn('[NativeBridge] seekNativeAudio error:', e);

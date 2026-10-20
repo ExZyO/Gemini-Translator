@@ -1029,6 +1029,14 @@ public class NativeAndroidBridgePlugin extends Plugin {
             NativeAudioService service = NativeAudioService.getInstance();
             if (service != null) {
                 service.seekTo(posMs);
+            } else {
+                Context context = getContext();
+                if (context != null) {
+                    Intent intent = new Intent(context, NativeAudioService.class);
+                    intent.setAction(NativeAudioService.ACTION_SEEK_TO);
+                    intent.putExtra("positionMs", posMs);
+                    context.startService(intent);
+                }
             }
             JSObject ret = new JSObject();
             ret.put("success", true);
@@ -1044,6 +1052,13 @@ public class NativeAndroidBridgePlugin extends Plugin {
             NativeAudioService service = NativeAudioService.getInstance();
             if (service != null) {
                 service.skipBackward5();
+            } else {
+                Context context = getContext();
+                if (context != null) {
+                    Intent intent = new Intent(context, NativeAudioService.class);
+                    intent.setAction(NativeAudioService.ACTION_REWIND_5);
+                    context.startService(intent);
+                }
             }
             JSObject ret = new JSObject();
             ret.put("success", true);
@@ -1059,6 +1074,13 @@ public class NativeAndroidBridgePlugin extends Plugin {
             NativeAudioService service = NativeAudioService.getInstance();
             if (service != null) {
                 service.skipForward5();
+            } else {
+                Context context = getContext();
+                if (context != null) {
+                    Intent intent = new Intent(context, NativeAudioService.class);
+                    intent.setAction(NativeAudioService.ACTION_FORWARD_5);
+                    context.startService(intent);
+                }
             }
             JSObject ret = new JSObject();
             ret.put("success", true);

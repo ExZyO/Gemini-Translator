@@ -1,9 +1,9 @@
 {
-  "version": "8.21.89",
-  "versionCode": 8500,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.89/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.89/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.89",
+  "version": "8.21.90",
+  "versionCode": 8501,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.90/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.90/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.90",
   "releaseDate": "2026-10-20",
-  "releaseNotes": "v8.21.89: Implement Goal 2 Unstoppable Background Translation Service with persistent foreground execution and partial wake lock management."
+  "releaseNotes": "v8.21.90: Fix in-app -5s and +5s audiobook jump controls to seamlessly control native ExoPlayer audio engine with immediate zero-lag time updates."
 }
