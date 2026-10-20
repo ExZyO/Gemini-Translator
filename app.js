@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.92';
+    let VERSION = '8.21.93';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -666,6 +666,14 @@
       const [enableStreaming, setEnableStreaming] = useState(() => localStorage.getItem('enableStreaming') === 'true');
       const [enableThinking, setEnableThinking] = useState(() => localStorage.getItem('enableThinking') === 'true');
       const [strictModel, setStrictModel] = useState(() => localStorage.getItem('strictModel') !== 'false');
+      const [fallbackModels, setFallbackModels] = useState(() => {
+        try {
+          const raw = localStorage.getItem('fallback_models') || localStorage.getItem('fallbackModels');
+          return raw ? JSON.parse(raw) : ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+        } catch (e) {
+          return ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+        }
+      });
       const [concurrency, setConcurrency] = useState(() => parseInt(localStorage.getItem('concurrency')) || DEFAULT_CONCURRENCY);
       const [contextAware, setContextAware] = useState(() => localStorage.getItem('contextAware') !== 'false');
       const [chunkSizePreset, setChunkSizePreset] = useState(() => localStorage.getItem('chunkSizePreset') || 'turbo');
@@ -681,6 +689,12 @@
       const [scrapeImages, setScrapeImages] = useState(() => localStorage.getItem('scrapeImages') !== 'false');
 
       useEffect(() => { localStorage.setItem('strictModel', String(strictModel)); }, [strictModel]);
+      useEffect(() => {
+        try {
+          localStorage.setItem('fallback_models', JSON.stringify(fallbackModels));
+          localStorage.setItem('fallbackModels', JSON.stringify(fallbackModels));
+        } catch (_) {}
+      }, [fallbackModels]);
       useEffect(() => { localStorage.setItem('epubIncludeImages', String(epubIncludeImages)); }, [epubIncludeImages]);
       useEffect(() => { localStorage.setItem('epubFixedFilename', String(epubFixedFilename)); }, [epubFixedFilename]);
       useEffect(() => { localStorage.setItem('scrapeImages', String(scrapeImages)); if (typeof window !== 'undefined') window.__scrapeImages = scrapeImages; }, [scrapeImages]);
@@ -1937,7 +1951,7 @@
         setSavedGlossaries, setTerminology, setActiveGlossaryId, setHistory, setCustomInstructions,
         setDefaultGlossaryName, setSmartGlossary, setEnableGlossary, setProvider, setGeminiModel,
         setDeepseekModel, setOpenaiModel, setClaudeModel, setConcurrency, setContextAware,
-        setChunkSizePreset, setEnableThinking, setStrictModel, setEnableStreaming, setCustomModel,
+        setChunkSizePreset, setEnableThinking, setStrictModel, setFallbackModels, setEnableStreaming, setCustomModel,
         setUseCustomModel, setCustomDeepseekModel, setUseCustomDeepseekModel, setEpubDropCaps,
         setEpubSmartQuotes, setEpubCleanWebArtifacts, setEpubFontTheme, setEpubJustifyText,
         setEpubIncludeImages, setScrapeImages, setReaderTheme, setReaderFont, setReaderFontSize,
@@ -1954,7 +1968,7 @@
       const getBackupAppState = () => (window.BackupEngine?.Controller || BackupEngine?.Controller)?.buildBackupState({
         VERSION, savedGlossaries, terminology, customInstructions, history, provider,
         geminiModel, deepseekModel, openaiModel, claudeModel, concurrency, contextAware,
-        chunkSizePreset, enableThinking, strictModel, enableStreaming, enableGlossary,
+        chunkSizePreset, enableThinking, strictModel, fallbackModels, enableStreaming, enableGlossary,
         customModel, useCustomModel, customDeepseekModel, useCustomDeepseekModel,
         defaultGlossaryName, smartGlossary, epubDropCaps, epubSmartQuotes, epubCleanWebArtifacts,
         epubFontTheme, epubJustifyText, epubIncludeImages, scrapeImages, readerTheme,
@@ -2288,7 +2302,7 @@
       };
 
       const translationCtx = {
-        inputText, provider, enableStreaming, enableThinking, strictModel, contextAware, concurrency,
+        inputText, provider, enableStreaming, enableThinking, strictModel, fallbackModels, contextAware, concurrency,
         chunkSizePreset, smartGlossary, enableGlossary, terminology, glossaryTermCount,
         customInstructions, antiMtlGateEnabled, snapshotsEnabled, fileName, activeNovelRecord,
         setActiveNovelRecord, activeCrawlSession, webImportHistory, webImportData,
@@ -2666,7 +2680,7 @@
         setGeminiModel, deepseekModel, setDeepseekModel, customModel, setCustomModel,
         useCustomModel, setUseCustomModel, customDeepseekModel, setCustomDeepseekModel,
         useCustomDeepseekModel, setUseCustomDeepseekModel, enableStreaming, setEnableStreaming,
-        enableThinking, setEnableThinking, strictModel, setStrictModel, setConcurrency,
+        enableThinking, setEnableThinking, strictModel, setStrictModel, fallbackModels, setFallbackModels, setConcurrency,
         contextAware, setContextAware, setChunkSizePreset, healthAuditEnabled, setHealthAuditEnabled,
         qaProofreaderEnabled, setQaProofreaderEnabled, cjkLeakCheckEnabled, setCjkLeakCheckEnabled,
         antiMtlGateEnabled, setAntiMtlGateEnabled, translationMemoryEnabled, setTranslationMemoryEnabled,

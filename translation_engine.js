@@ -1241,17 +1241,36 @@ const translateWithRotation = async (text, opts) => {
             (errMsg.includes('429') && errMsg.includes('limit: 20')) ||
             (attempt >= Math.min(12, (allKeys.length || 1) * 2) && errMsg.includes('429'));
 
-          if (isModelQuotaCeiling && (currentOpts.provider || 'gemini') === 'gemini') {
-            const fallbackModel = (currentOpts.model === 'gemini-3.8-flash') ? 'gemini-3.7-flash' : 'gemini-3.8-flash';
-            if (currentOpts.model !== fallbackModel) {
-              const oldModel = currentOpts.model || 'gemini-3.6-flash';
-              console.warn(`[Model Auto-Fallback] Model ${oldModel} hit Google free-tier quota ceiling. Auto-rotating model to ${fallbackModel}...`);
-              window.AppLogger?.log('warn', 'ModelFallback', `Model ${oldModel} quota exhausted on Google free tier. Auto-switching to ${fallbackModel}.`);
-              currentOpts.model = fallbackModel;
+          const isStrict = (currentOpts.strictModel !== false) &&
+            (currentOpts.strictModel === true || (typeof localStorage !== 'undefined' && localStorage.getItem('strictModel') !== 'false'));
+
+          if (isModelQuotaCeiling && !isStrict) {
+            let ladder = currentOpts.fallbackModels;
+            if (!Array.isArray(ladder) || ladder.length === 0) {
+              try {
+                const stored = (typeof localStorage !== 'undefined') ? (localStorage.getItem('fallback_models') || localStorage.getItem('fallbackModels')) : null;
+                ladder = stored ? JSON.parse(stored) : ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+              } catch (e) {
+                ladder = ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+              }
+            }
+
+            const nextModel = Array.isArray(ladder) ? ladder.find(m => m && typeof m === 'string' && m.trim() && m.trim() !== currentOpts.model) : null;
+            if (nextModel && nextModel !== currentOpts.model) {
+              const oldModel = currentOpts.model || 'model';
+              const cleanNext = nextModel.trim();
+              console.warn(`[Model Fallback Ladder] Model ${oldModel} hit quota ceiling. Cascading down priority ladder to backup model: ${cleanNext}...`);
+              window.AppLogger?.log('warn', 'ModelFallback', `Model ${oldModel} hit rate/quota ceiling. Cascading to backup model ${cleanNext} from priority ladder.`);
+              currentOpts.model = cleanNext;
               try {
                 if (typeof localStorage !== 'undefined') {
-                  localStorage.setItem('gemini_model', fallbackModel);
-                  localStorage.setItem('geminiModel', fallbackModel);
+                  if ((currentOpts.provider || 'gemini') === 'gemini') {
+                    localStorage.setItem('gemini_model', cleanNext);
+                    localStorage.setItem('geminiModel', cleanNext);
+                  } else if (currentOpts.provider === 'deepseek') {
+                    localStorage.setItem('deepseek_model', cleanNext);
+                    localStorage.setItem('deepseekModel', cleanNext);
+                  }
                 }
               } catch (e) {}
               if (typeof window !== 'undefined' && window.KeyPool?.clearCooldowns) {

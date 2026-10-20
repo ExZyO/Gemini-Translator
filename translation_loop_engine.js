@@ -1408,6 +1408,7 @@
       epubCleanWebArtifacts: Boolean(options.epubCleanWebArtifacts),
       enableThinking: Boolean(options.enableThinking),
       strictModel: Boolean(strictModel),
+      fallbackModels: options.fallbackModels || (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('fallback_models') || '[]') : []),
       signal: options.signal || null,
       provider,
       libreUrl: options.libreUrl || ''
@@ -1436,6 +1437,7 @@
       enableStreaming: Boolean(options.enableStreaming),
       enableThinking: Boolean(options.enableThinking),
       strictModel: Boolean(strictModel),
+      fallbackModels: options.fallbackModels || (typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem('fallback_models') || '[]') : []),
       contextAware: Boolean(options.contextAware),
       concurrency: Number(options.concurrency) || (typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('gemini_concurrency') || localStorage.getItem('concurrency') || '3', 10) : 3),
       chunkSizePreset: options.chunkSizePreset || (typeof localStorage !== 'undefined' ? (localStorage.getItem('gemini_chunk_size') || localStorage.getItem('chunkSizePreset') || 'turbo') : 'turbo'),

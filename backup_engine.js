@@ -254,7 +254,7 @@
         // Translator Configuration & AI
         'translationProvider', 'geminiModel', 'deepseekModel', 'openaiModel', 'claudeModel',
         'customModel', 'useCustomModel', 'customDeepseekModel', 'useCustomDeepseekModel',
-        'concurrency', 'contextAware', 'chunkSizePreset', 'enableThinking', 'strictModel',
+        'concurrency', 'contextAware', 'chunkSizePreset', 'enableThinking', 'strictModel', 'fallback_models', 'fallbackModels',
         'enableStreaming', 'enableGlossary', 'smartGlossary', 'terminology', 'customInstructions',
         'defaultGlossaryName', 'activeGlossaryId', 'culturalFootnotesEnabled', 'savedGlossaries', 'inputText',
         // EPUB Typography & Export
@@ -315,6 +315,7 @@
         chunkSizePreset: state.chunkSizePreset || localStorage.getItem('chunkSizePreset') || 'turbo',
         enableThinking: state.enableThinking !== undefined ? state.enableThinking : (localStorage.getItem('enableThinking') === 'true'),
         strictModel: state.strictModel !== undefined ? state.strictModel : (localStorage.getItem('strictModel') !== 'false'),
+        fallbackModels: state.fallbackModels || (() => { try { return JSON.parse(localStorage.getItem('fallback_models') || '[]'); } catch (_) { return ['gemini-3.5-flash', 'gemini-3.5-flash-lite']; } })(),
         enableStreaming: state.enableStreaming !== undefined ? state.enableStreaming : (localStorage.getItem('enableStreaming') !== 'false'),
         enableGlossary: state.enableGlossary !== undefined ? state.enableGlossary : (localStorage.getItem('enableGlossary') === 'true'),
         customModel: state.customModel || localStorage.getItem('customModel') || '',
@@ -776,6 +777,7 @@
         if (p.chunkSizePreset && setters.setChunkSizePreset) setters.setChunkSizePreset(p.chunkSizePreset);
         if (p.enableThinking !== undefined && setters.setEnableThinking) setters.setEnableThinking(toBool(p.enableThinking));
         if (p.strictModel !== undefined && setters.setStrictModel) setters.setStrictModel(toBool(p.strictModel));
+        if (p.fallbackModels && setters.setFallbackModels) setters.setFallbackModels(Array.isArray(p.fallbackModels) ? p.fallbackModels : []);
         if (p.enableStreaming !== undefined && setters.setEnableStreaming) setters.setEnableStreaming(toBool(p.enableStreaming));
         if (p.enableGlossary !== undefined && setters.setEnableGlossary) setters.setEnableGlossary(toBool(p.enableGlossary));
         if (p.smartGlossary !== undefined && setters.setSmartGlossary) setters.setSmartGlossary(p.smartGlossary);
@@ -898,6 +900,11 @@
       if (data.strictModel !== undefined) {
         if (setters.setStrictModel) setters.setStrictModel(!!data.strictModel);
         localStorage.setItem('strictModel', String(data.strictModel));
+      }
+
+      if (data.fallbackModels !== undefined) {
+        if (setters.setFallbackModels) setters.setFallbackModels(Array.isArray(data.fallbackModels) ? data.fallbackModels : []);
+        try { localStorage.setItem('fallback_models', JSON.stringify(data.fallbackModels)); } catch (_) {}
       }
 
       if (data.enableStreaming !== undefined) {
@@ -1513,6 +1520,7 @@
         setChunkSizePreset: setters.setChunkSizePreset,
         setEnableThinking: setters.setEnableThinking,
         setStrictModel: setters.setStrictModel,
+        setFallbackModels: setters.setFallbackModels,
         setEnableStreaming: setters.setEnableStreaming,
         setCustomModel: setters.setCustomModel,
         setUseCustomModel: setters.setUseCustomModel,
@@ -1553,6 +1561,7 @@
         chunkSizePreset: state.chunkSizePreset,
         enableThinking: state.enableThinking,
         strictModel: state.strictModel,
+        fallbackModels: state.fallbackModels,
         enableStreaming: state.enableStreaming,
         enableGlossary: state.enableGlossary,
         customModel: state.customModel,

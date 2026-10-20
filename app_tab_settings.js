@@ -81,6 +81,8 @@
       setEnableThinking,
       strictModel,
       setStrictModel,
+      fallbackModels,
+      setFallbackModels,
       concurrency,
       setConcurrency,
       contextAware,
@@ -192,6 +194,59 @@
       DEFAULT_GEMINI_MODELS,
       DEFAULT_DEEPSEEK_MODELS
     } = props;
+
+    const [newFallbackModelText, setNewFallbackModelText] = (React.useState || window.React.useState)('');
+
+    const handleAddFallbackModel = (modelName) => {
+      const clean = (modelName || '').trim();
+      if (!clean) return;
+      const currentList = Array.isArray(fallbackModels) ? fallbackModels : ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+      if (!currentList.includes(clean)) {
+        const updated = [...currentList, clean];
+        if (setFallbackModels) setFallbackModels(updated);
+        try {
+          localStorage.setItem('fallback_models', JSON.stringify(updated));
+          localStorage.setItem('fallbackModels', JSON.stringify(updated));
+        } catch (_) {}
+        toast(`Added ${clean} to fallback ladder.`, 'info');
+      } else {
+        toast(`${clean} is already in the fallback ladder.`, 'info');
+      }
+    };
+
+    const handleRemoveFallbackModel = (idx) => {
+      const currentList = Array.isArray(fallbackModels) ? fallbackModels : ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+      const updated = currentList.filter((_, i) => i !== idx);
+      if (setFallbackModels) setFallbackModels(updated);
+      try {
+        localStorage.setItem('fallback_models', JSON.stringify(updated));
+        localStorage.setItem('fallbackModels', JSON.stringify(updated));
+      } catch (_) {}
+    };
+
+    const handleMoveFallbackModel = (idx, direction) => {
+      const currentList = Array.isArray(fallbackModels) ? [...fallbackModels] : ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= currentList.length) return;
+      const temp = currentList[idx];
+      currentList[idx] = currentList[targetIdx];
+      currentList[targetIdx] = temp;
+      if (setFallbackModels) setFallbackModels(currentList);
+      try {
+        localStorage.setItem('fallback_models', JSON.stringify(currentList));
+        localStorage.setItem('fallbackModels', JSON.stringify(currentList));
+      } catch (_) {}
+    };
+
+    const handleResetFallbackLadder = () => {
+      const defaults = ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+      if (setFallbackModels) setFallbackModels(defaults);
+      try {
+        localStorage.setItem('fallback_models', JSON.stringify(defaults));
+        localStorage.setItem('fallbackModels', JSON.stringify(defaults));
+      } catch (_) {}
+      toast('Reset fallback ladder to defaults.', 'info');
+    };
 
     const SETTINGS_CATEGORIES = [
       { id: 'engine', label: 'Engine & Keys', icon: 'Key' },
@@ -480,6 +535,252 @@
                 switchRow('Typewriter Streaming', enableStreaming, setEnableStreaming),
                 switchRow('Extended Thinking', enableThinking, (v) => { setEnableThinking(v); localStorage.setItem('enableThinking', v); }),
                 switchRow('Strict Model (No Fallbacks)', strictModel, (v) => { setStrictModel(v); localStorage.setItem('strictModel', String(v)); }),
+
+                strictModel && h('div', {
+                  style: {
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    border: '1px solid rgba(99, 102, 241, 0.25)',
+                    borderRadius: 14,
+                    padding: '12px 14px',
+                    margin: '6px 0 10px',
+                    fontSize: 12.5,
+                    color: 'var(--paper-dim)',
+                    lineHeight: 1.45
+                  }
+                },
+                  h('strong', { style: { color: 'var(--iris-light)' } }, 'Model Locked: '),
+                  'Strict Mode is active. Fallback cascading is disabled. If Google free-tier limits are reached, the engine will wait and rotate keys on your chosen model without changing it.'
+                ),
+
+                !strictModel && h('div', {
+                  style: {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                    margin: '10px 0 14px',
+                    padding: '4px 0'
+                  }
+                },
+                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                    h('span', { style: { fontSize: 13, fontWeight: 700, color: 'var(--iris-light)', letterSpacing: '0.04em', textTransform: 'uppercase' } },
+                      'Fallback Priority Ladder'
+                    ),
+                    h('button', {
+                      type: 'button',
+                      onClick: handleResetFallbackLadder,
+                      style: { background: 'none', border: 'none', color: 'var(--slate)', fontSize: 12, fontWeight: 500, cursor: 'pointer', padding: '4px 6px' }
+                    }, 'Reset Defaults')
+                  ),
+                  h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.4 } },
+                    'If your primary model reaches Google free-tier daily quota across all keys, the engine automatically steps down this list in order:'
+                  ),
+                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+                    (Array.isArray(fallbackModels) && fallbackModels.length > 0) ? (
+                      fallbackModels.map((mId, idx) => h('div', {
+                        key: `${mId}_${idx}`,
+                        style: {
+                          background: 'var(--surface, #141724)',
+                          border: '1px solid var(--hairline)',
+                          borderRadius: 16,
+                          padding: '10px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                          minHeight: 56
+                        }
+                      },
+                        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 } },
+                          h('div', {
+                            style: {
+                              width: 28,
+                              height: 28,
+                              borderRadius: 9,
+                              background: 'rgba(99, 102, 241, 0.16)',
+                              border: '1px solid rgba(99, 102, 241, 0.35)',
+                              color: 'var(--iris-light)',
+                              fontFamily: "'IBM Plex Mono', monospace",
+                              fontSize: 12.5,
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flex: 'none'
+                            }
+                          }, idx + 1),
+                          h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 } },
+                            h('span', {
+                              style: {
+                                fontFamily: "'IBM Plex Mono', monospace",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: 'var(--paper)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }
+                            }, mId),
+                            h('span', { style: { fontSize: 11, color: 'var(--slate)' } },
+                              idx === 0 ? '1st Failover Backup' : `${idx + 1}th Priority Backup`
+                            )
+                          )
+                        ),
+                        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flex: 'none' } },
+                          h('button', {
+                            type: 'button',
+                            disabled: idx === 0,
+                            onClick: () => handleMoveFallbackModel(idx, -1),
+                            style: {
+                              width: 40,
+                              height: 40,
+                              borderRadius: 12,
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid var(--hairline)',
+                              color: 'var(--paper-dim)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                              opacity: idx === 0 ? 0.25 : 1
+                            },
+                            'aria-label': 'Move Up'
+                          }, ic('ArrowUp', 16) || '^'),
+                          h('button', {
+                            type: 'button',
+                            disabled: idx === fallbackModels.length - 1,
+                            onClick: () => handleMoveFallbackModel(idx, 1),
+                            style: {
+                              width: 40,
+                              height: 40,
+                              borderRadius: 12,
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid var(--hairline)',
+                              color: 'var(--paper-dim)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: idx === fallbackModels.length - 1 ? 'not-allowed' : 'pointer',
+                              opacity: idx === fallbackModels.length - 1 ? 0.25 : 1
+                            },
+                            'aria-label': 'Move Down'
+                          }, ic('ArrowDown', 16) || 'v'),
+                          h('button', {
+                            type: 'button',
+                            onClick: () => handleRemoveFallbackModel(idx),
+                            style: {
+                              width: 40,
+                              height: 40,
+                              borderRadius: 12,
+                              background: 'rgba(244, 63, 94, 0.08)',
+                              border: '1px solid rgba(244, 63, 94, 0.2)',
+                              color: 'var(--rose, #f43f5e)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer'
+                            },
+                            'aria-label': 'Remove'
+                          }, ic('X', 16) || 'x')
+                        )
+                      ))
+                    ) : h('div', {
+                      style: {
+                        padding: '16px',
+                        textAlign: 'center',
+                        fontSize: 12.5,
+                        color: 'var(--slate)',
+                        border: '1px dashed var(--hairline)',
+                        borderRadius: 16
+                      }
+                    }, 'No backup models in ladder. Tap a quick-add chip below to add one.')
+                  ),
+                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 } },
+                    h('span', { style: { fontSize: 11, fontWeight: 600, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.04em' } },
+                      'Quick Add Standard Models'
+                    ),
+                    h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                      [
+                        { id: 'gemini-3.5-flash', label: '3.5 Flash' },
+                        { id: 'gemini-3.5-flash-lite', label: '3.5 Flash Lite' },
+                        { id: 'gemini-3.6-flash', label: '3.6 Flash' },
+                        { id: 'gemini-3.7-flash', label: '3.7 Flash' },
+                        { id: 'deepseek-chat', label: 'DeepSeek' }
+                      ].map(preset => h('button', {
+                        key: preset.id,
+                        type: 'button',
+                        onClick: () => handleAddFallbackModel(preset.id),
+                        style: {
+                          background: 'var(--surface, #141724)',
+                          border: '1px solid var(--hairline)',
+                          borderRadius: 12,
+                          padding: '8px 14px',
+                          fontSize: 12.5,
+                          fontWeight: 500,
+                          color: 'var(--paper)',
+                          cursor: 'pointer',
+                          minHeight: 40,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }
+                      },
+                        h('span', { style: { color: 'var(--iris-light)', fontWeight: 700 } }, '+'),
+                        preset.label
+                      ))
+                    )
+                  ),
+                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 } },
+                    h('span', { style: { fontSize: 11, fontWeight: 600, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.04em' } },
+                      'Or Custom Model Name'
+                    ),
+                    h('div', { style: { display: 'flex', gap: 8 } },
+                      h('input', {
+                        type: 'text',
+                        placeholder: 'e.g. gemini-custom-model',
+                        value: newFallbackModelText,
+                        onChange: e => setNewFallbackModelText(e.target.value),
+                        onKeyDown: e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddFallbackModel(newFallbackModelText);
+                            setNewFallbackModelText('');
+                          }
+                        },
+                        style: {
+                          flex: 1,
+                          height: 48,
+                          background: 'var(--void)',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          borderRadius: 14,
+                          padding: '0 14px',
+                          fontFamily: "'IBM Plex Mono', monospace",
+                          fontSize: 13,
+                          color: 'var(--paper)',
+                          outline: 'none'
+                        }
+                      }),
+                      h('button', {
+                        type: 'button',
+                        onClick: () => {
+                          handleAddFallbackModel(newFallbackModelText);
+                          setNewFallbackModelText('');
+                        },
+                        style: {
+                          height: 48,
+                          padding: '0 18px',
+                          borderRadius: 14,
+                          background: 'var(--iris)',
+                          border: 'none',
+                          color: '#FFFFFF',
+                          fontWeight: 600,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }
+                      }, 'Add Model')
+                    )
+                  )
+                ),
                 switchRow('Context-Aware Memory', contextAware, setContextAware),
                 h('div', { className: 'set-row' },
                   h('span', { className: 'l' }, 'Parallel Streams'),
