@@ -473,75 +473,151 @@ public class NativeAudioService extends Service {
     }
 
     public void pause() {
-        if (mPlayer != null) {
-            mPlayer.pause();
-        }
+        mHandler.post(() -> {
+            try {
+                if (mPlayer != null) {
+                    mPlayer.pause();
+                }
+                updateNotificationAndSession();
+                notifyStateChanged();
+            } catch (Exception e) {
+                Log.e(TAG, "pause error: " + e.getMessage(), e);
+            }
+        });
     }
 
     public void resume() {
-        mResumeOnFocusGain = false;
-        requestNativeAudioFocus();
-        if (mPlayer != null) {
-            mPlayer.play();
-        }
+        mHandler.post(() -> {
+            try {
+                mResumeOnFocusGain = false;
+                requestNativeAudioFocus();
+                if (mPlayer != null) {
+                    mPlayer.play();
+                }
+                updateNotificationAndSession();
+                notifyStateChanged();
+            } catch (Exception e) {
+                Log.e(TAG, "resume error: " + e.getMessage(), e);
+            }
+        });
     }
 
     public void togglePlay() {
-        if (mPlayer == null) return;
-        if (mPlayer.isPlaying()) {
-            pause();
-        } else {
-            resume();
-        }
+        mHandler.post(() -> {
+            try {
+                if (mPlayer == null) return;
+                if (mPlayer.isPlaying()) {
+                    mPlayer.pause();
+                } else {
+                    mResumeOnFocusGain = false;
+                    requestNativeAudioFocus();
+                    mPlayer.play();
+                }
+                updateNotificationAndSession();
+                notifyStateChanged();
+            } catch (Exception e) {
+                Log.e(TAG, "togglePlay error: " + e.getMessage(), e);
+            }
+        });
     }
 
     public void seekTo(long positionMs) {
-        if (mPlayer != null) {
-            mPlayer.seekTo(Math.max(0, positionMs));
-            notifyStateChanged();
-        }
+        mHandler.post(() -> {
+            try {
+                if (mPlayer != null) {
+                    mPlayer.seekTo(Math.max(0, positionMs));
+                }
+                updateNotificationAndSession();
+                notifyStateChanged();
+            } catch (Exception e) {
+                Log.e(TAG, "seekTo error: " + e.getMessage(), e);
+            }
+        });
     }
 
     public void skipBackward5() {
-        if (mPlayer != null) {
-            long target = Math.max(0, mPlayer.getCurrentPosition() - 5000L);
-            seekTo(target);
-        }
+        mHandler.post(() -> {
+            try {
+                if (mPlayer != null) {
+                    long target = Math.max(0, mPlayer.getCurrentPosition() - 5000L);
+                    mPlayer.seekTo(target);
+                }
+                updateNotificationAndSession();
+                notifyStateChanged();
+            } catch (Exception e) {
+                Log.e(TAG, "skipBackward5 error: " + e.getMessage(), e);
+            }
+        });
     }
 
     public void skipForward5() {
-        if (mPlayer != null) {
-            long dur = mPlayer.getDuration();
-            long target = mPlayer.getCurrentPosition() + 5000L;
-            if (dur > 0) target = Math.min(target, dur);
-            seekTo(target);
-        }
+        mHandler.post(() -> {
+            try {
+                if (mPlayer != null) {
+                    long dur = mPlayer.getDuration();
+                    long target = mPlayer.getCurrentPosition() + 5000L;
+                    if (dur > 0) target = Math.min(dur, target);
+                    mPlayer.seekTo(target);
+                }
+                updateNotificationAndSession();
+                notifyStateChanged();
+            } catch (Exception e) {
+                Log.e(TAG, "skipForward5 error: " + e.getMessage(), e);
+            }
+        });
     }
 
     public void skipToNext() {
-        if (sEventListener != null) {
-            sEventListener.onNextRequested();
-        }
+        mHandler.post(() -> {
+            if (sEventListener != null) {
+                sEventListener.onNextRequested();
+            }
+        });
     }
 
     public void skipToPrevious() {
-        if (mPlayer != null && mPlayer.getCurrentPosition() > 3000L) {
-            seekTo(0);
-        } else if (sEventListener != null) {
-            sEventListener.onPreviousRequested();
-        }
+        mHandler.post(() -> {
+            if (mPlayer != null && mPlayer.getCurrentPosition() > 3000L) {
+                seekTo(0);
+            } else if (sEventListener != null) {
+                sEventListener.onPreviousRequested();
+            }
+        });
     }
 
     public void setPlaybackSpeed(float speed) {
-        if (speed <= 0) return;
-        mPlaybackSpeed = speed;
-        if (mPlayer != null) {
-            mPlayer.setPlaybackParameters(new PlaybackParameters(speed));
-        }
+        mHandler.post(() -> {
+            try {
+                if (speed <= 0) return;
+                mPlaybackSpeed = speed;
+                if (mPlayer != null) {
+                    mPlayer.setPlaybackParameters(new PlaybackParameters(speed));
+                }
+                updateNotificationAndSession();
+                notifyStateChanged();
+            } catch (Exception e) {
+                Log.e(TAG, "setPlaybackSpeed error: " + e.getMessage(), e);
+            }
+        });
     }
 
     public void setPlaybackMode(int mode) {
-        mPlaybackMode = mode;
+        mHandler.post(() -> {
+            try {
+                mPlaybackMode = mode;
+                if (mPlayer != null) {
+                    if (mPlaybackMode == MODE_REPEAT_CHAPTER) {
+                        mPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
+                    } else {
+                        mPlayer.setRepeatMode(Player.REPEAT_MODE_OFF);
+                    }
+                }
+                updateNotificationAndSession();
+                notifyStateChanged();
+            } catch (Exception e) {
+                Log.e(TAG, "setPlaybackMode error: " + e.getMessage(), e);
+            }
+        });
     }
 
     private void handleTrackEnded() {

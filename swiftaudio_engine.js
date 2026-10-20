@@ -593,31 +593,25 @@
         }
 
         pause() {
-            if (this._isNativeAndroid() && window.NativeBridge?.pauseNativeAudio) {
-                window.NativeBridge.pauseNativeAudio();
-                this.isPlaying = false;
-                this._savePosition(true);
-                this._notify();
-                return;
-            }
             if (this.audioEl) {
                 try { this.audioEl.pause(); } catch(e) {}
             }
+            if (this.preloadAudioEl) {
+                try { this.preloadAudioEl.pause(); } catch(e) {}
+            }
+            if (this._isNativeAndroid() && window.NativeBridge?.pauseNativeAudio) {
+                try { window.NativeBridge.pauseNativeAudio(); } catch(e) {}
+            }
+            this.isPlaying = false;
             this._savePosition(true);
+            this._notify();
         }
 
         togglePlay() {
-            if (this._isNativeAndroid() && window.NativeBridge?.toggleNativeAudio) {
-                window.NativeBridge.toggleNativeAudio();
-                this.isPlaying = !this.isPlaying;
-                this._notify();
-                return;
-            }
-            if (!this.audioEl) return;
-            if (this.audioEl.paused) {
-                this.play();
-            } else {
+            if (this.isPlaying) {
                 this.pause();
+            } else {
+                this.play();
             }
         }
 
