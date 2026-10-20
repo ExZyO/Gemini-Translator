@@ -281,15 +281,19 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 notificationManager.notify(NOTIFICATION_ID, builder.build());
             }
 
-            // Also update Foreground Service notification if running
-            if (BackgroundWorkerService.isServiceRunning()) {
+            // Also start or update Foreground Service notification so background translations are unstoppable
+            if (ongoing) {
                 try {
-                    Intent updateIntent = new Intent(context, BackgroundWorkerService.class);
-                    updateIntent.setAction(BackgroundWorkerService.ACTION_UPDATE);
-                    updateIntent.putExtra("title", title);
-                    updateIntent.putExtra("message", message);
-                    updateIntent.putExtra("progress", progress);
-                    context.startService(updateIntent);
+                    Intent sIntent = new Intent(context, BackgroundWorkerService.class);
+                    sIntent.setAction(BackgroundWorkerService.isServiceRunning() ? BackgroundWorkerService.ACTION_UPDATE : BackgroundWorkerService.ACTION_START);
+                    sIntent.putExtra("title", title);
+                    sIntent.putExtra("message", message);
+                    sIntent.putExtra("progress", progress);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(sIntent);
+                    } else {
+                        context.startService(sIntent);
+                    }
                 } catch (Exception ignored) {}
             }
 
