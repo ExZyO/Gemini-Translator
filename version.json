@@ -1,9 +1,9 @@
 {
-  "version": "8.21.85",
-  "versionCode": 8496,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.85/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.85/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.85",
-  "releaseDate": "2026-10-18",
-  "releaseNotes": "v8.21.85: 1:1 Apple Music Fullscreen & Frosted-Glass Mini-Bar audio player with 5s skips and conditional chapter jumps, and smooth horizontal scrolling bookshelf filter chips."
+  "version": "8.21.86",
+  "versionCode": 8497,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.86/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.86/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.86",
+  "releaseDate": "2026-10-20",
+  "releaseNotes": "v8.21.86: Native Android Media3 ExoPlayer Audio Engine with 5-button lock screen notification, continuous/repeat/pause playback modes, and automatic audio focus."
 }

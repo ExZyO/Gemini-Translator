@@ -83,6 +83,32 @@ public class MainActivity extends BridgeActivity {
                 MainActivity.this.finish();
             }
         });
+
+        // Handle direct tap from Audio Player notification
+        handleAudioPlayerIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        handleAudioPlayerIntent(intent);
+    }
+
+    private void handleAudioPlayerIntent(android.content.Intent intent) {
+        if (intent != null && "ACTION_OPEN_AUDIO_PLAYER".equals(intent.getAction())) {
+            try {
+                if (bridge != null && bridge.getWebView() != null) {
+                    bridge.getWebView().postDelayed(() -> {
+                        try {
+                            bridge.getWebView().evaluateJavascript(
+                                "window.dispatchEvent(new CustomEvent('open-fullscreen-audio-player'));",
+                                null
+                            );
+                        } catch (Exception ignored) {}
+                    }, 350);
+                }
+            } catch (Exception ignored) {}
+        }
     }
 
     @Override

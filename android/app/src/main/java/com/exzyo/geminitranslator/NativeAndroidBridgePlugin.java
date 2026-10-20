@@ -307,7 +307,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
         try {
             ensureNotificationChannel();
             Context context = getContext();
-            String title = call.getString("title", "Task Finished! 🎉");
+            String title = call.getString("title", "Task Finished!");
             String message = call.getString("message", "Your action has completed.");
 
             Intent launchIntent = new Intent(context, MainActivity.class);
@@ -374,7 +374,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
             boolean notifyDone = call.getBoolean("notifyDone", false);
             if (notifyDone) {
-                String title = call.getString("title", "Book Completed! 🎉");
+                String title = call.getString("title", "Book Completed!");
                 String message = call.getString("message", "Translation completed successfully. Tap to open.");
                 
                 Intent launchIntent = new Intent(context, MainActivity.class);
@@ -739,12 +739,12 @@ public class NativeAndroidBridgePlugin extends Plugin {
         }
 
         int playPauseIcon = lastAudioIsPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
-        String playPauseText = lastAudioIsPlaying ? "Pause ⏸" : "Play ▶";
+        String playPauseText = lastAudioIsPlaying ? "Pause" : "Play";
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             builder.addAction(new Notification.Action.Builder(
                     Icon.createWithResource(context, android.R.drawable.ic_media_previous),
-                    "⏮ Previous", prevPending).build());
+                    "Previous", prevPending).build());
             builder.addAction(new Notification.Action.Builder(
                     Icon.createWithResource(context, android.R.drawable.ic_media_rew),
                     "-5s", rewPending).build());
@@ -756,13 +756,13 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     "+5s", fwdPending).build());
             builder.addAction(new Notification.Action.Builder(
                     Icon.createWithResource(context, android.R.drawable.ic_media_next),
-                    "⏭ Next", nextPending).build());
+                    "Next", nextPending).build());
         } else {
-            builder.addAction(android.R.drawable.ic_media_previous, "⏮ Previous", prevPending);
+            builder.addAction(android.R.drawable.ic_media_previous, "Previous", prevPending);
             builder.addAction(android.R.drawable.ic_media_rew, "-5s", rewPending);
             builder.addAction(playPauseIcon, playPauseText, playPausePending);
             builder.addAction(android.R.drawable.ic_media_ff, "+5s", fwdPending);
-            builder.addAction(android.R.drawable.ic_media_next, "⏭ Next", nextPending);
+            builder.addAction(android.R.drawable.ic_media_next, "Next", nextPending);
         }
 
         Notification notification = builder.build();
@@ -859,6 +859,256 @@ public class NativeAndroidBridgePlugin extends Plugin {
             if (call != null) call.resolve(ret);
         } catch (Exception e) {
             if (call != null) call.reject(e.getMessage());
+        }
+    }
+
+    // =========================================================================
+    // NATIVE EXOPLAYER AUDIO PLAYBACK BRIDGE (Media3)
+    // =========================================================================
+
+    private void ensureNativeAudioListener() {
+        NativeAudioService.setEventListener(new NativeAudioService.AudioEventListener() {
+            @Override
+            public void onPlaybackStateChanged(boolean isPlaying, long positionMs, long durationMs, int trackIndex, boolean isBuffering) {
+                JSObject data = new JSObject();
+                data.put("isPlaying", isPlaying);
+                data.put("positionMs", positionMs);
+                data.put("currentTime", positionMs / 1000.0);
+                data.put("durationMs", durationMs);
+                data.put("duration", durationMs > 0 ? durationMs / 1000.0 : 0.0);
+                data.put("trackIndex", trackIndex);
+                data.put("isBuffering", isBuffering);
+                notifyListeners("nativeAudioState", data);
+            }
+
+            @Override
+            public void onTrackEnded(int trackIndex) {
+                JSObject data = new JSObject();
+                data.put("trackIndex", trackIndex);
+                notifyListeners("nativeAudioTrackEnded", data);
+            }
+
+            @Override
+            public void onNextRequested() {
+                notifyListeners("nativeAudioNext", new JSObject());
+            }
+
+            @Override
+            public void onPreviousRequested() {
+                notifyListeners("nativeAudioPrevious", new JSObject());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void playNativeAudio(PluginCall call) {
+        try {
+            ensureNativeAudioListener();
+            Context context = getContext();
+            if (context == null) {
+                call.reject("Context is null");
+                return;
+            }
+
+            String src = call.getString("src", "");
+            String title = call.getString("title", "Audiobook");
+            String bookTitle = call.getString("bookTitle", "");
+            String author = call.getString("author", "");
+            String cover = call.getString("cover", "");
+            int trackIndex = call.getInt("trackIndex", 0);
+            int totalTracks = call.getInt("totalTracks", 1);
+            Double posSec = call.getDouble("position", 0.0);
+            long positionMs = (posSec != null && posSec > 0) ? (long) (posSec * 1000.0) : 0L;
+            Double speedDouble = call.getDouble("speed", 1.0);
+            float speed = speedDouble != null ? speedDouble.floatValue() : 1.0f;
+            int mode = call.getInt("mode", 0); // 0 = continuous, 1 = repeat_chapter, 2 = pause_at_end
+
+            Intent intent = new Intent(context, NativeAudioService.class);
+            intent.setAction(NativeAudioService.ACTION_PLAY_TRACK);
+            intent.putExtra("src", src);
+            intent.putExtra("title", title);
+            intent.putExtra("bookTitle", bookTitle);
+            intent.putExtra("author", author);
+            intent.putExtra("cover", cover);
+            intent.putExtra("trackIndex", trackIndex);
+            intent.putExtra("totalTracks", totalTracks);
+            intent.putExtra("positionMs", positionMs);
+            intent.putExtra("speed", speed);
+            intent.putExtra("mode", mode);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent);
+            } else {
+                context.startService(intent);
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "playNativeAudio error: " + e.getMessage(), e);
+            call.reject("Native audio error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void pauseNativeAudio(PluginCall call) {
+        try {
+            NativeAudioService service = NativeAudioService.getInstance();
+            if (service != null) {
+                service.pause();
+            } else {
+                Context context = getContext();
+                if (context != null) {
+                    Intent intent = new Intent(context, NativeAudioService.class);
+                    intent.setAction(NativeAudioService.ACTION_PAUSE);
+                    context.startService(intent);
+                }
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void resumeNativeAudio(PluginCall call) {
+        try {
+            NativeAudioService service = NativeAudioService.getInstance();
+            if (service != null) {
+                service.resume();
+            } else {
+                Context context = getContext();
+                if (context != null) {
+                    Intent intent = new Intent(context, NativeAudioService.class);
+                    intent.setAction(NativeAudioService.ACTION_RESUME);
+                    context.startService(intent);
+                }
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void toggleNativeAudio(PluginCall call) {
+        try {
+            NativeAudioService service = NativeAudioService.getInstance();
+            if (service != null) {
+                service.togglePlay();
+            } else {
+                Context context = getContext();
+                if (context != null) {
+                    Intent intent = new Intent(context, NativeAudioService.class);
+                    intent.setAction(NativeAudioService.ACTION_TOGGLE_PLAY);
+                    context.startService(intent);
+                }
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void seekNativeAudio(PluginCall call) {
+        try {
+            Double sec = call.getDouble("position", 0.0);
+            long posMs = (sec != null && sec >= 0) ? (long) (sec * 1000.0) : 0L;
+            NativeAudioService service = NativeAudioService.getInstance();
+            if (service != null) {
+                service.seekTo(posMs);
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void skipBackward5NativeAudio(PluginCall call) {
+        try {
+            NativeAudioService service = NativeAudioService.getInstance();
+            if (service != null) {
+                service.skipBackward5();
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void skipForward5NativeAudio(PluginCall call) {
+        try {
+            NativeAudioService service = NativeAudioService.getInstance();
+            if (service != null) {
+                service.skipForward5();
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void setNativeAudioSpeed(PluginCall call) {
+        try {
+            Double speedDouble = call.getDouble("speed", 1.0);
+            float speed = speedDouble != null ? speedDouble.floatValue() : 1.0f;
+            NativeAudioService service = NativeAudioService.getInstance();
+            if (service != null) {
+                service.setPlaybackSpeed(speed);
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void setNativeAudioMode(PluginCall call) {
+        try {
+            int mode = call.getInt("mode", 0);
+            NativeAudioService service = NativeAudioService.getInstance();
+            if (service != null) {
+                service.setPlaybackMode(mode);
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void stopNativeAudio(PluginCall call) {
+        try {
+            NativeAudioService service = NativeAudioService.getInstance();
+            if (service != null) {
+                service.stopPlaybackAndService();
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(e.getMessage());
         }
     }
 
@@ -1244,14 +1494,14 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
 
                 AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setTitle("🛡️ In-App Browser Verification");
+                builder.setTitle("In-App Browser Verification");
 
                 LinearLayout layout = new LinearLayout(context);
                 layout.setOrientation(LinearLayout.VERTICAL);
                 layout.setPadding(20, 20, 20, 20);
 
                 TextView tvInfo = new TextView(context);
-                tvInfo.setText("Verifying with website... Complete any captcha that appears, then tap '✓ I'm Verified / Continue'.");
+                tvInfo.setText("Verifying with website... Complete any captcha that appears, then tap 'I am Verified / Continue'.");
                 tvInfo.setTextSize(13);
                 layout.addView(tvInfo);
 
@@ -1293,7 +1543,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 final boolean[] resolved = new boolean[]{ false };
 
                 builder.setView(layout);
-                builder.setPositiveButton("✓ I'm Verified / Continue", (d, which) -> {
+                builder.setPositiveButton("I am Verified / Continue", (d, which) -> {
                     if (resolved[0]) return;
                     resolved[0] = true;
                     try {
@@ -1326,7 +1576,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         call.resolve(ret);
                     }
                 });
-                builder.setNeutralButton("Reload 🔄", null);
+                builder.setNeutralButton("Reload", null);
                 builder.setNegativeButton("Cancel", (d, which) -> {
                     if (!resolved[0]) {
                         resolved[0] = true;
@@ -1869,7 +2119,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         if (targetDocUri != null) {
                             out = context.getContentResolver().openOutputStream(targetDocUri, "wt");
                             safSaved = true;
-                            savedPath = "📁 Saved in novel folder: " + fileName;
+                            savedPath = "Saved in novel folder: " + fileName;
                         }
                     } catch (Exception safErr) {
                         Log.e(TAG, "SAF download output failed: " + safErr.getMessage(), safErr);
@@ -3277,7 +3527,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                                 out.flush();
                             }
                             safSaved = true;
-                            savedPath = "📁 Overwritten in custom novel folder: " + fileName;
+                            savedPath = "Overwritten in custom novel folder: " + fileName;
                         }
                     } catch (Exception safErr) {
                         Log.e(TAG, "SAF write failed: " + safErr.getMessage(), safErr);

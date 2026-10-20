@@ -756,6 +756,141 @@
             }
         },
 
+        // ══════════════════════════════════════════════════════════════
+        // NATIVE ANDROID EXOPLAYER (MEDIA3) AUDIO METHODS
+        // ══════════════════════════════════════════════════════════════
+        playNativeAudio: async (options = {}) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.playNativeAudio) {
+                    return await bridge.playNativeAudio({
+                        src: options.src || '',
+                        title: options.title || 'Audiobook',
+                        bookTitle: options.bookTitle || '',
+                        author: options.author || '',
+                        cover: options.cover || '',
+                        trackIndex: options.trackIndex || 0,
+                        totalTracks: options.totalTracks || 1,
+                        position: options.position || 0,
+                        speed: options.speed || 1.0,
+                        mode: typeof options.mode === 'number' ? options.mode : 0
+                    });
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] playNativeAudio error:', e);
+            }
+        },
+
+        pauseNativeAudio: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.pauseNativeAudio) {
+                    return await bridge.pauseNativeAudio();
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] pauseNativeAudio error:', e);
+            }
+        },
+
+        resumeNativeAudio: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.resumeNativeAudio) {
+                    return await bridge.resumeNativeAudio();
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] resumeNativeAudio error:', e);
+            }
+        },
+
+        toggleNativeAudio: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.toggleNativeAudio) {
+                    return await bridge.toggleNativeAudio();
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] toggleNativeAudio error:', e);
+            }
+        },
+
+        seekNativeAudio: async (positionSec) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.seekNativeAudio) {
+                    return await bridge.seekNativeAudio({ position: positionSec });
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] seekNativeAudio error:', e);
+            }
+        },
+
+        skipBackward5NativeAudio: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.skipBackward5NativeAudio) {
+                    return await bridge.skipBackward5NativeAudio();
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] skipBackward5NativeAudio error:', e);
+            }
+        },
+
+        skipForward5NativeAudio: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.skipForward5NativeAudio) {
+                    return await bridge.skipForward5NativeAudio();
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] skipForward5NativeAudio error:', e);
+            }
+        },
+
+        setNativeAudioSpeed: async (speed) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.setNativeAudioSpeed) {
+                    return await bridge.setNativeAudioSpeed({ speed: speed || 1.0 });
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] setNativeAudioSpeed error:', e);
+            }
+        },
+
+        setNativeAudioMode: async (mode) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.setNativeAudioMode) {
+                    return await bridge.setNativeAudioMode({ mode: mode || 0 });
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] setNativeAudioMode error:', e);
+            }
+        },
+
+        stopNativeAudio: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.stopNativeAudio) {
+                    return await bridge.stopNativeAudio();
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] stopNativeAudio error:', e);
+            }
+        },
+
+        addNativeAudioListener: (eventName, callback) => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.addListener) {
+                    return bridge.addListener(eventName, callback);
+                }
+            } catch (e) {
+                console.warn('[NativeBridge] addNativeAudioListener error:', e);
+            }
+        },
+
         chooseFolder: async () => {
             const bridge = getBridge();
             if (bridge && bridge.chooseFolder) {

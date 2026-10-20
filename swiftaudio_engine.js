@@ -214,6 +214,11 @@
             this.currentTime = 0;
             this.duration = 0;
             this.playbackRate = 1.0;
+            this.playbackMode = 'continuous'; // 'continuous', 'repeat_chapter', 'pause_at_end'
+            try {
+                const savedMode = localStorage.getItem('gemini_audio_playback_mode');
+                if (savedMode) this.playbackMode = savedMode;
+            } catch(e) {}
 
             // Sleep Timer
             this.sleepTimerMinutes = null;
@@ -254,6 +259,7 @@
                 sleepTimerMinutes: this.sleepTimerMinutes,
                 sleepTimerRemainingSeconds: this.sleepTimerRemainingSeconds,
                 sleepAtEndOfChapter: this.sleepAtEndOfChapter,
+                playbackMode: this.playbackMode,
                 isLoaded: !!this.currentBook
             };
         }
@@ -314,6 +320,38 @@
 
             this._bindAudioEvents(this.audioEl);
             this._bindAudioEvents(this.preloadAudioEl);
+
+            // Native Android ExoPlayer event listener
+            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+                window.NativeBridge.addNativeAudioListener('nativeAudioState', (data) => {
+                    if (!data) return;
+                    this.isPlaying = !!data.isPlaying;
+                    if (typeof data.currentTime === 'number') this.currentTime = data.currentTime;
+                    if (typeof data.duration === 'number' && data.duration > 0) this.duration = data.duration;
+                    this._savePosition(false);
+                    this._notify();
+                });
+
+                window.NativeBridge.addNativeAudioListener('nativeAudioTrackEnded', () => {
+                    if (this.playbackMode === 'repeat_chapter') {
+                        this.seekTo(0);
+                        this.play();
+                    } else if (this.playbackMode === 'pause_at_end') {
+                        this.pause();
+                        this.seekTo(0);
+                    } else {
+                        this.nextTrack();
+                    }
+                });
+
+                window.NativeBridge.addNativeAudioListener('nativeAudioNext', () => {
+                    this.nextTrack();
+                });
+
+                window.NativeBridge.addNativeAudioListener('nativeAudioPrevious', () => {
+                    this.previousTrack();
+                });
+            }
         }
 
         _bindAudioEvents(el) {
@@ -389,7 +427,10 @@
                 if (el !== this.audioEl) return;
                 if (this.sleepAtEndOfChapter) {
                     this.pause();
-                    this.clearSleepTimer();
+                    if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+                try { window.NativeBridge.stopNativeAudio(); } catch(e) {}
+            }
+            this.clearSleepTimer();
                     if (window.toast) window.toast('Sleep timer: Finished chapter playback.', 'info');
                     return;
                 }
@@ -440,6 +481,27 @@
         _playSource(src, autoPlay = true, seekTime = 0) {
             this._hasPreloadedNext = false;
             this.currentTime = seekTime || 0;
+
+            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+                const track = this.currentBook?.tracks?.[this.currentTrackIndex];
+                const modeInt = this.playbackMode === 'repeat_chapter' ? 1 : (this.playbackMode === 'pause_at_end' ? 2 : 0);
+                window.NativeBridge.playNativeAudio({
+                    src: src,
+                    title: track?.title || this.currentBook?.title || 'Audiobook',
+                    bookTitle: this.currentBook?.title || '',
+                    author: this.currentBook?.author || '',
+                    cover: this.currentBook?.cover || '',
+                    trackIndex: this.currentTrackIndex,
+                    totalTracks: this.currentBook?.tracks?.length || 1,
+                    position: seekTime || 0,
+                    speed: this.playbackRate || 1.0,
+                    mode: modeInt
+                });
+                this.isPlaying = true;
+                this._savePosition(true);
+                this._notify();
+                return;
+            }
 
             // Zero-gap switch: If preloadAudioEl already has this exact src buffered with readyState >= 2 (HAVE_CURRENT_DATA)
             if (seekTime === 0 && this.preloadAudioEl && this.preloadAudioEl.src === src && this.preloadAudioEl.readyState >= 2) {
@@ -499,6 +561,12 @@
         }
 
         play() {
+            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+                window.NativeBridge.resumeNativeAudio();
+                this.isPlaying = true;
+                this._notify();
+                return;
+            }
             if (!this.audioEl) return;
             try {
                 this.audioEl.volume = 1.0; // Immediate full volume with no fading
@@ -517,6 +585,13 @@
         }
 
         pause() {
+            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+                window.NativeBridge.pauseNativeAudio();
+                this.isPlaying = false;
+                this._savePosition(true);
+                this._notify();
+                return;
+            }
             if (this.audioEl) {
                 try { this.audioEl.pause(); } catch(e) {}
             }
@@ -524,6 +599,12 @@
         }
 
         togglePlay() {
+            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+                window.NativeBridge.toggleNativeAudio();
+                this.isPlaying = !this.isPlaying;
+                this._notify();
+                return;
+            }
             if (!this.audioEl) return;
             if (this.audioEl.paused) {
                 this.play();
@@ -598,6 +679,13 @@
 
         seekTo(seconds) {
             if (typeof seconds !== 'number' || isNaN(seconds)) return;
+            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+                window.NativeBridge.seekNativeAudio(seconds);
+                this.currentTime = seconds;
+                this._savePosition(true);
+                this._notify();
+                return;
+            }
             if (this.audioEl) {
                 const target = Math.max(0, Math.min(seconds, this.duration || Infinity));
                 this.audioEl.currentTime = target;
@@ -642,6 +730,27 @@
                 }
                 return { success: false, error: 'Poweramp is only available on Android native app.' };
             }
+        }
+
+        cyclePlaybackMode() {
+            if (this.playbackMode === 'continuous') {
+                this.playbackMode = 'repeat_chapter';
+                if (window.toast) window.toast('Repeat Chapter mode', 'info');
+            } else if (this.playbackMode === 'repeat_chapter') {
+                this.playbackMode = 'pause_at_end';
+                if (window.toast) window.toast('Pause at end of chapter', 'info');
+            } else {
+                this.playbackMode = 'continuous';
+                if (window.toast) window.toast('Continuous playback', 'info');
+            }
+            try {
+                localStorage.setItem('gemini_audio_playback_mode', this.playbackMode);
+            } catch(e) {}
+            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+                const modeInt = this.playbackMode === 'repeat_chapter' ? 1 : (this.playbackMode === 'pause_at_end' ? 2 : 0);
+                window.NativeBridge.setNativeAudioMode(modeInt);
+            }
+            this._notify();
         }
 
         setPlaybackRate(rate) {

@@ -45,6 +45,14 @@
     const [scrubTime, setScrubTime] = (ReactComp?.useState || window.React?.useState)(null);
     const [isChapterQueueOpen, setIsChapterQueueOpen] = (ReactComp?.useState || window.React?.useState)(false);
 
+    (ReactComp?.useEffect || window.React?.useEffect)(() => {
+      const handleOpen = () => {
+        if (setIsFullPlayerOpen) setIsFullPlayerOpen(true);
+      };
+      window.addEventListener('open-fullscreen-audio-player', handleOpen);
+      return () => window.removeEventListener('open-fullscreen-audio-player', handleOpen);
+    }, [setIsFullPlayerOpen]);
+
     const hasMini = !!(audioPlayerState?.currentBook);
     const hasFull = !!(isFullPlayerOpen && audioPlayerState?.currentBook);
     const hasBgDl = !!(audioDownloadModal?.active && audioDownloadModal?.isMinimized);
@@ -825,6 +833,28 @@
               audioPlayerState?.sleepTimerRemainingSeconds > 0
                 ? window.SwiftAudioEngine?.formatDuration(audioPlayerState.sleepTimerRemainingSeconds)
                 : 'Sleep Off'
+            ),
+
+            // Playback Mode Pill (Continuous, Repeat Chapter, Stop at End)
+            h('button', {
+              type: 'button',
+              style: {
+                padding: '5px 12px',
+                borderRadius: 99,
+                background: audioPlayerState?.playbackMode === 'repeat_chapter' ? 'rgba(99, 102, 241, 0.30)' : 'rgba(255, 255, 255, 0.10)',
+                border: audioPlayerState?.playbackMode === 'repeat_chapter' ? '1px solid rgba(99, 102, 241, 0.55)' : '1px solid rgba(255, 255, 255, 0.15)',
+                color: audioPlayerState?.playbackMode === 'repeat_chapter' ? '#a5b4fc' : '#cbd5e1',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                fontWeight: 600,
+                cursor: 'pointer'
+              },
+              title: 'Playback Mode (Continuous, Repeat Chapter, Stop at End)',
+              onClick: () => window.SwiftAudioEngine?.Player?.cyclePlaybackMode?.()
+            },
+              ic(audioPlayerState?.playbackMode === 'repeat_chapter' ? 'Repeat1' : (audioPlayerState?.playbackMode === 'pause_at_end' ? 'Square' : 'Repeat'), 13),
+              audioPlayerState?.playbackMode === 'repeat_chapter' ? 'Repeat Ch' : (audioPlayerState?.playbackMode === 'pause_at_end' ? 'Stop at End' : 'Continuous')
             ),
 
             // Chapters Queue Drawer Trigger
