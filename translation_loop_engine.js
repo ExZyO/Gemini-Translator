@@ -683,179 +683,74 @@
       callbacks.onProgressLabel(`Translating ${chapterItems.length} chapter(s) with ${Math.min(effectiveConcurrency, chapterItems.length)} parallel multi-key stream(s)${useContext ? ' (intra-chapter context)' : ''}...`);
     }
 
-    let batchResults = [];
-    try {
-      batchResults = await batchParallel(chapterItems, async ({ ch, idx: i }, itemIdx, workerId = 0) => {
-      const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
-      const workerOpts = { ...opts, apiKey: workerKey, availableKeys, isParallelWorker: effectiveConcurrency > 1 };
-      let title = ch?.title || '';
+    // ── Earliest-Unattended In-Order Chunk Pipeline ──
+    // Flatten all pending tasks (titles and chunks) across chapters in strict reading order.
+    // Parallel workers continuously acquire the next available task in sequence,
+    // ensuring zero stream idle time and strictly contiguous chapter completion.
+    const chapterTrackers = new Map();
+    const allTasks = [];
+
+    for (const { ch, idx: i } of chapterItems) {
+      let rawTitle = ch?.title || '';
+      const hasCjk = /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(rawTitle);
+      const isTitleAlreadyTranslated = Boolean(resume && newChapters[i]?.title && !hasCjk);
       const chunks = ch?.chunks || [];
-      let chapterCtx = '';
 
-      // 1. Translate title if needed (cached so duplicate chapter titles match exactly)
-      if (title && String(title).trim()) {
-        if (!(resume && newChapters[i]?.title)) {
-          if (translatedTitleCache.has(title)) {
-            title = translatedTitleCache.get(title);
-          } else {
-            try {
-              const hasCjk = /[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/.test(title);
-              if (!hasCjk) {
-                translatedTitleCache.set(title, title.trim());
-              } else {
-                const titleWorkerOpts = {
-                  ...workerOpts,
-                  context: undefined,
-                  needContextUpdate: false,
-                  glossary: '', // Titles are 1-10 words; omitting huge story glossary saves ~2,100 tokens per title!
-                  smartGlossary: false,
-                  instructions: 'Translate this novel chapter title accurately and concisely into English. Output ONLY the translated title, without quotes or markdown formatting.'
-                };
-                const tRes = await safeTranslateWithRotation(title, titleWorkerOpts);
-                const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
-                if (trans && trans.trim()) {
-                  const cleanT = (typeof window !== 'undefined' && window.sanitizeChapterTitle) ? window.sanitizeChapterTitle(trans.trim()) : trans.trim();
-                  translatedTitleCache.set(title, cleanT);
-                  title = cleanT;
-                }
-                if (tRes?.usage) {
-                  totalPromptTokens += tRes.usage.promptTokens || 0;
-                  totalOutputTokens += tRes.usage.outputTokens || 0;
-                  totalTokensUsed += tRes.usage.totalTokens || 0;
-                  if (tRes.usage.breakdown) {
-                    accumulatedBreakdown.sourceTokens += tRes.usage.breakdown.sourceTokens || 0;
-                    accumulatedBreakdown.glossaryTokens += tRes.usage.breakdown.glossaryTokens || 0;
-                    accumulatedBreakdown.genderTokens += tRes.usage.breakdown.genderTokens || 0;
-                    accumulatedBreakdown.contextTokens += tRes.usage.breakdown.contextTokens || 0;
-                    accumulatedBreakdown.systemTokens += tRes.usage.breakdown.systemTokens || 0;
-                  }
-                }
-              }
-            } catch (e) {
-              console.warn('Title translation failed, keeping original title for now:', e.message);
-            }
-          }
-          done++;
-          const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
-          if (callbacks.onProgress) callbacks.onProgress(curPct);
-          if (typeof window !== 'undefined' && window.NativeBridge) {
-            window.NativeBridge.showProgressNotification?.(
-              `Gemini Translator (${curPct}%)`,
-              `Ch. ${i + 1}/${chapters.length}: Title standardized`,
-              curPct,
-              true
-            );
-          }
-        } else {
-          title = newChapters[i]?.title || ch?.title || `Chapter ${i + 1}`;
-        }
+      let cachedT = '';
+      if (rawTitle && translatedTitleCache.has(rawTitle)) {
+        cachedT = translatedTitleCache.get(rawTitle);
+      } else if (!hasCjk && rawTitle) {
+        cachedT = rawTitle.trim();
+        translatedTitleCache.set(rawTitle, cachedT);
       }
 
-      // 2. Translate Chunks with Intra-Chapter Context Pipeline
-      const parts = [];
+      const needsTitleTask = Boolean(rawTitle && hasCjk && !isTitleAlreadyTranslated && !cachedT);
+
+      const tracker = {
+        idx: i,
+        ch,
+        title: cachedT || (isTitleAlreadyTranslated ? newChapters[i].title : (rawTitle || `Chapter ${i + 1}`)),
+        origTitle: chapters[i]?.originalTitle || chapters[i]?.title || ch?.title || `Chapter ${i + 1}`,
+        needsTitleTask,
+        titleDone: !needsTitleTask,
+        totalChunks: Math.max(1, chunks.length),
+        completedChunks: 0,
+        parts: new Array(Math.max(1, chunks.length)),
+        isFinalized: false,
+        chapterCtx: ''
+      };
+      chapterTrackers.set(i, tracker);
+
+      if (needsTitleTask) {
+        allTasks.push({
+          type: 'title',
+          chapterIdx: i,
+          text: rawTitle,
+          origTitle: tracker.origTitle
+        });
+      }
+
       for (let j = 0; j < chunks.length; j++) {
-        if (callbacks.onProgressLabel) {
-          callbacks.onProgressLabel(`Chapter ${i + 1}/${chapters.length}: chunk ${j + 1}/${chunks.length}${useContext ? ' (intra-context)' : ''}...`);
-        }
-        if (typeof window !== 'undefined' && window.AppLogger) {
-          window.AppLogger.log('info', 'Translator', `Translating Chapter ${i + 1}/${chapters.length} · Chunk ${j + 1}/${chunks.length} (${chunks[j].text.length} chars)`);
-        }
-        let translatedText = '';
-        const isLastChunk = j === chunks.length - 1;
-        const hasIncomingContext = Boolean(chapterCtx && chapterCtx.trim());
-        const shouldPassContext = useContext && (hasIncomingContext || j > 0);
-        const shouldRequestUpdate = useContext && !isLastChunk;
-        try {
-          const translated = await safeTranslateWithRotation(chunks[j].text, {
-            ...workerOpts,
-            context: shouldPassContext ? chapterCtx : undefined,
-            needContextUpdate: shouldRequestUpdate
-          });
-          translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
-          if (typeof window !== 'undefined' && window.AppLogger) {
-            window.AppLogger.log('info', 'Translator', `Completed Chapter ${i + 1} Chunk ${j + 1}/${chunks.length} (${translatedText.length} chars output)`);
-          }
-          if (useContext && translated?.newContext) {
-            chapterCtx = translated.newContext;
-          }
-          if (translated?.usage) {
-            totalPromptTokens += translated.usage.promptTokens || 0;
-            totalOutputTokens += translated.usage.outputTokens || 0;
-            totalTokensUsed += translated.usage.totalTokens || 0;
-            if (translated.usage.breakdown) {
-              accumulatedBreakdown.sourceTokens += translated.usage.breakdown.sourceTokens || 0;
-              accumulatedBreakdown.glossaryTokens += translated.usage.breakdown.glossaryTokens || 0;
-              accumulatedBreakdown.genderTokens += translated.usage.breakdown.genderTokens || 0;
-              accumulatedBreakdown.contextTokens += translated.usage.breakdown.contextTokens || 0;
-              accumulatedBreakdown.systemTokens += translated.usage.breakdown.systemTokens || 0;
-            }
-          }
-        } catch (e) {
-          if (e.name === 'AbortError' || opts?.signal?.aborted) throw e;
-          if (typeof window !== 'undefined' && window.AppLogger) {
-            window.AppLogger.log('error', 'Translator', `Chapter ${i + 1} Chunk ${j + 1}/${chunks.length} failed: ${e.message}`);
-          }
-          const msg = e.message || '';
-          const isFatalQuota = msg.includes('429') || msg.includes('quota') || msg.includes('billing');
-          if (isFatalQuota) {
-            throw new Error(`API Quota exhausted across keys. Switch model to Gemini 3.5 Flash Lite in Settings · Engine. Progress saved at chapter ${i + 1}.`);
-          }
-          const isForbidden = msg.includes('403') || msg.includes('denied access') || msg.includes('PERMISSION_DENIED');
-          if (isForbidden) {
-            throw new Error(`Gemini Key Denied (403): Google blocked access to this project/key ("Your project has been denied access"). Add a fresh key in Settings · Engine and tap Resume. Progress saved at chapter ${i + 1}.`);
-          }
-          if (opts?.strictModel) {
-            const cleanErr = (e.message || '').replace(/\.+$/, '');
-            throw new Error(`Strict Model: Failed translating chunk ${j + 1}/${chunks.length} of "${title || `Chapter ${i + 1}`}": ${cleanErr}. Progress safely saved. Tap Resume to retry.`);
-          }
-          // When strictModel is OFF, attempt one fresh-key fallback before writing error placeholder
-          let recovered = false;
-          try {
-            const KeyPool = getKeyPool();
-            const fallbackLeased = (availableKeys.length > 1) ? await KeyPool.acquireKey(availableKeys) : null;
-            const fallbackOpts = { ...workerOpts, apiKey: fallbackLeased || workerOpts.apiKey, context: undefined, needContextUpdate: false };
-            const recRes = await safeTranslateWithRotation(chunks[j].text, fallbackOpts);
-            if (fallbackLeased) KeyPool.releaseKey(fallbackLeased);
-            const recText = (recRes && typeof recRes === 'object') ? (recRes.text || '') : (typeof recRes === 'string' ? recRes : '');
-            if (recText && recText.trim()) {
-              translatedText = recText;
-              recovered = true;
-            }
-          } catch (recErr) {
-            console.warn(`Chunk fallback recovery failed: ${recErr.message}`);
-          }
-          if (!recovered) {
-            translatedText = `\n\n[Error: ${e.message}]\n\n`;
-          }
-        }
-        parts.push(translatedText);
-
-        // Live update output box throttled or on chapter completion
-        allParts[i] = `${title}\n\n${parts.join('\n\n')}`;
-        const nowTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-        if (nowTime - lastUiAssembledUpdate > 2500 || j === chunks.length - 1) {
-          lastUiAssembledUpdate = nowTime;
-          const liveText = allParts.filter(Boolean).join('\n\n\n').trim();
-          if (callbacks.onLiveTextUpdate) {
-            callbacks.onLiveTextUpdate(liveText);
-          }
-        }
-
-        done++;
-        const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
-        if (callbacks.onProgress) callbacks.onProgress(curPct);
-        const chTitleClean = (title || `Chapter ${i + 1}`).trim().slice(0, 30);
-        if (typeof window !== 'undefined' && window.NativeBridge) {
-          window.NativeBridge.showProgressNotification?.(
-            `Gemini Translator (${curPct}%)`,
-            `Ch. ${i + 1}/${chapters.length} (chunk ${j + 1}/${chunks.length}) • ${chTitleClean}`,
-            curPct,
-            true
-          );
-        }
+        allTasks.push({
+          type: 'chunk',
+          chapterIdx: i,
+          chunkIdx: j,
+          totalChunks: chunks.length,
+          text: chunks[j].text,
+          ch
+        });
       }
+    }
 
-      let content = safeCleanNovelProse(safeStripContextLeak(parts.join('\n\n')).replace(/\r\n/g, '\n')).trim();
+    const finalizeChapter = async (tracker) => {
+      if (tracker.isFinalized) return;
+      tracker.isFinalized = true;
+
+      const i = tracker.idx;
+      const ch = tracker.ch;
+      const title = tracker.title || tracker.origTitle || `Chapter ${i + 1}`;
+      const rawCombined = tracker.parts.filter(Boolean).join('\n\n');
+      let content = safeCleanNovelProse(safeStripContextLeak(rawCombined).replace(/\r\n/g, '\n')).trim();
       const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
       if (typeof stripFn === 'function' && title) {
         content = stripFn(content, title, chapters[i]?.title);
@@ -872,20 +767,11 @@
           hasLoop: loopCheck.hasLoop,
           loopPhrase: loopCheck.phrase || null
         });
-        if (refCheck.hasRefusal) {
-          console.warn(`[Anti-MTL Gate] Chapter ${i + 1}:`, refCheck.matchedText);
-          if (callbacks.onToast) callbacks.onToast(`Anti-MTL Gate: ${refCheck.patternName} detected in Ch. ${i + 1}`, 'warning');
-        } else if (loopCheck.hasLoop) {
-          console.warn(`[QA Proofreader] Chapter ${i + 1}:`, loopCheck.phrase);
-          if (callbacks.onToast) callbacks.onToast(`QA Proofreader: Repetition loop detected in Ch. ${i + 1}`, 'warning');
-        }
       }
 
       let docHtml = null;
-      if (isEpub && ch.doc) {
+      if (isEpub && ch?.doc) {
         if (title && ch.doc.querySelector('title')) ch.doc.querySelector('title').textContent = title;
-        
-        // Support DOM Node replacement if DOM nodes exist, or format clean HTML paragraphs
         if (config.domNodeTranslation && ch.doc.body) {
           const textNodes = extractTextNodes(ch.doc.body);
           if (textNodes.length > 0) {
@@ -895,7 +781,6 @@
             }
           }
         } else {
-          // Format clean HTML paragraphs into the EPUB chapter body
           const lines = content.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
           if (lines.length > 0) {
             const titleHeading = (title && !isGenericTitle(title)) ? `<h2>${escapeXml(title)}</h2>\n` : '';
@@ -909,7 +794,6 @@
             ch.doc.body.innerHTML = `${titleHeading}${bodyParagraphs}`;
           }
         }
-        
         docHtml = ch.doc.documentElement.outerHTML;
         if (originalZip && ch.zipPath) originalZip.file(ch.zipPath, docHtml);
       }
@@ -920,21 +804,133 @@
         window.TMDiffEngine.Snapshots.createSnapshot({
           novelId: novelKey,
           chapterIdx: i,
-          chapterTitle: title || chapters[i]?.title || `Chapter ${i + 1}`,
+          chapterTitle: title,
           text: content,
-          model: workerOpts?.model || config.model || 'Gemini'
-        }).catch(e => console.warn('[Snapshots] Auto-save error:', e));
+          model: config.model || 'Gemini'
+        }).catch(() => {});
       }
 
-      const origTitle = chapters[i]?.originalTitle || chapters[i]?.title || ch?.title || `Chapter ${i + 1}`;
-      newChapters[i] = { originalTitle: origTitle, title: title || origTitle, content, zipPath: ch?.zipPath, docHtml, isTranslated: true };
+      newChapters[i] = { originalTitle: tracker.origTitle, title, content, zipPath: ch?.zipPath, docHtml, isTranslated: true };
       allParts[i] = `${title}\n\n${content}`;
-      
+
       if (callbacks.onChapterComplete) {
         callbacks.onChapterComplete(i, newChapters[i], [...newChapters], allParts);
       }
-      await saveState(chapterCtx, done, i + 1, 0, allParts, newChapters);
-    }, effectiveConcurrency, opts.signal);
+      await saveState(tracker.chapterCtx || '', done, i + 1, 0, allParts, newChapters);
+    };
+
+    let batchResults = [];
+    try {
+      batchResults = await batchParallel(allTasks, async (task, taskIdx, workerId = 0) => {
+        const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
+        const workerOpts = { ...opts, apiKey: workerKey, availableKeys, isParallelWorker: effectiveConcurrency > 1 };
+        const tracker = chapterTrackers.get(task.chapterIdx);
+
+        if (task.type === 'title') {
+          try {
+            const titleWorkerOpts = {
+              ...workerOpts,
+              context: undefined,
+              needContextUpdate: false,
+              glossary: '',
+              smartGlossary: false,
+              instructions: 'Translate this novel chapter title accurately and concisely into English. Output ONLY the translated title, without quotes or markdown formatting.'
+            };
+            const tRes = await safeTranslateWithRotation(task.text, titleWorkerOpts);
+            const trans = (tRes && typeof tRes === 'object') ? (tRes.text || '') : (typeof tRes === 'string' ? tRes : '');
+            if (trans && trans.trim()) {
+              const cleanT = (typeof window !== 'undefined' && window.sanitizeChapterTitle) ? window.sanitizeChapterTitle(trans.trim()) : trans.trim();
+              translatedTitleCache.set(task.text, cleanT);
+              tracker.title = cleanT;
+            }
+            if (tRes?.usage) {
+              totalPromptTokens += tRes.usage.promptTokens || 0;
+              totalOutputTokens += tRes.usage.outputTokens || 0;
+              totalTokensUsed += tRes.usage.totalTokens || 0;
+            }
+          } catch (tErr) {
+            console.warn('Title translation failed, keeping original title for now:', tErr.message);
+          }
+          tracker.titleDone = true;
+          done++;
+          const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
+          if (callbacks.onProgress) callbacks.onProgress(curPct);
+          if (tracker.completedChunks >= tracker.totalChunks && !tracker.isFinalized) {
+            await finalizeChapter(tracker);
+          }
+          return { text: tracker.title };
+        }
+
+        // Chunk Task
+        const i = task.chapterIdx;
+        const j = task.chunkIdx;
+        const totalChChunks = task.totalChunks;
+        if (callbacks.onProgressLabel) {
+          callbacks.onProgressLabel(`Chapter ${i + 1}/${chapters.length} (part ${j + 1}/${totalChChunks})...`);
+        }
+        if (typeof window !== 'undefined' && window.AppLogger) {
+          window.AppLogger.log('info', 'Translator', `Translating Chapter ${i + 1}/${chapters.length} · Chunk ${j + 1}/${totalChChunks} (${task.text.length} chars)`);
+        }
+
+        let translatedText = '';
+        try {
+          const translated = await safeTranslateWithRotation(task.text, workerOpts);
+          translatedText = (translated && typeof translated === 'object') ? (translated.text || '') : (typeof translated === 'string' ? translated : '');
+          if (typeof window !== 'undefined' && window.AppLogger) {
+            window.AppLogger.log('info', 'Translator', `Completed Chapter ${i + 1} Chunk ${j + 1}/${totalChChunks} (${translatedText.length} chars output)`);
+          }
+          if (translated?.usage) {
+            totalPromptTokens += translated.usage.promptTokens || 0;
+            totalOutputTokens += translated.usage.outputTokens || 0;
+            totalTokensUsed += translated.usage.totalTokens || 0;
+          }
+        } catch (e) {
+          if (e.name === 'AbortError' || opts?.signal?.aborted) throw e;
+          if (typeof window !== 'undefined' && window.AppLogger) {
+            window.AppLogger.log('error', 'Translator', `Chapter ${i + 1} Chunk ${j + 1}/${totalChChunks} failed: ${e.message}`);
+          }
+          const msg = e.message || '';
+          if (msg.includes('429') || msg.includes('quota') || msg.includes('billing')) {
+            throw new Error(`API Quota exhausted across keys. Switch model to Gemini 3.5 Flash Lite in Settings · Engine. Progress saved at chapter ${i + 1}.`);
+          }
+          if (msg.includes('403') || msg.includes('denied access') || msg.includes('PERMISSION_DENIED')) {
+            throw new Error(`Gemini Key Denied (403): Google blocked access to this project/key. Add a fresh key in Settings · Engine and tap Resume. Progress saved at chapter ${i + 1}.`);
+          }
+          if (opts?.strictModel) {
+            throw new Error(`Strict Model: Failed translating chunk ${j + 1}/${totalChChunks} of Ch. ${i + 1}: ${msg}. Progress saved.`);
+          }
+          translatedText = `\n\n[Error: ${e.message}]\n\n`;
+        }
+
+        tracker.parts[j] = translatedText;
+        tracker.completedChunks++;
+
+        done++;
+        const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
+        if (callbacks.onProgress) callbacks.onProgress(curPct);
+
+        const nowTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        if (nowTime - lastUiAssembledUpdate > 2500) {
+          lastUiAssembledUpdate = nowTime;
+          const liveText = allParts.filter(Boolean).join('\n\n\n').trim();
+          if (callbacks.onLiveTextUpdate) callbacks.onLiveTextUpdate(liveText);
+        }
+
+        if (typeof window !== 'undefined' && window.NativeBridge) {
+          window.NativeBridge.showProgressNotification?.(
+            `Gemini Translator (${curPct}%)`,
+            `Ch. ${i + 1}/${chapters.length} (part ${j + 1}/${totalChChunks})`,
+            curPct,
+            true
+          );
+        }
+
+        if (tracker.completedChunks >= tracker.totalChunks && tracker.titleDone && !tracker.isFinalized) {
+          await finalizeChapter(tracker);
+        }
+
+        return { text: translatedText };
+      }, effectiveConcurrency, opts.signal);
     } catch (batchErr) {
       if (batchErr.name !== 'AbortError' && !opts.signal?.aborted) throw batchErr;
       console.log('[translateEbook] Stopped early by user. Staging and retaining all completed chapters...');

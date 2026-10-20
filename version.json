@@ -1,9 +1,9 @@
 {
-  "version": "8.21.91",
-  "versionCode": 8502,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.91/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.91/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.91",
+  "version": "8.21.92",
+  "versionCode": 8503,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.92/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.92/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.92",
   "releaseDate": "2026-10-20",
-  "releaseNotes": "v8.21.91: Lofter Power Suite — Account Session Vault for member chapters, chronological Tag & Collection crawler, and native Android Share Target receiver."
+  "releaseNotes": "v8.21.92: In-Order Parallel Chunk Stream Pipeline for multi-stream ebook translation with contiguous chapter completion."
 }
