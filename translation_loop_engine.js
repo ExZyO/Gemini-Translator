@@ -2531,13 +2531,18 @@
         let curBlock = null;
         paragraphs.forEach((p, idx) => {
           const rawSrcP = rawParagraphs[idx] || null;
-          const isProblem = detectUntranslated ? detectUntranslated(p, rawSrcP, targetLanguage) : (/[\u3040-\u9fff\uac00-\ud7af]/.test(p) || /\[Error:.*?\]/i.test(p));
+          const pIsRefusal = (typeof isAiRefusal === 'function' ? isAiRefusal(p) : false);
+          const isProblem = pIsRefusal || (detectUntranslated ? detectUntranslated(p, rawSrcP, targetLanguage) : (/[\u3040-\u9fff\uac00-\ud7af]/.test(p) || /\[Error:.*?\]/i.test(p)));
           if (isProblem) {
+            const hasRawSource = rawSrcP && typeof rawSrcP === 'string' && rawSrcP.trim().length > 0 && !isAiRefusal(rawSrcP);
+            const textToUse = hasRawSource ? rawSrcP : p;
+            const isPurge = pIsRefusal && !hasRawSource;
             if (!curBlock) {
-              curBlock = { startIdx: idx, endIdx: idx, texts: [p] };
+              curBlock = { startIdx: idx, endIdx: idx, texts: [textToUse], isPurgeOnly: isPurge };
             } else {
               curBlock.endIdx = idx;
-              curBlock.texts.push(p);
+              curBlock.texts.push(textToUse);
+              if (!isPurge) curBlock.isPurgeOnly = false;
             }
           } else {
             if (curBlock) {
@@ -2561,7 +2566,7 @@
           } else {
             for (let i = 0; i < b.texts.length; i += 10) {
               const slice = b.texts.slice(i, i + 10);
-              safeBlocks.push({ startIdx: b.startIdx + i, endIdx: b.startIdx + i + slice.length - 1, texts: slice });
+              safeBlocks.push({ startIdx: b.startIdx + i, endIdx: b.startIdx + i + slice.length - 1, texts: slice, isPurgeOnly: b.isPurgeOnly });
             }
           }
         });
@@ -2596,17 +2601,21 @@
             const workerKey = (opts.availableKeys && opts.availableKeys.length > 0)
               ? (typeof opts.availableKeys[workerId % opts.availableKeys.length] === 'string' ? opts.availableKeys[workerId % opts.availableKeys.length] : (opts.availableKeys[workerId % opts.availableKeys.length].key || opts.apiKey))
               : opts.apiKey;
-            try {
-              const transBlock = await safeTranslateWithRotation(blockRawText, {
-                ...opts,
-                apiKey: workerKey,
-                instructions: healInstructions
-              });
-              let translatedBlockText = (transBlock && typeof transBlock === 'object') ? (transBlock.text || '') : (typeof transBlock === 'string' ? transBlock : '');
-              translatedBlockText = cleanProseFn(translatedBlockText);
-              block.translatedText = translatedBlockText;
-            } catch (healErr) {
-              console.warn(`[Healing] Block ${bIdx + 1} error:`, healErr.message);
+            if (block.isPurgeOnly) {
+              block.translatedText = '';
+            } else {
+              try {
+                const transBlock = await safeTranslateWithRotation(blockRawText, {
+                  ...opts,
+                  apiKey: workerKey,
+                  instructions: healInstructions
+                });
+                let translatedBlockText = (transBlock && typeof transBlock === 'object') ? (transBlock.text || '') : (typeof transBlock === 'string' ? transBlock : '');
+                translatedBlockText = cleanProseFn(translatedBlockText);
+                block.translatedText = translatedBlockText;
+              } catch (healErr) {
+                console.warn(`[Healing] Block ${bIdx + 1} error:`, healErr.message);
+              }
             }
             completedHealingCount++;
             if (typeof onProgress === 'function') {
@@ -2617,7 +2626,7 @@
                 blockIdx: bIdx,
                 totalBlocks: activeBlocks.length,
                 healedSnippet: (block.translatedText || '').slice(0, 150),
-                status: block.translatedText ? 'healed' : 'failed'
+                status: (block.isPurgeOnly || block.translatedText) ? 'healed' : 'failed'
               });
             }
           }, healingConcurrency, ctrl.signal);
@@ -2625,8 +2634,12 @@
           if (parallelErr.name !== 'AbortError' && !ctrl.signal?.aborted) console.warn('[Healing] batch error:', parallelErr);
         }
 
-        for (let bIdx = 0; bIdx < activeBlocks.length; bIdx++) {
+        for (let bIdx = activeBlocks.length - 1; bIdx >= 0; bIdx--) {
           const block = activeBlocks[bIdx];
+          if (block.isPurgeOnly) {
+            paragraphs.splice(block.startIdx, block.endIdx - block.startIdx + 1);
+            continue;
+          }
           const translatedBlockText = block.translatedText || '';
           if (translatedBlockText && translatedBlockText.trim()) {
             const splitTranslated = translatedBlockText.trim().split(isDoubleBreak ? /\r?\n\r?\n/ : /\r?\n/);
@@ -2640,7 +2653,9 @@
           }
         }
 
-        const finalContent = paragraphs.join(sep);
+        let finalContent = paragraphs.filter(Boolean).join(sep);
+        const stripRefusalFn = (typeof window !== 'undefined' && window.stripAiRefusalDisclaimers) ? window.stripAiRefusalDisclaimers : null;
+        if (stripRefusalFn) finalContent = stripRefusalFn(finalContent);
         const finalTitle = rawTitle;
 
         if (typeof setReaderChapters === 'function') {

@@ -365,7 +365,8 @@
         // Suppress prompt template placeholder leaks anywhere in chapter
         if (/^(?:#*\s*chapter\s*\[(?:number|\d+)\][\s:–—-]*(?:\[title\])?|#*\s*\[(?:number|name|title)\]|\[(?:number|name|title)\])$/i.test(trimmed)
             || /^#*\s*chapter\s*\[/i.test(trimmed)
-            || /---\s*page\s*end\s*---/i.test(trimmed)) {
+            || /---\s*page\s*end\s*---/i.test(trimmed)
+            || (typeof isAiRefusal === 'function' ? isAiRefusal(trimmed) : (typeof window !== 'undefined' && window.isAiRefusal ? window.isAiRefusal(trimmed) : false))) {
           continue;
         }
 

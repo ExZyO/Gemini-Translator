@@ -966,6 +966,9 @@
 
       for (let li = 0; li < lines.length; li++) {
         let rawLine = lines[li];
+        if (typeof isAiRefusal === 'function' ? isAiRefusal(rawLine) : (typeof window !== 'undefined' && window.isAiRefusal ? window.isAiRefusal(rawLine) : false)) {
+          continue; // Strip AI refusal / copyright disclaimer from reader display
+        }
         // Strip [center], [right], or <center> wrappers around images
         const centerImgWrap = rawLine.match(/^(?:\[(?:center|right)\]|<center>|<p\s+class="(?:text-center|text-right)">)\s*(!\[.*?\]\([^\)]+\)|<img\b[^>]*>)\s*(?:\[\/(?:center|right)\]|<\/center>|<\/p>)?$/i);
         if (centerImgWrap) {

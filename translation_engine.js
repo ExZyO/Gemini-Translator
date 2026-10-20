@@ -492,7 +492,40 @@ const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary
 
   const finalRefusalCheck = (typeof isAiRefusal === 'function' ? isAiRefusal(t) : (typeof window !== 'undefined' && window.isAiRefusal ? window.isAiRefusal(t) : /cannot provide a direct translation|verbatim excerpt|i cannot translate|objective summary/i.test(t)));
   if (finalRefusalCheck) {
-    throw new Error(`AI Refusal: Gemini refused to translate due to safety/copyright filter ("${t.slice(0, 100)}..."). Retrying...`);
+    const paras = text.split(/\r?\n+/).map(p => p.trim()).filter(Boolean);
+    if (paras.length > 1 && !arguments[1]?.isSubChunk) {
+      console.warn(`[Refusal Bypass] Decomposing ${paras.length} paragraphs to translate individually and bypass verbatim copyright filter...`);
+      const translatedParas = [];
+      let anyFailed = false;
+      for (const p of paras) {
+        if (signal?.aborted) break;
+        try {
+          const subRes = await translateGemini(p, {
+            apiKey, model, srcLang, tgtLang, glossary, instructions, signal, context: undefined,
+            smartGlossary: false, enableThinking: false, strictModel, genderLocks, rotateApiKey,
+            isSubChunk: true
+          });
+          const subText = (subRes && typeof subRes === 'object') ? (subRes.text || '') : (typeof subRes === 'string' ? subRes : '');
+          const subRefusal = (typeof isAiRefusal === 'function' ? isAiRefusal(subText) : false);
+          if (subText && !subRefusal) {
+            translatedParas.push(subText.trim());
+          } else {
+            anyFailed = true;
+            break;
+          }
+        } catch (subErr) {
+          anyFailed = true;
+          break;
+        }
+      }
+      if (!anyFailed && translatedParas.length === paras.length) {
+        t = translatedParas.join('\n\n');
+      } else {
+        throw new Error(`AI Refusal: Gemini refused to translate due to safety/copyright filter ("${t.slice(0, 100)}..."). Retrying...`);
+      }
+    } else {
+      throw new Error(`AI Refusal: Gemini refused to translate due to safety/copyright filter ("${t.slice(0, 100)}..."). Retrying...`);
+    }
   }
 
   if (!t || t.trim().length === 0) throw new Error(`Empty response from ${model}. Google Cloud servers may be experiencing temporary high demand (503). Retrying...`);
@@ -529,7 +562,12 @@ const translateGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary
         const cParts = cj?.candidates?.[0]?.content?.parts || [];
         const cActual = cParts.filter(p => !p.thought);
         const ct = cActual.length > 0 ? cActual.map(p => p.text || '').join('') : cParts.map(p => p.text || '').join('');
-        if (ct) t += '\n\n' + ct;
+        if (ct) {
+          const ctIsRefusal = (typeof isAiRefusal === 'function' ? isAiRefusal(ct) : false);
+          if (!ctIsRefusal) {
+            t += '\n\n' + ct;
+          }
+        }
       }
     } catch (ce) {
       console.warn('Continuation call error:', ce);
@@ -771,8 +809,11 @@ const streamGemini = async (text, { apiKey, model, srcLang, tgtLang, glossary, i
                 for (const cp of cParts) {
                   if (cp.thought) continue;
                   if (cp.text) {
-                    onChunk(cp.text);
-                    accumulatedOutput += cp.text;
+                    const cpRefusal = (typeof isAiRefusal === 'function' ? isAiRefusal(cp.text) : false);
+                    if (!cpRefusal) {
+                      onChunk(cp.text);
+                      accumulatedOutput += cp.text;
+                    }
                   }
                 }
               } catch (ce) {}
@@ -1275,7 +1316,8 @@ const translateWithRotation = async (text, opts) => {
           const isStrict = (currentOpts.strictModel !== false) &&
             (currentOpts.strictModel === true || (typeof localStorage !== 'undefined' && localStorage.getItem('strictModel') !== 'false'));
 
-          if (isModelQuotaCeiling && !isStrict) {
+          const isRefusalError = errMsg.includes('refusal') || errMsg.includes('copyright');
+          if ((isModelQuotaCeiling || isRefusalError) && !isStrict) {
             let ladder = currentOpts.fallbackModels;
             if (!Array.isArray(ladder) || ladder.length === 0) {
               try {
@@ -1290,8 +1332,8 @@ const translateWithRotation = async (text, opts) => {
             if (nextModel && nextModel !== currentOpts.model) {
               const oldModel = currentOpts.model || 'model';
               const cleanNext = nextModel.trim();
-              console.warn(`[Model Fallback Ladder] Model ${oldModel} hit quota ceiling. Cascading down priority ladder to backup model: ${cleanNext}...`);
-              window.AppLogger?.log('warn', 'ModelFallback', `Model ${oldModel} hit rate/quota ceiling. Cascading to backup model ${cleanNext} from priority ladder.`);
+              console.warn(`[Model Fallback Ladder] Model ${oldModel} hit ${isRefusalError ? 'copyright/refusal' : 'quota ceiling'}. Cascading down priority ladder to backup model: ${cleanNext}...`);
+              window.AppLogger?.log('warn', 'ModelFallback', `Model ${oldModel} hit ${isRefusalError ? 'copyright/refusal' : 'rate/quota ceiling'}. Cascading to backup model ${cleanNext} from priority ladder.`);
               currentOpts.model = cleanNext;
               try {
                 if (typeof localStorage !== 'undefined') {

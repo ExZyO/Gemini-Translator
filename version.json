@@ -1,9 +1,9 @@
 {
-  "version": "8.21.94",
-  "versionCode": 8505,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.94/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.94/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.94",
+  "version": "8.21.95",
+  "versionCode": 8506,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.95/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.95/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.95",
   "releaseDate": "2026-10-20",
-  "releaseNotes": "v8.21.94: AI refusal and copyright interceptor with automatic retry cascade and health healing."
+  "releaseNotes": "v8.21.95: Refusal purge, paragraph decomposition bypass, and reader/EPUB disclaimer auto-stripping."
 }

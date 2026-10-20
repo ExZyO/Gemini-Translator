@@ -430,8 +430,56 @@ function decodeHtmlEntities(str) {
     });
 }
 
+const AI_REFUSAL_PATTERNS = [
+    /cannot provide a direct translation/i,
+    /cannot provide a translation/i,
+    /unable to provide a (?:direct )?translation/i,
+    /not able to translate/i,
+    /cannot translate this (?:text|passage|excerpt|work|chapter)/i,
+    /verbatim excerpt/i,
+    /objective summary of the events/i,
+    /offer an objective summary/i,
+    /provide an objective summary/i,
+    /fanfiction or novel content/i,
+    /copyrighted (?:work|novel|text|content|material|book|story|fanfiction|piece|publication)/i,
+    /copyright (?:restrictions|policy|infringement|reasons|concerns)/i,
+    /i cannot fulfill this request/i,
+    /i am unable to fulfill this/i,
+    /as an ai language model/i,
+    /i'm sorry, but i cannot/i,
+    /i cannot translate this/i,
+    /violates (?:our )?(?:content|safety|copyright) policy/i,
+    /i am an ai\b/i
+];
+
+function isAiRefusal(text) {
+    if (!text || typeof text !== 'string') return false;
+    const t = text.trim();
+    if (!t) return false;
+    for (let i = 0; i < AI_REFUSAL_PATTERNS.length; i++) {
+        if (AI_REFUSAL_PATTERNS[i].test(t)) return true;
+    }
+    return false;
+}
+
+function stripAiRefusalDisclaimers(text) {
+    if (!text || typeof text !== 'string') return '';
+    const paras = text.split(/\r?\n/);
+    const kept = [];
+    for (let i = 0; i < paras.length; i++) {
+        const p = paras[i].trim();
+        if (p && isAiRefusal(p)) {
+            continue;
+        }
+        kept.push(paras[i]);
+    }
+    return kept.join('\n');
+}
+
 function cleanNovelProse(text) {
     if (!text || typeof text !== 'string') return '';
+    // Strip any AI refusal / copyright disclaimers
+    text = stripAiRefusalDisclaimers(text);
     // Mask out protected tokens (Markdown illustrations, HTML images, and raw URLs) so prose typography never corrupts them
     const placeholders = [];
     let t = text.replace(/(?:!\[[^\]]*\]\([^\)]+\)|<img\b[^>]*>|https?:\/\/[^\s<>"'()]+)/gi, (match) => {
@@ -705,42 +753,6 @@ const cleanText = t => {
     c = c.replace(/(\n\s*){2,}/g, '\n\n');
     return c.trim();
 };
-
-const AI_REFUSAL_PATTERNS = [
-    /cannot provide a direct translation/i,
-    /cannot provide a translation/i,
-    /unable to provide a translation/i,
-    /not able to translate/i,
-    /verbatim excerpt from a copyrighted/i,
-    /verbatim excerpt/i,
-    /objective summary of the events/i,
-    /offer an objective summary/i,
-    /copyrighted (?:work|novel|text|content|material|book|story|fanfiction)/i,
-    /copyright (?:restrictions|policy|infringement|reasons)/i,
-    /i cannot fulfill this request/i,
-    /i am unable to fulfill this/i,
-    /as an ai language model/i,
-    /i'm sorry, but i cannot/i,
-    /i cannot translate this/i,
-    /violates (?:our )?(?:content|safety|copyright) policy/i,
-    /i am an ai/i
-];
-
-function isAiRefusal(text) {
-    if (!text || typeof text !== 'string') return false;
-    const t = text.trim();
-    if (t.length < 600) {
-        for (let i = 0; i < AI_REFUSAL_PATTERNS.length; i++) {
-            if (AI_REFUSAL_PATTERNS[i].test(t)) return true;
-        }
-    } else {
-        const lead = t.slice(0, 450);
-        for (let i = 0; i < AI_REFUSAL_PATTERNS.length; i++) {
-            if (AI_REFUSAL_PATTERNS[i].test(lead)) return true;
-        }
-    }
-    return false;
-}
 
 const cleanTranslatedTitle = t => {
     if (!t || typeof t !== 'string') return '';
@@ -1211,6 +1223,7 @@ window.normalizeTitleKey = normalizeTitleKey;
 window.copyText = copyText;
 window.generateJobId = generateJobId;
 window.isAiRefusal = isAiRefusal;
+window.stripAiRefusalDisclaimers = stripAiRefusalDisclaimers;
 window.AI_REFUSAL_PATTERNS = AI_REFUSAL_PATTERNS;
 
 // ═══════════════════════════════════════
@@ -1852,6 +1865,7 @@ window.safeMatches = safeMatches;
 function hasUntranslatedOrError(p, sourceP, targetLanguage = 'English') {
     if (!p || typeof p !== 'string') return false;
     if (/\[Error:.*?\]/i.test(p)) return true;
+    if (isAiRefusal(p)) return true;
 
     const trimmedP = p.trim();
     // Compare against raw source paragraph (catches Latin-to-Latin languages like Spanish, French, German)
@@ -2145,6 +2159,7 @@ if (typeof module !== 'undefined' && module.exports) {
         copyText,
         generateJobId,
         isAiRefusal,
+        stripAiRefusalDisclaimers,
         CHUNK_PAYLOAD_MAP,
         fetchRetry,
         batchParallel,
