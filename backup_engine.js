@@ -215,6 +215,10 @@
       if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getAllSiteRecipes === 'function') {
         try { siteRecipes = await window.GeminiNovelDB.getAllSiteRecipes(); } catch (e) {}
       }
+      let siteAuth = [];
+      if (window.GeminiNovelDB && typeof window.GeminiNovelDB.getAllSiteAuth === 'function') {
+        try { siteAuth = await window.GeminiNovelDB.getAllSiteAuth(); } catch (e) {}
+      }
 
       // 8. Web import metadata
       const webImportMeta = (() => {
@@ -345,6 +349,7 @@
         translationMemory,
         translationSnapshots,
         siteRecipes,
+        siteAuth,
         appPreferences
       };
 
@@ -1148,6 +1153,21 @@
             }
           } catch (e) {
             console.warn('Restore site recipes error:', e);
+          }
+        }
+      }
+
+      // Site Auth Restore (Rule 2.8 parity)
+      if (data.siteAuth && Array.isArray(data.siteAuth) && data.siteAuth.length > 0) {
+        if (window.GeminiNovelDB && typeof window.GeminiNovelDB.saveSiteAuth === 'function') {
+          try {
+            for (const auth of data.siteAuth) {
+              if (auth && auth.siteId) {
+                await window.GeminiNovelDB.saveSiteAuth(auth.siteId, auth);
+              }
+            }
+          } catch (e) {
+            console.warn('Restore site auth error:', e);
           }
         }
       }

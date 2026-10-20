@@ -1278,11 +1278,16 @@
             throw new Error('Cloudflare Resolver requires the Native Android App.');
         },
 
-        openInAppBrowser: async (url) => {
+        openInAppBrowser: async (url, options = {}) => {
             const bridge = getBridge();
             if (bridge && (bridge.openInAppBrowser || bridge.resolveCloudflare)) {
                 const fn = bridge.openInAppBrowser || bridge.resolveCloudflare;
-                const res = await fn({ url });
+                const res = await fn({
+                    url,
+                    title: options.title || undefined,
+                    buttonText: options.buttonText || undefined,
+                    promptText: options.promptText || undefined
+                });
                 return res;
             }
             if (typeof window !== 'undefined') {
@@ -1290,6 +1295,45 @@
                 return { success: true, openedExternally: true };
             }
             throw new Error('In-app browser requires the Native Android App.');
+        },
+
+        setSiteCookie: async (url, cookie) => {
+            const bridge = getBridge();
+            if (bridge && bridge.setSiteCookie) {
+                try {
+                    return await bridge.setSiteCookie({ url, cookie });
+                } catch (e) {
+                    return { success: false, error: e.message };
+                }
+            }
+            return { success: false, notSupported: true };
+        },
+
+        openLofterLoginSheet: async () => {
+            const loginUrl = 'https://www.lofter.com/front/login';
+            try {
+                const res = await NativeBridge.openInAppBrowser(loginUrl, {
+                    title: 'Lofter Account Login',
+                    buttonText: 'Save Login Session',
+                    promptText: 'Log into your NetEase Lofter account below. Once logged in, tap Save Login Session.'
+                });
+                if (res && res.cookies) {
+                    if (window.GeminiNovelDB?.saveSiteAuth) {
+                        await window.GeminiNovelDB.saveSiteAuth('lofter', {
+                            siteId: 'lofter',
+                            cookieString: res.cookies,
+                            updatedAt: new Date().toISOString()
+                        });
+                    }
+                    if (NativeBridge.setSiteCookie) {
+                        await NativeBridge.setSiteCookie('https://www.lofter.com', res.cookies);
+                    }
+                    return { success: true, cookies: res.cookies };
+                }
+                return { success: false, error: 'No cookies captured.' };
+            } catch (e) {
+                return { success: false, error: e.message || 'Login cancelled or failed' };
+            }
         },
 
         // ══════════════════════════════════════════════════════════════════════
@@ -1398,5 +1442,14 @@
         }
     };
 
-    console.log(" Native Android Superpowers Bridge Initialized (with Multi-Proxy Redundancy)!");
+    if (typeof window !== 'undefined') {
+        window.handleIncomingAndroidShare = function(sharedText) {
+            if (!sharedText || typeof sharedText !== 'string') return;
+            const text = sharedText.trim();
+            window._pendingSharedText = text;
+            window.dispatchEvent(new CustomEvent('incoming-android-share', { detail: { text } }));
+        };
+    }
+
+    console.log("Native Android Superpowers Bridge Initialized (with Multi-Proxy Redundancy)!");
 })();

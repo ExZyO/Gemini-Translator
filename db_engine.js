@@ -43,6 +43,15 @@
         translation_snapshots: 'id, novelId, chapterIdx, timestamp, model',
         site_recipes: 'id, updatedAt'
       });
+      novelDB.version(7).stores({
+        novels: 'id, title, status, sourceUrl, addedAt, deletedAt, timestamp',
+        active_translations: 'id, timestamp',
+        trash: 'id, deletedAt, timestamp',
+        translation_memory: 'id, sourceHash, sourceLang, targetLang, novelId, timestamp',
+        translation_snapshots: 'id, novelId, chapterIdx, timestamp, model',
+        site_recipes: 'id, updatedAt',
+        site_auth: 'siteId, updatedAt'
+      });
 
       // Wrap GeminiTranslatorDB:
       // Preserves existing v1 schema: history (id), glossaries (name), kv (key)
@@ -68,7 +77,7 @@
     if (!nativeDbPromise) {
       nativeDbPromise = new Promise((resolve) => {
         if (typeof indexedDB === 'undefined') return resolve(null);
-        const req = indexedDB.open('GeminiTranslatorNovelDB', 6);
+        const req = indexedDB.open('GeminiTranslatorNovelDB', 7);
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
           if (!db.objectStoreNames.contains('novels')) {
@@ -93,6 +102,9 @@
           if (!db.objectStoreNames.contains('site_recipes')) {
             const recipeStore = db.createObjectStore('site_recipes', { keyPath: 'id' });
             recipeStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('site_auth')) {
+            db.createObjectStore('site_auth', { keyPath: 'siteId' });
           }
         };
         req.onsuccess = () => {
@@ -1011,6 +1023,97 @@
         }
       }
       return false;
+    },
+
+    // 5d. Site Authentication & Session Vault API
+    async getSiteAuth(siteId) {
+      if (!siteId) return null;
+      try {
+        if (novelDB && novelDB.site_auth) {
+          return await novelDB.site_auth.get(siteId);
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('site_auth')) return null;
+        return new Promise((resolve) => {
+          const tx = db.transaction('site_auth', 'readonly');
+          const req = tx.objectStore('site_auth').get(siteId);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        });
+      } catch (e) { return null; }
+    },
+
+    async getAllSiteAuth() {
+      try {
+        if (novelDB && novelDB.site_auth) {
+          return await novelDB.site_auth.toArray();
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('site_auth')) return [];
+        return new Promise((resolve) => {
+          const tx = db.transaction('site_auth', 'readonly');
+          const req = tx.objectStore('site_auth').getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+      } catch (e) { return []; }
+    },
+
+    async saveSiteAuth(siteId, data = {}) {
+      if (!siteId) return false;
+      const record = {
+        siteId,
+        ...data,
+        updatedAt: data.updatedAt || new Date().toISOString()
+      };
+      try {
+        if (novelDB && novelDB.site_auth) {
+          await novelDB.site_auth.put(record);
+          notifyChange('saveSiteAuth', record);
+          return true;
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('site_auth')) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction('site_auth', 'readwrite');
+          tx.objectStore('site_auth').put(record);
+          tx.oncomplete = () => {
+            notifyChange('saveSiteAuth', record);
+            resolve(true);
+          };
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) { return false; }
+    },
+
+    async deleteSiteAuth(siteId) {
+      if (!siteId) return false;
+      try {
+        if (novelDB && novelDB.site_auth) {
+          await novelDB.site_auth.delete(siteId);
+          notifyChange('deleteSiteAuth', { siteId });
+          return true;
+        }
+      } catch (e) {}
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('site_auth')) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction('site_auth', 'readwrite');
+          tx.objectStore('site_auth').delete(siteId);
+          tx.oncomplete = () => {
+            notifyChange('deleteSiteAuth', { siteId });
+            resolve(true);
+          };
+          tx.onerror = () => resolve(false);
+        });
+      } catch (e) { return false; }
     },
 
     // 5. Subscription Helper for Reactive State

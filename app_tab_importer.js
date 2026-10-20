@@ -305,6 +305,104 @@
     } = props || {};
 
     const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
+    const [lofterAuth, setLofterAuth] = useState(null);
+    const [showLofterModal, setShowLofterModal] = useState(false);
+    const [isLofterConnecting, setIsLofterConnecting] = useState(false);
+
+    useEffect(() => {
+      let active = true;
+      const loadLofterAuth = async () => {
+        try {
+          if (window.GeminiNovelDB?.getSiteAuth) {
+            const auth = await window.GeminiNovelDB.getSiteAuth('lofter');
+            if (active) setLofterAuth(auth);
+          }
+        } catch (_) {}
+      };
+      loadLofterAuth();
+
+      const handleShare = (e) => {
+        const text = e.detail?.text || window._pendingSharedText;
+        if (!text) return;
+        window._pendingSharedText = null;
+        const urlMatch = text.match(/https?:\/\/[^\s]+/i);
+        const url = urlMatch ? urlMatch[0] : text;
+        setWebImportUrl(url);
+        toast?.('Shared link loaded into Web Importer.', 'info');
+      };
+
+      window.addEventListener('incoming-android-share', handleShare);
+      if (window._pendingSharedText) {
+        handleShare({ detail: { text: window._pendingSharedText } });
+      }
+
+      return () => {
+        active = false;
+        window.removeEventListener('incoming-android-share', handleShare);
+      };
+    }, []);
+
+    const handleLofterInAppLogin = async () => {
+      setIsLofterConnecting(true);
+      try {
+        if (window.NativeBridge?.openLofterLoginSheet) {
+          const res = await window.NativeBridge.openLofterLoginSheet();
+          if (res && res.success) {
+            const auth = await window.GeminiNovelDB.getSiteAuth('lofter');
+            setLofterAuth(auth);
+            toast?.('Lofter account session connected successfully.', 'success');
+            setShowLofterModal(false);
+          } else {
+            toast?.(res?.error || 'Login cancelled.', 'info');
+          }
+        } else {
+          window.open('https://www.lofter.com/front/login', '_blank');
+          toast?.('Opened Lofter login in new tab. After logging in, paste your session cookie in the manual box.', 'info');
+        }
+      } catch (err) {
+        toast?.('Login error: ' + (err.message || err), 'error');
+      } finally {
+        setIsLofterConnecting(false);
+      }
+    };
+
+    const handleSaveLofterCookie = async (rawCookie) => {
+      const trimmed = (rawCookie || '').trim();
+      if (!trimmed) {
+        toast?.('Please paste a cookie string first.', 'warning');
+        return;
+      }
+      try {
+        if (window.GeminiNovelDB?.saveSiteAuth) {
+          await window.GeminiNovelDB.saveSiteAuth('lofter', {
+            siteId: 'lofter',
+            cookieString: trimmed,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        if (window.NativeBridge?.setSiteCookie) {
+          await window.NativeBridge.setSiteCookie('https://www.lofter.com', trimmed);
+        }
+        const auth = await window.GeminiNovelDB.getSiteAuth('lofter');
+        setLofterAuth(auth);
+        toast?.('Lofter cookie saved to account vault.', 'success');
+        setShowLofterModal(false);
+      } catch (e) {
+        toast?.('Failed to save cookie: ' + e.message, 'error');
+      }
+    };
+
+    const handleDisconnectLofter = async () => {
+      try {
+        if (window.GeminiNovelDB?.deleteSiteAuth) {
+          await window.GeminiNovelDB.deleteSiteAuth('lofter');
+        }
+        setLofterAuth(null);
+        toast?.('Lofter session disconnected.', 'info');
+      } catch (e) {
+        toast?.('Failed to disconnect: ' + e.message, 'error');
+      }
+    };
     const [booksDownloadableOnly, setBooksDownloadableOnly] = useState(true);
     const [isScoutingUrl, setIsScoutingUrl] = useState(false);
     const [scoutStatusText, setScoutStatusText] = useState('');
@@ -390,6 +488,7 @@
       return 0;
     };
 
+    const isLofterUrl = /lofter\.com|127\.net/i.test(webImportUrl || '');
     const isLnoriUrl = /lnori\.(?:org|com)\/(?:series|book)\//i.test(webImportUrl);
               const isWitchCultUrl = /witchculttranslation\.com|rezero/i.test(webImportUrl);
               const isSwiftAudioDetected = isSwiftAudioMode || /swiftaudiobooks\.com|ipaudio7\.com/i.test(webImportUrl);
@@ -894,7 +993,21 @@
                       setIsBookSearchMode(false);
                       setIsSwiftAudioMode(true);
                     }
-                  }, ic('Headphones', 14), 'Audiobooks')
+                  }, ic('Headphones', 14), 'Audiobooks'),
+                  h('button', {
+                    type: 'button',
+                    className: `discover-cat-pill ${lofterAuth?.cookieString ? 'active' : ''}`,
+                    style: {
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      border: lofterAuth?.cookieString ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+                      background: lofterAuth?.cookieString ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                      color: lofterAuth?.cookieString ? '#34d399' : 'var(--text-muted, #94a3b8)'
+                    },
+                    onClick: () => setShowLofterModal(true),
+                    title: lofterAuth?.cookieString ? 'Lofter account session connected' : 'Connect Lofter account for locked chapters'
+                  }, ic('Shield', 14), lofterAuth?.cookieString ? 'Lofter Connected' : 'Lofter Account')
                 ),
 
                 h('div', { className: 'apple-search-wrap' },
@@ -934,6 +1047,23 @@
                         }
                       }
                     }),
+                    isLofterUrl && h('button', {
+                      type: 'button',
+                      className: 'mini-btn ghost',
+                      style: {
+                        padding: '3px 8px',
+                        fontSize: 11,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        borderRadius: 6,
+                        marginRight: 4,
+                        color: lofterAuth?.cookieString ? '#34d399' : '#818cf8',
+                        background: lofterAuth?.cookieString ? 'rgba(16, 185, 129, 0.1)' : 'rgba(99, 102, 241, 0.1)'
+                      },
+                      onClick: () => setShowLofterModal(true),
+                      title: 'Lofter Account Session'
+                    }, ic('Shield', 11), lofterAuth?.cookieString ? 'Connected' : 'Lofter Login'),
                     webImportUrl && h('button', {
                       type: 'button',
                       className: 'apple-search-clear',
@@ -2681,6 +2811,16 @@
                 sourcesModalOpen && h(SourcesInfoModal, {
                   isOpen: sourcesModalOpen,
                   onClose: () => setSourcesModalOpen(false)
+                }),
+
+                showLofterModal && h(window.LofterAuthModal || (typeof LofterAuthModal !== 'undefined' ? LofterAuthModal : null), {
+                  isOpen: showLofterModal,
+                  onClose: () => setShowLofterModal(false),
+                  auth: lofterAuth,
+                  onInAppLogin: handleLofterInAppLogin,
+                  onSaveManualCookie: handleSaveLofterCookie,
+                  onDisconnect: handleDisconnectLofter,
+                  isConnecting: isLofterConnecting
                 })
 
               );

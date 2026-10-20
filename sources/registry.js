@@ -12,12 +12,13 @@
   const NovelArchivePlugin = isNode ? require('./novelarchive').NovelArchivePlugin : window.NovelArchivePlugin;
   const UniversalPlugin = isNode ? require('./universal').UniversalPlugin : window.UniversalPlugin;
   const WattpadPlugin = isNode ? require('./wattpad').WattpadPlugin : window.WattpadPlugin;
+  const LofterPlugin = isNode ? require('./lofter').LofterPlugin : (window.LofterPluginClass || window.LofterPlugin?.constructor);
 
   class SourceRegistry {
     constructor() {
       this.plugins = new Map();
       this.universalPlugin = null;
-      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'novelfire', 'novelarchive', 'universal', 'wattpad']);
+      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'novelfire', 'novelarchive', 'universal', 'wattpad', 'lofter']);
       this.initBuiltins();
       this.loadPersistedPlugins();
     }
@@ -29,6 +30,8 @@
       if (NovelFirePlugin) this.register(new NovelFirePlugin());
       if (NovelArchivePlugin) this.register(new NovelArchivePlugin());
       if (WattpadPlugin) this.register(new WattpadPlugin());
+      if (LofterPlugin) this.register(new LofterPlugin());
+      else if (typeof window !== 'undefined' && window.LofterPlugin) this.register(window.LofterPlugin);
       if (UniversalPlugin) {
         this.universalPlugin = new UniversalPlugin();
       }

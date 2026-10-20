@@ -1704,121 +1704,16 @@
         return { title, author, summary, cover, tags, chapters, totalWords, isEpub: false, sourceUrl: bookUrl };
     }
 
-    // --- F. LOFTER (乐乎 WITH HIGH-RES ARTWORK) ---
+    // --- F. LOFTER (WITH HIGH-RES ARTWORK) ---
     async function crawlLofter(url, progressCb, options = {}) {
-        progressCb?.('Connecting to NetEase Lofter...', 15);
-        const mobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15";
-        const permalinkMatch = url.match(/\/post\/([a-zA-Z0-9_-]+)/i);
-        const permalink = permalinkMatch ? permalinkMatch[1] : '';
-
-        const frontUrl = permalink ? `https://www.lofter.com/front/post/${permalink}` : url;
-        const html = await fetchHtml(frontUrl, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
-
-        let title = 'Lofter Novel';
-        let author = 'Lofter Author';
-        let tags = [];
-        let collectionId = null;
-        let mainText = '';
-
-        const startIdx = html.indexOf('window.__initialize_data__');
-        if (startIdx !== -1) {
-            try {
-                const endIdx = html.indexOf('</script>', startIdx);
-                const data = JSON.parse(html.substring(startIdx, endIdx).replace('window.__initialize_data__ = ', '').trim().replace(/;$/, ''));
-                const blogInfo = data.postData?.data?.blogInfo;
-                if (blogInfo?.blogNickName) author = blogInfo.blogNickName;
-
-                const pv = data.postData?.data?.postData?.postView;
-                if (pv) {
-                    if (pv.title && pv.title.trim()) title = pv.title.trim();
-                    else if (pv.digest) title = pv.digest.substring(0, 40);
-
-                    if (pv.collectionId) collectionId = pv.collectionId;
-                    if (Array.isArray(pv.tagList)) tags = pv.tagList;
-
-                    let rawContent = pv.textPostView?.content || pv.content || '';
-                    if (Array.isArray(pv.photoList) && pv.photoList.length > 0) {
-                        const photoImgs = pv.photoList.map(p => {
-                            const rawUrl = p.originUrl || p.rawUrl || p.url || '';
-                            const clean = rawUrl.replace(/\?imageView.*$/i, '');
-                            return clean ? `\n\n![Illustration](${clean})\n\n` : '';
-                        }).join('');
-                        rawContent = photoImgs + rawContent;
-                    }
-                    if (rawContent) mainText = cleanChapterHtmlWithImages(rawContent);
-                }
-            } catch (e) {
-                console.warn('Lofter JSON parse error:', e);
-            }
+        if (typeof window !== 'undefined' && window.LofterPlugin && typeof window.LofterPlugin.crawl === 'function') {
+            return await window.LofterPlugin.crawl(url, progressCb, options);
         }
-
-        const chapters = [];
-        if (collectionId) {
-            progressCb?.('Found Lofter series! Crawling all chapters in series...', 30);
-            try {
-                const collUrl = `https://www.lofter.com/front/blog/collection/share?collectionId=${collectionId}`;
-                const collHtml = await fetchHtml(collUrl, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
-                const cStart = collHtml.indexOf('window.__initialize_data__');
-                if (cStart !== -1) {
-                    const cEnd = collHtml.indexOf('</script>', cStart);
-                    const cData = JSON.parse(collHtml.substring(cStart, cEnd).replace('window.__initialize_data__ = ', '').trim().replace(/;$/, ''));
-                    const seriesName = cData.data?.collection?.name || title;
-                    if (seriesName) title = seriesName;
-
-                    const rawPosts = cData.data?.posts || [];
-                    const postItems = rawPosts.map((item, idx) => ({
-                        item,
-                        permalink: item.permalink,
-                        title: item.title || `Chapter ${idx + 1}`,
-                        url: `https://www.lofter.com/front/post/${item.permalink}`
-                    }));
-
-                    const { chapters: poolChapters } = await crawlChapterPool(
-                        postItems,
-                        async (pObj) => {
-                            const { item, permalink: pLink, title: chTitle } = pObj;
-                            if (pLink === permalink && mainText) {
-                                return { title: chTitle, text: mainText };
-                            }
-                            try {
-                                const postUrl = `https://www.lofter.com/front/post/${pLink}`;
-                                const pHtml = await fetchHtml(postUrl, { userAgent: mobileUA, headers: { 'Referer': 'https://www.lofter.com/' } });
-                                const pStart = pHtml.indexOf('window.__initialize_data__');
-                                let chText = '';
-                                if (pStart !== -1) {
-                                    const pEnd = pHtml.indexOf('</script>', pStart);
-                                    const pData = JSON.parse(pHtml.substring(pStart, pEnd).replace('window.__initialize_data__ = ', '').trim().replace(/;$/, ''));
-                                    const pPv = pData.postData?.data?.postData?.postView;
-                                    let raw = pPv?.textPostView?.content || pPv?.content || '';
-                                    if (Array.isArray(pPv?.photoList) && pPv.photoList.length > 0) {
-                                        const photoImgs = pPv.photoList.map(p => {
-                                            const rawUrl = p.originUrl || p.rawUrl || p.url || '';
-                                            return rawUrl ? `\n\n![Illustration](${rawUrl.replace(/\?imageView.*$/i, '')})\n\n` : '';
-                                        }).join('');
-                                        raw = photoImgs + raw;
-                                    }
-                                    if (raw) chText = cleanChapterHtmlWithImages(raw);
-                                }
-                                if (!chText && item.digest) chText = cleanChapterHtmlWithImages(item.digest);
-                                return { title: chTitle, text: chText || '' };
-                            } catch (e) {
-                                return { title: chTitle, text: item.digest ? cleanChapterHtmlWithImages(item.digest) : '' };
-                            }
-                        },
-                        8,
-                        progressCb
-                    );
-                    chapters.push(...poolChapters.filter(c => c && c.text));
-                }
-            } catch (e) {}
+        const plugin = (typeof LofterPlugin !== 'undefined') ? LofterPlugin : null;
+        if (plugin && typeof plugin.crawl === 'function') {
+            return await plugin.crawl(url, progressCb, options);
         }
-
-        if (chapters.length === 0 && mainText) {
-            chapters.push({ title, text: mainText });
-        }
-
-        progressCb?.(` Loaded ${chapters.length} Lofter chapters!`, 100);
-        return { title, author, summary: chapters[0]?.text?.substring(0, 300) + '...', tags, chapters, isEpub: false, sourceUrl: url };
+        throw new Error('Lofter plugin is not loaded');
     }
 
     // --- G. UNIVERSAL HEURISTIC SCRAPER (FALLBACK ENGINE) ---

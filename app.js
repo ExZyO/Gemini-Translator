@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.90';
+    let VERSION = '8.21.91';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -272,6 +272,15 @@
         const handleOpen = () => setIsFullPlayerOpen(true);
         window.addEventListener('open-fullscreen-audio-player', handleOpen);
 
+        // Native Android Share Target Handler
+        const handleShareEvent = () => {
+          setActiveTab('web_importer');
+        };
+        window.addEventListener('incoming-android-share', handleShareEvent);
+        if (window._pendingSharedText) {
+          setActiveTab('web_importer');
+        }
+
         const attachAudio = () => {
           if (window.SwiftAudioEngine && window.SwiftAudioEngine.Player) {
             return window.SwiftAudioEngine.Player.subscribe(st => {
@@ -294,11 +303,13 @@
             clearInterval(timer);
             if (unsub) unsub();
             window.removeEventListener('open-fullscreen-audio-player', handleOpen);
+            window.removeEventListener('incoming-android-share', handleShareEvent);
           };
         }
         return () => {
           if (unsub) unsub();
           window.removeEventListener('open-fullscreen-audio-player', handleOpen);
+          window.removeEventListener('incoming-android-share', handleShareEvent);
         };
       }, []);
 

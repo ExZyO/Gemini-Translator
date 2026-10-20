@@ -1502,6 +1502,36 @@ public class NativeAndroidBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setSiteCookie(PluginCall call) {
+        String url = call.getString("url");
+        String cookie = call.getString("cookie");
+        if (url == null || cookie == null) {
+            call.reject("Missing url or cookie");
+            return;
+        }
+        try {
+            android.webkit.CookieManager cookieManager = android.webkit.CookieManager.getInstance();
+            cookieManager.setAcceptCookie(true);
+            String[] parts = cookie.split(";");
+            for (String part : parts) {
+                String trimmed = part.trim();
+                if (!trimmed.isEmpty()) {
+                    cookieManager.setCookie(url, trimmed);
+                }
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                cookieManager.flush();
+            }
+            com.getcapacitor.JSObject ret = new com.getcapacitor.JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            android.util.Log.e(TAG, "setSiteCookie error: " + e.getMessage());
+            call.reject("Failed to set cookie: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void resolveCloudflare(PluginCall call) {
 
         String targetUrl = call.getString("url");
@@ -1519,15 +1549,19 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     return;
                 }
 
+                String dialogTitle = call.getString("title", "In-App Browser Verification");
+                String dialogButton = call.getString("buttonText", "I am Verified / Continue");
+                String dialogPrompt = call.getString("promptText", "Verifying with website... Complete any captcha that appears, then tap 'I am Verified / Continue'.");
+
                 AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setTitle("In-App Browser Verification");
+                builder.setTitle(dialogTitle);
 
                 LinearLayout layout = new LinearLayout(context);
                 layout.setOrientation(LinearLayout.VERTICAL);
                 layout.setPadding(20, 20, 20, 20);
 
                 TextView tvInfo = new TextView(context);
-                tvInfo.setText("Verifying with website... Complete any captcha that appears, then tap 'I am Verified / Continue'.");
+                tvInfo.setText(dialogPrompt);
                 tvInfo.setTextSize(13);
                 layout.addView(tvInfo);
 
@@ -1569,7 +1603,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 final boolean[] resolved = new boolean[]{ false };
 
                 builder.setView(layout);
-                builder.setPositiveButton("I am Verified / Continue", (d, which) -> {
+                builder.setPositiveButton(dialogButton, (d, which) -> {
                     if (resolved[0]) return;
                     resolved[0] = true;
                     try {

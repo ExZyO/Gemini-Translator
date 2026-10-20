@@ -86,6 +86,9 @@ public class MainActivity extends BridgeActivity {
 
         // Handle direct tap from Audio Player notification
         handleAudioPlayerIntent(getIntent());
+
+        // Handle incoming Android system share (e.g. from Lofter app)
+        handleShareIntent(getIntent());
     }
 
     @Override
@@ -93,6 +96,46 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleAudioPlayerIntent(intent);
+        handleShareIntent(intent);
+    }
+
+    private void handleShareIntent(android.content.Intent intent) {
+        if (intent != null && android.content.Intent.ACTION_SEND.equals(intent.getAction())) {
+            String sharedText = intent.getStringExtra(android.content.Intent.EXTRA_TEXT);
+            if (sharedText == null) {
+                CharSequence cs = intent.getCharSequenceExtra(android.content.Intent.EXTRA_TEXT);
+                if (cs != null) sharedText = cs.toString();
+            }
+            if (sharedText != null && !sharedText.trim().isEmpty()) {
+                final String textToSend = sharedText.trim();
+                try {
+                    if (bridge != null && bridge.getWebView() != null) {
+                        org.json.JSONObject payload = new org.json.JSONObject();
+                        payload.put("text", textToSend);
+                        final String jsScript =
+                            "(function() {" +
+                            "  var shareText = " + payload.toString() + ".text;" +
+                            "  window._pendingSharedText = shareText;" +
+                            "  if (typeof window.handleIncomingAndroidShare === 'function') {" +
+                            "    window.handleIncomingAndroidShare(shareText);" +
+                            "  } else {" +
+                            "    window.dispatchEvent(new CustomEvent('incoming-android-share', { detail: { text: shareText } }));" +
+                            "  }" +
+                            "})()";
+                        bridge.getWebView().post(() -> {
+                            try {
+                                bridge.getWebView().evaluateJavascript(jsScript, null);
+                            } catch (Exception ignored) {}
+                        });
+                        bridge.getWebView().postDelayed(() -> {
+                            try {
+                                bridge.getWebView().evaluateJavascript(jsScript, null);
+                            } catch (Exception ignored) {}
+                        }, 500);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
     }
 
     private void handleAudioPlayerIntent(android.content.Intent intent) {
