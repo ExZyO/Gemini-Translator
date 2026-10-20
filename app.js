@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.86';
+    let VERSION = '8.21.87';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -262,6 +262,16 @@
       const ongoingEpubInputRef = useRef(null);
 
       useEffect(() => {
+        window.openFullscreenAudioPlayer = () => {
+          setIsFullPlayerOpen(true);
+        };
+        if (window._pendingOpenAudioPlayer) {
+          window._pendingOpenAudioPlayer = false;
+          setIsFullPlayerOpen(true);
+        }
+        const handleOpen = () => setIsFullPlayerOpen(true);
+        window.addEventListener('open-fullscreen-audio-player', handleOpen);
+
         const attachAudio = () => {
           if (window.SwiftAudioEngine && window.SwiftAudioEngine.Player) {
             return window.SwiftAudioEngine.Player.subscribe(st => {
@@ -280,9 +290,16 @@
             unsub = attachAudio();
             if (unsub) clearInterval(timer);
           }, 200);
-          return () => { clearInterval(timer); if (unsub) unsub(); };
+          return () => {
+            clearInterval(timer);
+            if (unsub) unsub();
+            window.removeEventListener('open-fullscreen-audio-player', handleOpen);
+          };
         }
-        return unsub;
+        return () => {
+          if (unsub) unsub();
+          window.removeEventListener('open-fullscreen-audio-player', handleOpen);
+        };
       }, []);
 
       const [isAiSorting, setIsAiSorting] = useState(false);

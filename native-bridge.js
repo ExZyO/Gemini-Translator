@@ -23,7 +23,14 @@
             if (this._isActive) return;
             this._isActive = true;
 
-            // 1. Silent HTML5 Audio Loop (Forces browser media pipeline active; prevents tab freezing)
+            // In native Android (Capacitor), background execution is handled natively by NativeAndroidBridge
+            // and BackgroundWorkerService. Do NOT play silent HTML5 audio tracks on Android, as it creates
+            // conflicting audio sessions with ExoPlayer, prevents auto-resume, and mutes concurrent apps like TikTok!
+            if (isCapacitor()) {
+                return;
+            }
+
+            // 1. Silent HTML5 Audio Loop (For desktop/browser tabs only to prevent browser tab throttling)
             try {
                 if (!this._audioEl) {
                     this._audioEl = document.createElement('audio');
@@ -190,6 +197,8 @@
     let activeTtsCleanup = null;
 
     window.NativeBridge = {
+        isAndroid: () => isCapacitor(),
+        isNative: () => isCapacitor(),
         installApk: async (url = "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk") => {
             const bridge = getBridge();
             if (bridge && bridge.installApk) {

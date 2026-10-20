@@ -91,6 +91,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onNewIntent(android.content.Intent intent) {
         super.onNewIntent(intent);
+        setIntent(intent);
         handleAudioPlayerIntent(intent);
     }
 
@@ -98,14 +99,25 @@ public class MainActivity extends BridgeActivity {
         if (intent != null && "ACTION_OPEN_AUDIO_PLAYER".equals(intent.getAction())) {
             try {
                 if (bridge != null && bridge.getWebView() != null) {
+                    final String jsScript =
+                        "(function() {" +
+                        "  window._pendingOpenAudioPlayer = true;" +
+                        "  if (typeof window.openFullscreenAudioPlayer === 'function') {" +
+                        "    window.openFullscreenAudioPlayer();" +
+                        "  } else {" +
+                        "    window.dispatchEvent(new CustomEvent('open-fullscreen-audio-player'));" +
+                        "  }" +
+                        "})()";
+                    bridge.getWebView().post(() -> {
+                        try {
+                            bridge.getWebView().evaluateJavascript(jsScript, null);
+                        } catch (Exception ignored) {}
+                    });
                     bridge.getWebView().postDelayed(() -> {
                         try {
-                            bridge.getWebView().evaluateJavascript(
-                                "window.dispatchEvent(new CustomEvent('open-fullscreen-audio-player'));",
-                                null
-                            );
+                            bridge.getWebView().evaluateJavascript(jsScript, null);
                         } catch (Exception ignored) {}
-                    }, 350);
+                    }, 400);
                 }
             } catch (Exception ignored) {}
         }

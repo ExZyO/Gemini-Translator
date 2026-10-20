@@ -11,6 +11,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.media.MediaMetadata;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
@@ -100,6 +102,10 @@ public class NativeAudioService extends Service {
     private boolean mIsForeground = false;
     private BroadcastReceiver mLocalReceiver = null;
 
+    private AudioManager mAudioManager;
+    private AudioFocusRequest mAudioFocusRequest;
+    private boolean mResumeOnFocusGain = false;
+
     private final Runnable mProgressUpdateRunnable = new Runnable() {
         @Override
         public void run() {
@@ -116,6 +122,7 @@ public class NativeAudioService extends Service {
         sInstance = this;
         createNotificationChannel();
         initWakeLock();
+        initAudioManager();
         initExoPlayer();
         initMediaSession();
         registerActionReceiver();
@@ -147,6 +154,80 @@ public class NativeAudioService extends Service {
         }
     }
 
+    private void initAudioManager() {
+        mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+    }
+
+    private synchronized boolean requestNativeAudioFocus() {
+        if (mAudioManager == null) return true;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                android.media.AudioAttributes playbackAttributes = new android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build();
+                mAudioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                        .setAudioAttributes(playbackAttributes)
+                        .setAcceptsDelayedFocusGain(true)
+                        .setOnAudioFocusChangeListener(mAudioFocusChangeListener, mHandler)
+                        .build();
+                int res = mAudioManager.requestAudioFocus(mAudioFocusRequest);
+                return res == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+            } else {
+                int res = mAudioManager.requestAudioFocus(mAudioFocusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+                return res == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "requestNativeAudioFocus error: " + e.getMessage());
+            return true;
+        }
+    }
+
+    private synchronized void abandonNativeAudioFocus() {
+        if (mAudioManager == null) return;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && mAudioFocusRequest != null) {
+                mAudioManager.abandonAudioFocusRequest(mAudioFocusRequest);
+            } else {
+                mAudioManager.abandonAudioFocus(mAudioFocusChangeListener);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private final AudioManager.OnAudioFocusChangeListener mAudioFocusChangeListener = new AudioManager.OnAudioFocusChangeListener() {
+        @Override
+        public void onAudioFocusChange(int focusChange) {
+            switch (focusChange) {
+                case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                    // Temporary loss: phone call, navigation, or Gemini AI
+                    if (mPlayer != null && mPlayer.isPlaying()) {
+                        mResumeOnFocusGain = true;
+                        mPlayer.pause();
+                    }
+                    break;
+                case AudioManager.AUDIOFOCUS_LOSS:
+                    // Permanent loss: another media app (TikTok, YouTube, etc.) started
+                    mResumeOnFocusGain = false;
+                    if (mPlayer != null) {
+                        mPlayer.pause();
+                    }
+                    break;
+                case AudioManager.AUDIOFOCUS_GAIN:
+                    // Regained focus after temporary loss (e.g. Gemini AI closed or call ended)
+                    if (mResumeOnFocusGain) {
+                        mResumeOnFocusGain = false;
+                        if (mPlayer != null) {
+                            mPlayer.play();
+                        }
+                    }
+                    break;
+            }
+            updateNotificationAndSession();
+            notifyStateChanged();
+        }
+    };
+
     private void initExoPlayer() {
         AudioAttributes audioAttributes = new AudioAttributes.Builder()
                 .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
@@ -154,7 +235,7 @@ public class NativeAudioService extends Service {
                 .build();
 
         mPlayer = new ExoPlayer.Builder(this)
-                .setAudioAttributes(audioAttributes, true) // true = handle audio focus automatically (pause on calls)
+                .setAudioAttributes(audioAttributes, false) // Managed directly via mAudioFocusChangeListener
                 .setHandleAudioBecomingNoisy(true) // pause when headphones unplugged
                 .setWakeMode(C.WAKE_MODE_NETWORK)
                 .build();
@@ -228,6 +309,15 @@ public class NativeAudioService extends Service {
             @Override
             public void onStop() {
                 pause();
+            }
+
+            @Override
+            public void onCustomAction(String action, android.os.Bundle extras) {
+                if (ACTION_REWIND_5.equals(action)) {
+                    skipBackward5();
+                } else if (ACTION_FORWARD_5.equals(action)) {
+                    skipForward5();
+                }
             }
         });
 
@@ -372,6 +462,7 @@ public class NativeAudioService extends Service {
             if (positionMs > 0) {
                 mPlayer.seekTo(positionMs);
             }
+            requestNativeAudioFocus();
             mPlayer.play();
 
             updateNotificationAndSession();
@@ -388,6 +479,8 @@ public class NativeAudioService extends Service {
     }
 
     public void resume() {
+        mResumeOnFocusGain = false;
+        requestNativeAudioFocus();
         if (mPlayer != null) {
             mPlayer.play();
         }
@@ -523,6 +616,21 @@ public class NativeAudioService extends Service {
                     .setActions(actions)
                     .setState(state, pos, mPlaybackSpeed, SystemClock.elapsedRealtime());
 
+            // Add Custom Actions for Samsung One UI 6 / Android 13+ Lockscreen Media Controls
+            PlaybackState.CustomAction rewindAction = new PlaybackState.CustomAction.Builder(
+                    ACTION_REWIND_5,
+                    "-5s",
+                    android.R.drawable.ic_media_rew
+            ).build();
+            PlaybackState.CustomAction forwardAction = new PlaybackState.CustomAction.Builder(
+                    ACTION_FORWARD_5,
+                    "+5s",
+                    android.R.drawable.ic_media_ff
+            ).build();
+
+            stateBuilder.addCustomAction(rewindAction);
+            stateBuilder.addCustomAction(forwardAction);
+
             mMediaSession.setPlaybackState(stateBuilder.build());
         } catch (Exception e) {
             Log.w(TAG, "updateMediaSessionPlayback error: " + e.getMessage());
@@ -562,20 +670,26 @@ public class NativeAudioService extends Service {
         }
         PendingIntent contentPendingIntent = PendingIntent.getActivity(context, 0, openAppIntent, flags);
 
-        Intent prevIntent = new Intent(ACTION_PREV_TRACK);
-        PendingIntent prevPending = PendingIntent.getBroadcast(context, 201, prevIntent, flags);
+        // Use PendingIntent.getService so Android 14 SystemUI never drops actions due to RECEIVER_NOT_EXPORTED
+        Intent prevIntent = new Intent(context, NativeAudioService.class);
+        prevIntent.setAction(ACTION_PREV_TRACK);
+        PendingIntent prevPending = PendingIntent.getService(context, 201, prevIntent, flags);
 
-        Intent rewIntent = new Intent(ACTION_REWIND_5);
-        PendingIntent rewPending = PendingIntent.getBroadcast(context, 202, rewIntent, flags);
+        Intent rewIntent = new Intent(context, NativeAudioService.class);
+        rewIntent.setAction(ACTION_REWIND_5);
+        PendingIntent rewPending = PendingIntent.getService(context, 202, rewIntent, flags);
 
-        Intent playPauseIntent = new Intent(ACTION_TOGGLE_PLAY);
-        PendingIntent playPausePending = PendingIntent.getBroadcast(context, 203, playPauseIntent, flags);
+        Intent playPauseIntent = new Intent(context, NativeAudioService.class);
+        playPauseIntent.setAction(ACTION_TOGGLE_PLAY);
+        PendingIntent playPausePending = PendingIntent.getService(context, 203, playPauseIntent, flags);
 
-        Intent fwdIntent = new Intent(ACTION_FORWARD_5);
-        PendingIntent fwdPending = PendingIntent.getBroadcast(context, 204, fwdIntent, flags);
+        Intent fwdIntent = new Intent(context, NativeAudioService.class);
+        fwdIntent.setAction(ACTION_FORWARD_5);
+        PendingIntent fwdPending = PendingIntent.getService(context, 204, fwdIntent, flags);
 
-        Intent nextIntent = new Intent(ACTION_NEXT_TRACK);
-        PendingIntent nextPending = PendingIntent.getBroadcast(context, 205, nextIntent, flags);
+        Intent nextIntent = new Intent(context, NativeAudioService.class);
+        nextIntent.setAction(ACTION_NEXT_TRACK);
+        PendingIntent nextPending = PendingIntent.getService(context, 205, nextIntent, flags);
 
         boolean isPlaying = mPlayer != null && mPlayer.isPlaying();
         int playPauseIcon = isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
@@ -729,6 +843,7 @@ public class NativeAudioService extends Service {
             } catch (Exception ignored) {}
             mMediaSession = null;
         }
+        abandonNativeAudioFocus();
         releaseWakeLock();
         mHandler.removeCallbacks(mProgressUpdateRunnable);
         stopForeground(true);

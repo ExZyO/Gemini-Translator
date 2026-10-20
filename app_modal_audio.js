@@ -774,13 +774,127 @@
             }, ic('SkipForward', 20))
           ),
 
-          // Bottom Function Bar (Matching visual mockup)
+          // Dedicated 3-Mode Playback Segmented Control
           h('div', {
             style: {
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingTop: 12,
+              flexDirection: 'column',
+              gap: 6,
+              paddingTop: 4
+            }
+          },
+            h('div', {
+              style: {
+                fontSize: 10,
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: '#94a3b8',
+                textAlign: 'center'
+              }
+            }, 'Playback Mode'),
+            h('div', {
+              style: {
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: 6,
+                background: 'rgba(0, 0, 0, 0.40)',
+                padding: 4,
+                borderRadius: 14,
+                border: '1px solid rgba(255, 255, 255, 0.10)'
+              }
+            },
+              // Continuous
+              h('button', {
+                type: 'button',
+                style: {
+                  padding: '7px 4px',
+                  borderRadius: 10,
+                  background: (!audioPlayerState?.playbackMode || audioPlayerState?.playbackMode === 'continuous')
+                    ? 'rgba(99, 102, 241, 0.30)' : 'transparent',
+                  border: (!audioPlayerState?.playbackMode || audioPlayerState?.playbackMode === 'continuous')
+                    ? '1px solid rgba(99, 102, 241, 0.60)' : '1px solid transparent',
+                  color: (!audioPlayerState?.playbackMode || audioPlayerState?.playbackMode === 'continuous')
+                    ? '#c7d2fe' : '#94a3b8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 5,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                },
+                title: 'Continuous: Automatically play next chapter',
+                onClick: () => window.SwiftAudioEngine?.Player?.setPlaybackMode?.('continuous')
+              },
+                ic('Repeat', 13),
+                'Continuous'
+              ),
+              // Repeat Chapter
+              h('button', {
+                type: 'button',
+                style: {
+                  padding: '7px 4px',
+                  borderRadius: 10,
+                  background: audioPlayerState?.playbackMode === 'repeat_chapter'
+                    ? 'rgba(99, 102, 241, 0.30)' : 'transparent',
+                  border: audioPlayerState?.playbackMode === 'repeat_chapter'
+                    ? '1px solid rgba(99, 102, 241, 0.60)' : '1px solid transparent',
+                  color: audioPlayerState?.playbackMode === 'repeat_chapter'
+                    ? '#c7d2fe' : '#94a3b8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 5,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                },
+                title: 'Repeat Chapter: Loop current chapter',
+                onClick: () => window.SwiftAudioEngine?.Player?.setPlaybackMode?.('repeat_chapter')
+              },
+                ic('Repeat1', 13),
+                'Repeat Ch'
+              ),
+              // Stop at End
+              h('button', {
+                type: 'button',
+                style: {
+                  padding: '7px 4px',
+                  borderRadius: 10,
+                  background: audioPlayerState?.playbackMode === 'pause_at_end'
+                    ? 'rgba(99, 102, 241, 0.30)' : 'transparent',
+                  border: audioPlayerState?.playbackMode === 'pause_at_end'
+                    ? '1px solid rgba(99, 102, 241, 0.60)' : '1px solid transparent',
+                  color: audioPlayerState?.playbackMode === 'pause_at_end'
+                    ? '#c7d2fe' : '#94a3b8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 5,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                },
+                title: 'Stop at End: Pause after chapter finishes',
+                onClick: () => window.SwiftAudioEngine?.Player?.setPlaybackMode?.('pause_at_end')
+              },
+                ic('Square', 12),
+                'Stop at End'
+              )
+            )
+          ),
+
+          // Utility row (Speed, Sleep Timer, Chapters)
+          h('div', {
+            style: {
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 8,
+              paddingTop: 8,
               borderTop: '1px solid rgba(255, 255, 255, 0.10)',
               fontSize: 12
             }
@@ -789,11 +903,16 @@
             h('button', {
               type: 'button',
               style: {
-                padding: '5px 12px',
-                borderRadius: 99,
-                background: 'rgba(255, 255, 255, 0.10)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                padding: '7px 8px',
+                borderRadius: 12,
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.14)',
                 color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 5,
+                fontSize: 11.5,
                 fontWeight: 700,
                 cursor: 'pointer'
               },
@@ -804,20 +923,22 @@
                 const nextRate = rates[(curIdx + 1) % rates.length];
                 window.SwiftAudioEngine?.Player?.setPlaybackRate(nextRate);
               }
-            }, `${playbackRate}x`),
+            }, ic('Zap', 13, 'text-indigo-400'), `${playbackRate}x`),
 
             // Sleep Timer Pill
             h('button', {
               type: 'button',
               style: {
-                padding: '5px 12px',
-                borderRadius: 99,
-                background: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.10)',
-                border: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? '1px solid rgba(99, 102, 241, 0.50)' : '1px solid rgba(255, 255, 255, 0.15)',
+                padding: '7px 8px',
+                borderRadius: 12,
+                background: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                border: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? '1px solid rgba(99, 102, 241, 0.50)' : '1px solid rgba(255, 255, 255, 0.14)',
                 color: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? '#a5b4fc' : '#cbd5e1',
-                display: 'inline-flex',
+                display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 5,
+                fontSize: 11.5,
                 fontWeight: 600,
                 cursor: 'pointer'
               },
@@ -829,78 +950,62 @@
                 else window.SwiftAudioEngine?.Player?.setSleepTimer('60');
               }
             },
-              ic('Clock', 13),
+              ic('Clock', 13, audioPlayerState?.sleepTimerRemainingSeconds > 0 ? 'text-indigo-400' : 'text-slate-400'),
               audioPlayerState?.sleepTimerRemainingSeconds > 0
                 ? window.SwiftAudioEngine?.formatDuration(audioPlayerState.sleepTimerRemainingSeconds)
                 : 'Sleep Off'
-            ),
-
-            // Playback Mode Pill (Continuous, Repeat Chapter, Stop at End)
-            h('button', {
-              type: 'button',
-              style: {
-                padding: '5px 12px',
-                borderRadius: 99,
-                background: audioPlayerState?.playbackMode === 'repeat_chapter' ? 'rgba(99, 102, 241, 0.30)' : 'rgba(255, 255, 255, 0.10)',
-                border: audioPlayerState?.playbackMode === 'repeat_chapter' ? '1px solid rgba(99, 102, 241, 0.55)' : '1px solid rgba(255, 255, 255, 0.15)',
-                color: audioPlayerState?.playbackMode === 'repeat_chapter' ? '#a5b4fc' : '#cbd5e1',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                fontWeight: 600,
-                cursor: 'pointer'
-              },
-              title: 'Playback Mode (Continuous, Repeat Chapter, Stop at End)',
-              onClick: () => window.SwiftAudioEngine?.Player?.cyclePlaybackMode?.()
-            },
-              ic(audioPlayerState?.playbackMode === 'repeat_chapter' ? 'Repeat1' : (audioPlayerState?.playbackMode === 'pause_at_end' ? 'Square' : 'Repeat'), 13),
-              audioPlayerState?.playbackMode === 'repeat_chapter' ? 'Repeat Ch' : (audioPlayerState?.playbackMode === 'pause_at_end' ? 'Stop at End' : 'Continuous')
             ),
 
             // Chapters Queue Drawer Trigger
             h('button', {
               type: 'button',
               style: {
-                padding: '5px 12px',
-                borderRadius: 99,
-                background: isChapterQueueOpen ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.10)',
-                border: isChapterQueueOpen ? '1px solid rgba(99, 102, 241, 0.50)' : '1px solid rgba(255, 255, 255, 0.15)',
+                padding: '7px 8px',
+                borderRadius: 12,
+                background: isChapterQueueOpen ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                border: isChapterQueueOpen ? '1px solid rgba(99, 102, 241, 0.50)' : '1px solid rgba(255, 255, 255, 0.14)',
                 color: isChapterQueueOpen ? '#a5b4fc' : '#cbd5e1',
-                display: 'inline-flex',
+                display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 5,
+                fontSize: 11.5,
                 fontWeight: 600,
                 cursor: 'pointer'
               },
               title: 'Open Chapters Drawer',
               onClick: () => setIsChapterQueueOpen(prev => !prev)
             },
-              ic('ListMusic', 13),
+              ic('ListMusic', 13, 'text-indigo-400'),
               'Chapters'
-            ),
-
-            // Poweramp Quick Pill
-            h('button', {
-              type: 'button',
-              style: {
-                padding: '5px 10px',
-                borderRadius: 99,
-                background: 'rgba(99, 102, 241, 0.20)',
-                border: '1px solid rgba(99, 102, 241, 0.40)',
-                color: '#a5b4fc',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: 'pointer'
-              },
-              title: 'Open in Poweramp app',
-              onClick: () => window.SwiftAudioEngine?.Player?.openInPoweramp()
-            },
-              ic('ExternalLink', 12),
-              'Poweramp'
             )
+          ),
+
+          // Dedicated Full-Width Open in Poweramp Button (100% visible, centered, comfortable)
+          h('button', {
+            type: 'button',
+            style: {
+              width: '100%',
+              padding: '9px 12px',
+              borderRadius: 14,
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(168, 85, 247, 0.18) 100%)',
+              border: '1px solid rgba(165, 180, 252, 0.35)',
+              color: '#e0e7ff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+              transition: 'all 0.15s ease'
+            },
+            title: 'Open current chapter in Poweramp player',
+            onClick: () => window.SwiftAudioEngine?.Player?.openInPoweramp()
+          },
+            ic('ExternalLink', 14, 'text-indigo-400'),
+            'Open Chapter in Poweramp'
           ),
 
           // Chapter Queue Overlay Sheet

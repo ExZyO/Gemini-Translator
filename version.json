@@ -1,9 +1,9 @@
 {
-  "version": "8.21.86",
-  "versionCode": 8497,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.86/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.86/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.86",
+  "version": "8.21.87",
+  "versionCode": 8498,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.87/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.87/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.87",
   "releaseDate": "2026-10-20",
-  "releaseNotes": "v8.21.86: Native Android Media3 ExoPlayer Audio Engine with 5-button lock screen notification, continuous/repeat/pause playback modes, and automatic audio focus."
+  "releaseNotes": "v8.21.87: Native Android Media3 ExoPlayer Audio Engine with 5-button lock screen notification, notification tap to fullscreen player, 3-mode playback segmented control, full-width Poweramp trigger, and transient audio focus auto-resume."
 }

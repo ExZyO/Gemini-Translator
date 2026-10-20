@@ -264,6 +264,14 @@
             };
         }
 
+        _isNativeAndroid() {
+            if (typeof window === 'undefined') return false;
+            if (window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function') {
+                return window.NativeBridge.isAndroid();
+            }
+            return !!(window.Capacitor && (window.Capacitor.isNativePlatform?.() || window.Capacitor.Plugins?.NativeAndroidBridge));
+        }
+
         _initAudioElement() {
             if (typeof document === 'undefined') return;
             if (this.audioEl) return;
@@ -322,7 +330,7 @@
             this._bindAudioEvents(this.preloadAudioEl);
 
             // Native Android ExoPlayer event listener
-            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+            if (this._isNativeAndroid() && window.NativeBridge?.addNativeAudioListener) {
                 window.NativeBridge.addNativeAudioListener('nativeAudioState', (data) => {
                     if (!data) return;
                     this.isPlaying = !!data.isPlaying;
@@ -427,7 +435,7 @@
                 if (el !== this.audioEl) return;
                 if (this.sleepAtEndOfChapter) {
                     this.pause();
-                    if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+                    if (this._isNativeAndroid() && window.NativeBridge?.setNativeAudioMode) {
                 try { window.NativeBridge.stopNativeAudio(); } catch(e) {}
             }
             this.clearSleepTimer();
@@ -482,7 +490,7 @@
             this._hasPreloadedNext = false;
             this.currentTime = seekTime || 0;
 
-            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+            if (this._isNativeAndroid() && window.NativeBridge?.playNativeAudio) {
                 const track = this.currentBook?.tracks?.[this.currentTrackIndex];
                 const modeInt = this.playbackMode === 'repeat_chapter' ? 1 : (this.playbackMode === 'pause_at_end' ? 2 : 0);
                 window.NativeBridge.playNativeAudio({
@@ -561,7 +569,7 @@
         }
 
         play() {
-            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+            if (this._isNativeAndroid() && window.NativeBridge?.resumeNativeAudio) {
                 window.NativeBridge.resumeNativeAudio();
                 this.isPlaying = true;
                 this._notify();
@@ -585,7 +593,7 @@
         }
 
         pause() {
-            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+            if (this._isNativeAndroid() && window.NativeBridge?.pauseNativeAudio) {
                 window.NativeBridge.pauseNativeAudio();
                 this.isPlaying = false;
                 this._savePosition(true);
@@ -599,7 +607,7 @@
         }
 
         togglePlay() {
-            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+            if (this._isNativeAndroid() && window.NativeBridge?.toggleNativeAudio) {
                 window.NativeBridge.toggleNativeAudio();
                 this.isPlaying = !this.isPlaying;
                 this._notify();
@@ -679,7 +687,7 @@
 
         seekTo(seconds) {
             if (typeof seconds !== 'number' || isNaN(seconds)) return;
-            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+            if (this._isNativeAndroid() && window.NativeBridge?.seekNativeAudio) {
                 window.NativeBridge.seekNativeAudio(seconds);
                 this.currentTime = seconds;
                 this._savePosition(true);
@@ -746,11 +754,25 @@
             try {
                 localStorage.setItem('gemini_audio_playback_mode', this.playbackMode);
             } catch(e) {}
-            if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.isAndroid === 'function' && window.NativeBridge.isAndroid()) {
+            if (this._isNativeAndroid() && window.NativeBridge?.setNativeAudioMode) {
                 const modeInt = this.playbackMode === 'repeat_chapter' ? 1 : (this.playbackMode === 'pause_at_end' ? 2 : 0);
                 window.NativeBridge.setNativeAudioMode(modeInt);
             }
             this._notify();
+        }
+
+        setPlaybackMode(mode) {
+            if (mode === 'repeat_chapter' || mode === 'pause_at_end' || mode === 'continuous') {
+                this.playbackMode = mode;
+                try {
+                    localStorage.setItem('gemini_audio_playback_mode', this.playbackMode);
+                } catch(e) {}
+                if (this._isNativeAndroid() && window.NativeBridge?.setNativeAudioMode) {
+                    const modeInt = this.playbackMode === 'repeat_chapter' ? 1 : (this.playbackMode === 'pause_at_end' ? 2 : 0);
+                    window.NativeBridge.setNativeAudioMode(modeInt);
+                }
+                this._notify();
+            }
         }
 
         setPlaybackRate(rate) {
@@ -889,6 +911,10 @@
 
             // 2. Native Android Notification Center & Quick Settings Media Player
             try {
+                // If running on native Android, NativeAudioService handles its own notification & MediaSession!
+                if (this._isNativeAndroid()) {
+                    return;
+                }
                 if (window.NativeBridge && window.NativeBridge.showAudioNotification) {
                     window.NativeBridge.showAudioNotification({
                         title: trackTitle,
