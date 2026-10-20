@@ -1,9 +1,9 @@
 {
-  "version": "8.21.93",
-  "versionCode": 8504,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.93/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.93/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.93",
+  "version": "8.21.94",
+  "versionCode": 8505,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.94/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.94/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.94",
   "releaseDate": "2026-10-20",
-  "releaseNotes": "v8.21.93: Fallback Model Priority Ladder with custom model support and strict model lock protection."
+  "releaseNotes": "v8.21.94: AI refusal and copyright interceptor with automatic retry cascade and health healing."
 }

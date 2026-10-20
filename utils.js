@@ -706,6 +706,42 @@ const cleanText = t => {
     return c.trim();
 };
 
+const AI_REFUSAL_PATTERNS = [
+    /cannot provide a direct translation/i,
+    /cannot provide a translation/i,
+    /unable to provide a translation/i,
+    /not able to translate/i,
+    /verbatim excerpt from a copyrighted/i,
+    /verbatim excerpt/i,
+    /objective summary of the events/i,
+    /offer an objective summary/i,
+    /copyrighted (?:work|novel|text|content|material|book|story|fanfiction)/i,
+    /copyright (?:restrictions|policy|infringement|reasons)/i,
+    /i cannot fulfill this request/i,
+    /i am unable to fulfill this/i,
+    /as an ai language model/i,
+    /i'm sorry, but i cannot/i,
+    /i cannot translate this/i,
+    /violates (?:our )?(?:content|safety|copyright) policy/i,
+    /i am an ai/i
+];
+
+function isAiRefusal(text) {
+    if (!text || typeof text !== 'string') return false;
+    const t = text.trim();
+    if (t.length < 600) {
+        for (let i = 0; i < AI_REFUSAL_PATTERNS.length; i++) {
+            if (AI_REFUSAL_PATTERNS[i].test(t)) return true;
+        }
+    } else {
+        const lead = t.slice(0, 450);
+        for (let i = 0; i < AI_REFUSAL_PATTERNS.length; i++) {
+            if (AI_REFUSAL_PATTERNS[i].test(lead)) return true;
+        }
+    }
+    return false;
+}
+
 const cleanTranslatedTitle = t => {
     if (!t || typeof t !== 'string') return '';
     return String(t)
@@ -1174,6 +1210,8 @@ window.cleanChapterTitle = cleanChapterTitle;
 window.normalizeTitleKey = normalizeTitleKey;
 window.copyText = copyText;
 window.generateJobId = generateJobId;
+window.isAiRefusal = isAiRefusal;
+window.AI_REFUSAL_PATTERNS = AI_REFUSAL_PATTERNS;
 
 // ═══════════════════════════════════════
 // THUMBHASH DECODER & RESILIENT IMAGE FALLBACKS
@@ -2106,6 +2144,7 @@ if (typeof module !== 'undefined' && module.exports) {
         normalizeTitleKey,
         copyText,
         generateJobId,
+        isAiRefusal,
         CHUNK_PAYLOAD_MAP,
         fetchRetry,
         batchParallel,

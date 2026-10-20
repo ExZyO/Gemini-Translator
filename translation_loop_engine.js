@@ -146,7 +146,15 @@
     const fn = (opts && opts.streamWithRotation) ||
                (typeof window !== 'undefined' && window.streamWithRotation) ||
                (typeof global !== 'undefined' && global.streamWithRotation);
-    if (typeof fn === 'function') return fn(chunk, opts);
+    if (typeof fn === 'function') {
+      const res = await fn(chunk, opts);
+      const text = (res && typeof res === 'object') ? (res.text || '') : (typeof res === 'string' ? res : '');
+      const checkRefusal = (typeof isAiRefusal === 'function' ? isAiRefusal : (typeof window !== 'undefined' ? window.isAiRefusal : null));
+      if (checkRefusal && checkRefusal(text)) {
+        throw new Error('AI Refusal: Translation stream contained refusal disclaimer.');
+      }
+      return res;
+    }
     throw new Error('streamWithRotation is not available');
   }
 
@@ -154,7 +162,15 @@
     const fn = (opts && opts.translateWithRotation) ||
                (typeof window !== 'undefined' && window.translateWithRotation) ||
                (typeof global !== 'undefined' && global.translateWithRotation);
-    if (typeof fn === 'function') return fn(chunk, opts);
+    if (typeof fn === 'function') {
+      const res = await fn(chunk, opts);
+      const text = (res && typeof res === 'object') ? (res.text || '') : (typeof res === 'string' ? res : '');
+      const checkRefusal = (typeof isAiRefusal === 'function' ? isAiRefusal : (typeof window !== 'undefined' ? window.isAiRefusal : null));
+      if (checkRefusal && checkRefusal(text)) {
+        throw new Error('AI Refusal: Model returned canned refusal disclaimer.');
+      }
+      return res;
+    }
     throw new Error('translateWithRotation is not available');
   }
 
