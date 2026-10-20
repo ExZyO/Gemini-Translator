@@ -434,8 +434,9 @@ const AI_REFUSAL_PATTERNS = [
     /cannot provide a direct translation/i,
     /cannot provide a translation/i,
     /unable to provide a (?:direct )?translation/i,
-    /not able to translate/i,
+    /not able to translate (?:this|the) (?:text|excerpt|work|passage|material)/i,
     /cannot translate this (?:text|passage|excerpt|work|chapter)/i,
+    /verbatim excerpt from a copyrighted/i,
     /verbatim excerpt/i,
     /objective summary of the events/i,
     /offer an objective summary/i,
@@ -443,13 +444,11 @@ const AI_REFUSAL_PATTERNS = [
     /fanfiction or novel content/i,
     /copyrighted (?:work|novel|text|content|material|book|story|fanfiction|piece|publication)/i,
     /copyright (?:restrictions|policy|infringement|reasons|concerns)/i,
-    /i cannot fulfill this request/i,
-    /i am unable to fulfill this/i,
+    /(?:cannot|unable to) fulfill this request\s+(?:due to|because of|under|as it violates)/i,
     /as an ai language model/i,
-    /i'm sorry, but i cannot/i,
-    /i cannot translate this/i,
+    /(?:i'm sorry|i apologize),?\s*but i cannot\s+(?:translate|provide|generate|comply|fulfill|process)/i,
     /violates (?:our )?(?:content|safety|copyright) policy/i,
-    /i am an ai\b/i
+    /(?:as an ai|i am an ai|i'm an ai)[^.!?\n]*(?:cannot|unable|prohibited|policy|guideline|language model)/i
 ];
 
 function isAiRefusal(text) {
