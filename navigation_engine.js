@@ -440,7 +440,45 @@
     const pillRef = React.useRef(null);
     const isGlidingRef = React.useRef(false);
     const lastXRef = React.useRef(0);
+    const lastHapticIdxRef = React.useRef(null);
+    const lastScrollYRef = React.useRef(0);
+    const scrollAccumulatorRef = React.useRef(0);
     const [hoverIdx, setHoverIdx] = React.useState(null);
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
+
+    // Dynamic scroll collapse matching NuvioMobile NavigationBar.kt
+    React.useEffect(function () {
+      const SCROLL_THRESHOLD = 50;
+      function handleScroll() {
+        const currentY = window.scrollY || document.documentElement.scrollTop || 0;
+        const delta = currentY - lastScrollYRef.current;
+        lastScrollYRef.current = currentY;
+
+        if (currentY < 30) {
+          setIsCollapsed(false);
+          scrollAccumulatorRef.current = 0;
+          return;
+        }
+
+        scrollAccumulatorRef.current += delta;
+
+        if (scrollAccumulatorRef.current > SCROLL_THRESHOLD && !isCollapsed) {
+          setIsCollapsed(true);
+          scrollAccumulatorRef.current = 0;
+        } else if (scrollAccumulatorRef.current < -SCROLL_THRESHOLD && isCollapsed) {
+          setIsCollapsed(false);
+          scrollAccumulatorRef.current = 0;
+        }
+
+        if (delta < 0 && scrollAccumulatorRef.current > 0) scrollAccumulatorRef.current = delta;
+        if (delta > 0 && scrollAccumulatorRef.current < 0) scrollAccumulatorRef.current = delta;
+      }
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      return function () {
+        window.removeEventListener('scroll', handleScroll);
+      };
+    }, [isCollapsed]);
 
     const activeNavIdx = Math.max(0, navItems.findIndex(function (item) { return item[0] === activeTab; }));
     const currentDisplayIdx = hoverIdx !== null ? hoverIdx : activeNavIdx;
@@ -448,14 +486,16 @@
     const getTabMetrics = function () {
       if (!navRef.current) return { trackWidth: 0, tabWidth: 0, rect: null };
       const rect = navRef.current.getBoundingClientRect();
-      const trackWidth = Math.max(0, rect.width - 10); // 5px padding on left & right
+      const padding = isCollapsed ? 8 : 10;
+      const trackWidth = Math.max(0, rect.width - padding);
       const tabWidth = trackWidth / (navItems.length || 1);
-      return { trackWidth: trackWidth, tabWidth: tabWidth, rect: rect };
+      return { trackWidth: trackWidth, tabWidth: tabWidth, rect: rect, padding: padding / 2 };
     };
 
     const calculatePillPercent = function (clientX, metrics) {
       if (!metrics.rect || metrics.tabWidth <= 0) return activeNavIdx * 100;
-      const fingerTrackX = clientX - metrics.rect.left - 5;
+      const pad = metrics.padding || 5;
+      const fingerTrackX = clientX - metrics.rect.left - pad;
       const pillCenterTarget = fingerTrackX - (metrics.tabWidth / 2);
       const clampedTarget = Math.max(0, Math.min(metrics.trackWidth - metrics.tabWidth, pillCenterTarget));
       return (clampedTarget / metrics.tabWidth) * 100;
@@ -464,6 +504,16 @@
     const getIndexFromPercent = function (percent) {
       const rawIdx = Math.round(percent / 100);
       return Math.max(0, Math.min(navItems.length - 1, rawIdx));
+    };
+
+    const triggerHapticTick = function () {
+      try {
+        if (window.NativeBridge && window.NativeBridge.haptic) {
+          window.NativeBridge.haptic('tick');
+        } else if (navigator.vibrate) {
+          navigator.vibrate(12);
+        }
+      } catch (e) {}
     };
 
     const handlePointerDown = function (e) {
@@ -475,10 +525,11 @@
       const targetPercent = calculatePillPercent(e.clientX, metrics);
       const targetIdx = getIndexFromPercent(targetPercent);
       setHoverIdx(targetIdx);
+      lastHapticIdxRef.current = targetIdx;
+      triggerHapticTick();
 
       if (pillRef.current) {
-        // Silky, critically-damped slide toward thumb on touch down
-        pillRef.current.style.transition = 'transform 0.16s cubic-bezier(0.22, 1, 0.36, 1)';
+        pillRef.current.style.transition = 'transform 0.16s cubic-bezier(0.2, 0, 0, 1)';
         pillRef.current.style.transform = 'translate3d(' + targetPercent + '%, 0, 0) scaleX(1.06)';
       }
 
@@ -488,14 +539,17 @@
         const continuousPercent = calculatePillPercent(moveEvt.clientX, currentMetrics);
         const currentIdx = getIndexFromPercent(continuousPercent);
 
-        // Organic liquid stretch matching drag velocity
+        if (currentIdx !== lastHapticIdxRef.current) {
+          lastHapticIdxRef.current = currentIdx;
+          triggerHapticTick();
+        }
+
         const delta = Math.abs(moveEvt.clientX - lastXRef.current);
         lastXRef.current = moveEvt.clientX;
         const dynamicStretch = Math.min(1.14, 1.02 + (delta * 0.005));
 
         setHoverIdx(currentIdx);
 
-        // Continuous 1:1 real-time finger tracking with micro-damping for liquid smoothness
         pillRef.current.style.transition = 'transform 0.04s cubic-bezier(0.1, 0.9, 0.2, 1)';
         pillRef.current.style.transform = 'translate3d(' + continuousPercent + '%, 0, 0) scaleX(' + dynamicStretch.toFixed(3) + ')';
       };
@@ -508,8 +562,7 @@
         setHoverIdx(null);
 
         if (pillRef.current) {
-          // Nuvio / iOS critically-damped spring snap
-          pillRef.current.style.transition = 'transform 0.34s cubic-bezier(0.22, 1, 0.36, 1)';
+          pillRef.current.style.transition = 'transform 0.34s cubic-bezier(0.2, 0, 0, 1)';
           pillRef.current.style.transform = 'translate3d(' + (finalIdx * 100) + '%, 0, 0) scaleX(1)';
         }
 
@@ -529,15 +582,14 @@
 
     React.useEffect(function () {
       if (!isGlidingRef.current && pillRef.current) {
-        // Nuvio / iOS critically-damped spring settle
-        pillRef.current.style.transition = 'transform 0.34s cubic-bezier(0.22, 1, 0.36, 1)';
+        pillRef.current.style.transition = 'transform 0.34s cubic-bezier(0.2, 0, 0, 1)';
         pillRef.current.style.transform = 'translate3d(' + (activeNavIdx * 100) + '%, 0, 0) scaleX(1)';
       }
-    }, [activeNavIdx]);
+    }, [activeNavIdx, isCollapsed]);
 
     return h('nav', {
       ref: navRef,
-      className: 'bottomnav',
+      className: 'bottomnav' + (isCollapsed ? ' collapsed' : ''),
       'aria-label': 'Main Navigation',
       onPointerDown: handlePointerDown
     },
@@ -560,6 +612,10 @@
           'aria-selected': isCurrentActive,
           onClick: function (e) {
             e.preventDefault();
+            triggerHapticTick();
+            if (isCollapsed) {
+              setIsCollapsed(false);
+            }
             if (activeTab !== key) {
               onSelectTab(key);
             }

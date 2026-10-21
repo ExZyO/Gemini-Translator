@@ -1400,6 +1400,8 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1));
                     } else if ("error".equalsIgnoreCase(type)) {
                         vibrator.vibrate(VibrationEffect.createOneShot(120, VibrationEffect.DEFAULT_AMPLITUDE));
+                    } else if ("tick".equalsIgnoreCase(type) || "light".equalsIgnoreCase(type)) {
+                        vibrator.vibrate(VibrationEffect.createOneShot(12, 90));
                     } else {
                         vibrator.vibrate(VibrationEffect.createOneShot(25, 120));
                     }

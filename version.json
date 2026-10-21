@@ -1,9 +1,9 @@
 {
-  "version": "8.21.96",
-  "versionCode": 8507,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.96/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.96/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.96",
-  "releaseDate": "2026-10-20",
-  "releaseNotes": "v8.21.96: Precision refusal patterns with zero false positives for fictional dialogue and sci-fi characters."
+  "version": "8.21.97",
+  "versionCode": 8508,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.97/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.97/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.97",
+  "releaseDate": "2026-10-21",
+  "releaseNotes": "v8.21.97: Nuvio Batch 1: Motion tokens, 120Hz spring physics, and dynamic island floating frosted-glass navigation bar."
 }

@@ -1215,7 +1215,8 @@
                 if (bridge && bridge.triggerHaptic) {
                     await bridge.triggerHaptic({ type });
                 } else if (navigator.vibrate) {
-                    if (type === 'success') navigator.vibrate([40, 60, 40]);
+                    if (type === 'tick' || type === 'light') navigator.vibrate(12);
+                    else if (type === 'success') navigator.vibrate([40, 60, 40]);
                     else if (type === 'error') navigator.vibrate(120);
                     else navigator.vibrate(25);
                 }
