@@ -1,4 +1,4 @@
-name: 🤖 Build Android Release APK
+name: Build Android Release APK
 
 on:
   push:
@@ -10,36 +10,36 @@ permissions:
 
 jobs:
   build-apk:
-    name: 📦 Compile High-Speed Release .apk
+    name: Compile High-Speed Release APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: ☕ Set up Java 17 with Gradle Cache
+      - name: Set up Java 17 with Gradle Cache
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
 
-      - name: 🟩 Set up Node.js 22 with npm Cache
+      - name: Set up Node.js 22 with npm Cache
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      - name: 📦 Install Node Dependencies
+      - name: Install Node Dependencies
         run: npm install --no-audit --no-fund
 
-      - name: 🌐 Prepare Web Assets
+      - name: Prepare Web Assets
         run: node build-www.js
 
-      - name: 🔄 Sync Capacitor Android Platform
+      - name: Sync Capacitor Android Platform
         run: npx cap sync android
 
-      - name: 🔑 Configure Release Signing Keystore
+      - name: Configure Release Signing Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -54,7 +54,7 @@ jobs:
             echo "Warning: Release signing secrets not found. Falling back to debug keystore."
           fi
 
-      - name: ⚡ Build Optimized Release APK
+      - name: Build Optimized Release APK
         run: |
           mkdir -p ~/.android ~/.config/.android
           keytool -genkeypair -alias androiddebugkey -keypass android -keystore ~/.android/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000 || true
@@ -63,28 +63,28 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --build-cache --parallel
 
-      - name: 🔍 Verify Release APK Signature
+      - name: Verify Release APK Signature
         run: |
           echo "Verifying APK signing certificate..."
           keytool -printcert -jarfile android/app/build/outputs/apk/release/app-release.apk
 
-      - name: 📱 Prepare APK for Direct Download
+      - name: Prepare APK for Direct Download
         run: cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/GeminiTranslator.apk
 
-      - name: 🏷️ Read Version from package.json
+      - name: Read Version from package.json
         id: pkg_version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-      - name: 🚀 Publish Versioned GitHub Release
+      - name: Publish Versioned GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             android/app/build/outputs/apk/release/GeminiTranslator.apk
             android/app/build/outputs/apk/release/app-release.apk
           tag_name: v${{ steps.pkg_version.outputs.version }}
-          name: "📱 Gemini Translator v${{ steps.pkg_version.outputs.version }}"
+          name: "Gemini Translator v${{ steps.pkg_version.outputs.version }}"
           body: |
-            ## 📱 Gemini Translator v${{ steps.pkg_version.outputs.version }}
+            ## Gemini Translator v${{ steps.pkg_version.outputs.version }}
             Direct APK download: tap **GeminiTranslator.apk** below to install directly!
 
             Version: v${{ steps.pkg_version.outputs.version }} • Build #${{ github.run_number }} • ${{ github.sha }}
@@ -94,7 +94,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🔄 Update 'latest' Release Tag (Backwards Compatibility)
+      - name: Update latest Release Tag (Backwards Compatibility)
         uses: softprops/action-gh-release@v2
         with:
           files: |

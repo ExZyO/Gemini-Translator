@@ -440,7 +440,6 @@
     const pillRef = React.useRef(null);
     const isGlidingRef = React.useRef(false);
     const lastXRef = React.useRef(0);
-    const lastHapticIdxRef = React.useRef(null);
     const lastScrollYRef = React.useRef(0);
     const scrollAccumulatorRef = React.useRef(0);
     const [hoverIdx, setHoverIdx] = React.useState(null);
@@ -506,16 +505,6 @@
       return Math.max(0, Math.min(navItems.length - 1, rawIdx));
     };
 
-    const triggerHapticTick = function () {
-      try {
-        if (window.NativeBridge && window.NativeBridge.haptic) {
-          window.NativeBridge.haptic('tick');
-        } else if (navigator.vibrate) {
-          navigator.vibrate(12);
-        }
-      } catch (e) {}
-    };
-
     const handlePointerDown = function (e) {
       if (e.button !== undefined && e.button !== 0) return;
       isGlidingRef.current = true;
@@ -525,8 +514,6 @@
       const targetPercent = calculatePillPercent(e.clientX, metrics);
       const targetIdx = getIndexFromPercent(targetPercent);
       setHoverIdx(targetIdx);
-      lastHapticIdxRef.current = targetIdx;
-      triggerHapticTick();
 
       if (pillRef.current) {
         pillRef.current.style.transition = 'transform 0.16s cubic-bezier(0.2, 0, 0, 1)';
@@ -538,11 +525,6 @@
         const currentMetrics = getTabMetrics();
         const continuousPercent = calculatePillPercent(moveEvt.clientX, currentMetrics);
         const currentIdx = getIndexFromPercent(continuousPercent);
-
-        if (currentIdx !== lastHapticIdxRef.current) {
-          lastHapticIdxRef.current = currentIdx;
-          triggerHapticTick();
-        }
 
         const delta = Math.abs(moveEvt.clientX - lastXRef.current);
         lastXRef.current = moveEvt.clientX;
@@ -612,7 +594,6 @@
           'aria-selected': isCurrentActive,
           onClick: function (e) {
             e.preventDefault();
-            triggerHapticTick();
             if (isCollapsed) {
               setIsCollapsed(false);
             }
