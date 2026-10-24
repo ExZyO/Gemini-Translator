@@ -1224,8 +1224,9 @@
   // 9b. NOVEL ASSIGN WEBSITE MODAL
   // ─────────────────────────────────────────────────────────────────────────
   function NovelAssignWebsiteModal(props) {
-    if (typeof window !== 'undefined' && window.LibraryEngine?.NovelAssignWebsiteModal) {
-      return getH()(window.LibraryEngine.NovelAssignWebsiteModal, props);
+    if (!props || !props.novel) return null;
+    if (typeof window !== 'undefined' && typeof window.NovelSourceManagerModal === 'function') {
+      return getH()(window.NovelSourceManagerModal, props);
     }
     const { novel, onClose, value, setValue, onSave } = props;
     if (!novel) return null;

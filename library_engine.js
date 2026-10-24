@@ -1034,7 +1034,7 @@
       // recover existing chapters so we don't re-download everything from scratch
       if (existingRaw.length === 0 && targetItem.epubBlob) {
         try {
-          const readEpubFn = (typeof window !== 'undefined') ? (window.readEpub || (window.MoonReaderEngine && window.MoonReaderEngine.readEpub)) : null;
+          const readEpubFn = (typeof window !== 'undefined') ? (window.readEpub || window.DocumentParser?.readEpub || (window.MoonReaderEngine && window.MoonReaderEngine.readEpub)) : null;
           if (typeof readEpubFn === 'function') {
             const epubMeta = await readEpubFn(targetItem.epubBlob);
             if (epubMeta && epubMeta.chapters && epubMeta.chapters.length > 0) {
@@ -1150,9 +1150,14 @@
             }
 
             const getOptsFn = callbacks.getEpubOptions || window.getEpubOptions;
-            const opts = typeof getOptsFn === 'function'
-              ? getOptsFn({ novelId: updatedNovel.id || sourceUrl || bookTitle, coverUrl: updatedNovel.cover || '' })
-              : { novelId: updatedNovel.id, coverUrl: updatedNovel.cover || '' };
+            const extraMeta = {
+              novelId: updatedNovel.id || sourceUrl || bookTitle,
+              sourceUrl: sourceUrl,
+              sources: updatedNovel.sources,
+              title: bookTitle,
+              coverUrl: updatedNovel.cover || ''
+            };
+            const opts = typeof getOptsFn === 'function' ? getOptsFn(extraMeta) : extraMeta;
 
             let blob = null;
             if (options.appendEpub && window.appendChaptersToExistingEpub && (targetItem.epubBlob || options.originalFile)) {
@@ -2262,7 +2267,7 @@
         const toast = maybeToast || callbacks?.toast;
         const setWebImportHistory = callbacks?.setWebImportHistory || callbacks?.onUpdateHistory;
         const setActiveCrawlSession = callbacks?.setActiveCrawlSession || callbacks?.onClearActiveCrawlSession;
-        await LibraryEngine.restoreFromEpubFiles(fileList, {
+        const count = await LibraryEngine.restoreFromEpubFiles(fileList, {
           toast,
           onUpdateHistory: setWebImportHistory,
           onClearActiveCrawlSession: () => {
@@ -2272,6 +2277,7 @@
         if (files && files.target && 'value' in files.target) {
           files.target.value = '';
         }
+        return count;
       },
 
       /**
@@ -2678,8 +2684,8 @@
      * Enhanced Multi-Source Assign Website Modal Component (delegated to app_modal_novel_source.js)
      */
     NovelAssignWebsiteModal(props) {
-      if (typeof window !== 'undefined' && window.NovelAssignWebsiteModal) {
-        return window.NovelAssignWebsiteModal(props);
+      if (typeof window !== 'undefined' && typeof window.NovelSourceManagerModal === 'function') {
+        return window.NovelSourceManagerModal(props);
       }
       return null;
     }

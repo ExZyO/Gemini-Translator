@@ -352,6 +352,7 @@
 
   if (typeof window !== 'undefined') {
     window.promptMultiSourceUpdate = promptMultiSourceUpdate;
+    window.NovelSourceManagerModal = NovelAssignWebsiteModal;
     window.NovelAssignWebsiteModal = NovelAssignWebsiteModal;
     if (window.LibraryEngine) {
       window.LibraryEngine.promptMultiSourceUpdate = promptMultiSourceUpdate;
