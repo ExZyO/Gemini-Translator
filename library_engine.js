@@ -1405,6 +1405,7 @@
         callbacks.toast(`Reading ${fileList.length} EPUB file(s)...`, 'info');
       }
       let restoredCount = 0;
+      let hasError = false;
       const readEpubFn = window.readEpub || window.DocumentParser?.readEpub || window.FileParserEngine?.readEpub;
       if (typeof readEpubFn !== 'function') {
         throw new Error('EPUB reader engine is not loaded.');
@@ -1412,6 +1413,14 @@
 
       for (const f of fileList) {
         try {
+          if (!f) continue;
+          if (f.size !== undefined && f.size < 50) {
+            hasError = true;
+            if (typeof callbacks.toast === 'function') {
+              callbacks.toast(`"${f.name || 'Selected item'}" is a folder or empty file (0 bytes). Please open the folder and tap your .epub book file inside.`, 'info');
+            }
+            continue;
+          }
           const nameLower = (f.name || '').toLowerCase();
           const typeLower = (f.type || '').toLowerCase();
           const isEpub = nameLower.endsWith('.epub') ||
@@ -1419,8 +1428,7 @@
             typeLower.includes('epub') ||
             typeLower.includes('zip') ||
             typeLower === 'application/octet-stream' ||
-            !f.name ||
-            !f.name.includes('.');
+            (!f.name.includes('.') && f.size > 100);
           if (!isEpub) continue;
           const epubData = await readEpubFn(f);
           if (epubData && epubData.chapters && epubData.chapters.length > 0) {
@@ -1454,6 +1462,7 @@
             restoredCount++;
           }
         } catch (err) {
+          hasError = true;
           console.error('[LibraryEngine] EPUB restore failed for', f.name, err);
           if (window.telemetryLog) {
             window.telemetryLog('EPUB_RESTORE', `Restore failed for ${f.name}: ${err?.message || err}`, { error: String(err), stack: err?.stack }, 'error');
@@ -1468,7 +1477,7 @@
         if (typeof callbacks.toast === 'function') {
           callbacks.toast(`Successfully restored ${restoredCount} novel(s) into your library!`, 'success');
         }
-      } else {
+      } else if (!hasError) {
         if (typeof callbacks.toast === 'function') {
           callbacks.toast('No readable EPUB chapters found.', 'warning');
         }

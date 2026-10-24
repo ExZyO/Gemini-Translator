@@ -131,6 +131,10 @@
      */
     async readEpub(f) {
       if (!window.JSZip) throw new Error('JSZip is required to read .epub files.');
+      if (!f) throw new Error('No file provided.');
+      if (f.size !== undefined && f.size < 50) {
+        throw new Error(`"${f.name || 'Selected item'}" is empty or a folder (0 bytes). Please open the folder and tap your .epub book file inside.`);
+      }
       let zipInput = f;
       if (f && typeof f.arrayBuffer === 'function') {
         try {

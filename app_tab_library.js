@@ -758,8 +758,7 @@
         h('input', {
           type: 'file',
           ref: epubRestoreInputRef,
-          accept: '.epub',
-          multiple: true,
+          accept: '.epub,application/epub+zip,application/zip,application/octet-stream',
           style: { display: 'none' },
           onChange: handleRestoreFromEpubFiles
         }),
