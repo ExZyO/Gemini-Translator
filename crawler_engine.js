@@ -506,7 +506,12 @@
     }
 
     try {
-      const opts = safeGetEpubOptions(options, { novelId: novelData.id || novelData.sourceUrl || novelTitle });
+      const opts = safeGetEpubOptions(options, {
+        novelId: novelData.id || novelData.sourceUrl || novelTitle,
+        sourceUrl: novelSrc,
+        sources: novelData.sources,
+        title: novelTitle
+      });
       opts.hierarchicalToc = true;
       opts.cleanWebArtifacts = true;
       opts.includeImages = true;
