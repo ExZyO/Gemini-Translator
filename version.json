@@ -1,9 +1,9 @@
 {
-  "version": "8.22.01",
-  "versionCode": 8512,
-  "apkUrl": "https://github.com/ExZyO/Gemini-EPUB-Translator/releases/download/v8.22.01/GeminiTranslator-v8.22.01.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-EPUB-Translator/releases/download/v8.22.01/GeminiTranslator-v8.22.01.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.01",
+  "version": "8.22.02",
+  "versionCode": 8513,
+  "apkUrl": "https://github.com/ExZyO/Gemini-EPUB-Translator/releases/download/v8.22.02/GeminiTranslator-v8.22.02.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-EPUB-Translator/releases/download/v8.22.02/GeminiTranslator-v8.22.02.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.02",
   "releaseDate": "2026-10-24",
-  "releaseNotes": "v8.22.01: Resolved Android WebView renderer OOM crash caused by circular modal delegation, included app_modal_novel_source.js in index.html, restored EPUB library ingestion, and secured incremental update metadata passing."
+  "releaseNotes": "v8.22.02: Resolved EPUB restore chapter detection failure with resilient XML namespace resolution, case-insensitive zip matching, special character manifest id support, and archive HTML fallback scanning."
 }

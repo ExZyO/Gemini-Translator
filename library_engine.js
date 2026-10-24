@@ -1412,9 +1412,13 @@
 
       for (const f of fileList) {
         try {
-          const isEpub = (f.name && f.name.toLowerCase().endsWith('.epub')) ||
-            f.type === 'application/epub+zip' ||
-            f.type === 'application/x-ibooks+epub' ||
+          const nameLower = (f.name || '').toLowerCase();
+          const typeLower = (f.type || '').toLowerCase();
+          const isEpub = nameLower.endsWith('.epub') ||
+            nameLower.endsWith('.zip') ||
+            typeLower.includes('epub') ||
+            typeLower.includes('zip') ||
+            typeLower === 'application/octet-stream' ||
             !f.name ||
             !f.name.includes('.');
           if (!isEpub) continue;

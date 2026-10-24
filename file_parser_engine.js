@@ -133,31 +133,94 @@
       if (!window.JSZip) throw new Error('JSZip is required to read .epub files.');
       let zipInput = f;
       if (f && typeof f.arrayBuffer === 'function') {
-        zipInput = await f.arrayBuffer();
+        try {
+          zipInput = await f.arrayBuffer();
+        } catch (_) {
+          zipInput = f;
+        }
       } else if (f && f.buffer && f.buffer instanceof ArrayBuffer) {
         zipInput = f.buffer;
       }
+      if (typeof Blob !== 'undefined' && zipInput instanceof Blob && typeof FileReader !== 'undefined') {
+        try {
+          zipInput = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsArrayBuffer(zipInput);
+          });
+        } catch (_) {}
+      }
       const zip = await (window.JSZip.loadAsync ? window.JSZip.loadAsync(zipInput) : new window.JSZip().loadAsync(zipInput));
       const chapters = [];
-      const cf = zip.file('META-INF/container.xml');
-      if (!cf) throw new Error('Invalid EPUB: META-INF/container.xml missing');
-      
-      const cc = await cf.async('text');
-      const cd = new DOMParser().parseFromString(cc, 'text/xml');
-      const rp = cd.querySelector('rootfile')?.getAttribute('full-path');
-      if (!rp) throw new Error('Invalid EPUB: No rootfile declared in container.xml');
-      
-      const od = rp.substring(0, rp.lastIndexOf('/') + 1);
-      const of2 = zip.file(rp);
-      if (!of2) throw new Error('OPF package document not found: ' + rp);
+
+      // Resilient file lookup helper that resolves across case, encoding, and path separators
+      const findZipFile = (pathStr) => {
+        if (!pathStr || typeof pathStr !== 'string') return null;
+        let clean = pathStr.replace(/^\/+/, '');
+        let zf = zip.file(clean);
+        if (zf) return zf;
+        try {
+          const dec = decodeURIComponent(clean);
+          zf = zip.file(dec);
+          if (zf) return zf;
+        } catch (_) {}
+        try {
+          const enc = encodeURI(clean);
+          zf = zip.file(enc);
+          if (zf) return zf;
+        } catch (_) {}
+        const normClean = clean.toLowerCase().replace(/\\/g, '/');
+        const bareFilename = normClean.split('/').pop().split(/[#?]/)[0];
+        const allKeys = Object.keys(zip.files).filter(k => !k.endsWith('/'));
+        const exactNorm = allKeys.find(k => k.toLowerCase().replace(/\\/g, '/') === normClean);
+        if (exactNorm) return zip.file(exactNorm);
+        const endsNorm = allKeys.find(k => k.toLowerCase().replace(/\\/g, '/').endsWith('/' + normClean));
+        if (endsNorm) return zip.file(endsNorm);
+        const bareNorm = allKeys.find(k => k.split('/').pop().split(/[#?]/)[0].toLowerCase() === bareFilename);
+        if (bareNorm) return zip.file(bareNorm);
+        return null;
+      };
+
+      const cf = findZipFile('META-INF/container.xml') || findZipFile('container.xml');
+      let rp = '';
+      let od = '';
+      if (cf) {
+        const cc = await cf.async('text');
+        const cd = new DOMParser().parseFromString(cc, 'text/xml');
+        const rootfileEl = cd.querySelector('rootfile') || cd.getElementsByTagName('rootfile')[0] || cd.getElementsByTagNameNS('*', 'rootfile')[0];
+        rp = rootfileEl?.getAttribute('full-path') || '';
+      }
+      if (rp) od = rp.substring(0, rp.lastIndexOf('/') + 1);
+
+      let of2 = rp ? findZipFile(rp) : null;
+      if (!of2) {
+        // Fallback: search for any .opf package file in the zip
+        const opfKey = Object.keys(zip.files).find(k => !k.endsWith('/') && k.toLowerCase().endsWith('.opf'));
+        if (opfKey) {
+          of2 = zip.file(opfKey);
+          od = opfKey.substring(0, opfKey.lastIndexOf('/') + 1);
+        }
+      }
+      if (!of2) throw new Error('Invalid EPUB: OPF package document not found.');
       
       const oc = await of2.async('text');
       const opf = new DOMParser().parseFromString(oc, 'text/xml');
-      const bookTitle = (opf.querySelector('title, dc\\:title')?.textContent || '').trim();
-      const bookAuthor = (opf.querySelector('creator, dc\\:creator')?.textContent || '').trim();
-      const bookIdentifier = (opf.querySelector('identifier, dc\\:identifier')?.textContent || '').trim();
+
+      const getOpfText = (tag) => {
+        const el = opf.querySelector(tag) ||
+                   opf.querySelector(`dc\\:${tag}`) ||
+                   (opf.getElementsByTagNameNS ? opf.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/', tag)[0] : null) ||
+                   (opf.getElementsByTagName ? opf.getElementsByTagName(tag)[0] : null) ||
+                   (opf.getElementsByTagName ? opf.getElementsByTagName(`dc:${tag}`)[0] : null);
+        return (el?.textContent || '').trim();
+      };
+
+      const bookTitle = getOpfText('title') || (f && f.name ? f.name.replace(/\.epub$/i, '') : 'Imported Novel');
+      const bookAuthor = getOpfText('creator') || 'Author';
+      const bookIdentifier = getOpfText('identifier') || '';
       const bookSource = (
-        opf.querySelector('source, dc\\:source')?.textContent ||
+        getOpfText('source') ||
         opf.querySelector('meta[property="gemini:source_url"]')?.textContent ||
         opf.querySelector('meta[name="source-url"]')?.getAttribute('content') ||
         opf.querySelector('meta[name="source"]')?.getAttribute('content') ||
@@ -191,10 +254,17 @@
         } catch (e) {}
       }
       
-      const ncxI = opf.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
-      const ncxH = ncxI ? od + ncxI.getAttribute('href') : null;
-      const navI = Array.from(opf.querySelectorAll('manifest item')).find(i => (i.getAttribute('properties') || '').split(/\s+/).includes('nav'));
-      const navH = navI ? od + navI.getAttribute('href') : null;
+      const allManifestItems = Array.from(opf.querySelectorAll('manifest item, *|manifest *|item, item'));
+      const manifestMap = new Map();
+      allManifestItems.forEach(item => {
+        const mId = item.getAttribute('id');
+        if (mId) manifestMap.set(mId, item);
+      });
+
+      const ncxI = allManifestItems.find(i => (i.getAttribute('media-type') || '').toLowerCase() === 'application/x-dtbncx+xml');
+      const ncxH = ncxI ? od + (ncxI.getAttribute('href') || '') : null;
+      const navI = allManifestItems.find(i => (i.getAttribute('properties') || '').split(/\s+/).includes('nav'));
+      const navH = navI ? od + (navI.getAttribute('href') || '') : null;
       
       const titles = new Map();
       const tocMap = new Map();
@@ -221,7 +291,7 @@
 
       // 1. Recursive NCX parser with volume hierarchy preservation
       if (ncxH) {
-        const nf = zip.file(ncxH);
+        const nf = findZipFile(ncxH) || (od ? findZipFile(ncxH.replace(od, '')) : null);
         if (nf) {
           try {
             const nc = await nf.async('text');
@@ -278,7 +348,7 @@
 
       // 2. Recursive EPUB 3 Nav parser with nested volume list
       if (navH) {
-        const nvf = zip.file(navH);
+        const nvf = findZipFile(navH) || (od ? findZipFile(navH.replace(od, '')) : null);
         if (nvf) {
           try {
             const nvc = await nvf.async('text');
@@ -365,9 +435,14 @@
         return t.replace(/([.!?])([A-Z])/g, '$1 $2');
       };
 
-      for (const ir of opf.querySelectorAll('spine itemref')) {
+      const spineItems = Array.from(
+        opf.querySelectorAll('spine itemref, *|spine *|itemref, itemref') ||
+        (opf.getElementsByTagName ? opf.getElementsByTagName('itemref') : [])
+      );
+
+      for (const ir of spineItems) {
         const id = ir.getAttribute('idref');
-        const mi = opf.querySelector(`manifest item[id="${id}"]`);
+        const mi = (id && manifestMap.get(id)) || (id ? (opf.querySelector(`manifest item[id="${CSS.escape ? CSS.escape(id) : id}"]`) || null) : null);
         const href = mi?.getAttribute('href');
         if (!href) continue;
 
@@ -377,8 +452,8 @@
         if (properties.includes('nav') || cp === navH || cp === ncxH || /(?:^|\/)(?:nav|toc|table[-_ ]?of[-_ ]?contents)(?:[-_.]|\/|$)/i.test(hrefPath)) continue;
 
         const mt = (mi.getAttribute('media-type') || '').toLowerCase();
-        if (mt && (mt === 'application/xhtml+xml' || mt === 'text/html')) {
-          const file = zip.file(cp);
+        if (!mt || mt.includes('html') || mt.includes('xml') || /\.(x?html?|xml)$/i.test(hrefPath)) {
+          const file = findZipFile(cp) || findZipFile(hrefPath) || findZipFile(resolveZipPath(od, hrefPath));
           if (file) {
             try {
               const html = await file.async('text');
@@ -395,36 +470,15 @@
                   continue;
                 }
                 const resolvedImgPath = resolveZipPath(cp, rawSrc);
-                let imgZip = zip.file(resolvedImgPath);
-                if (!imgZip && od && !resolvedImgPath.startsWith(od)) {
-                  imgZip = zip.file(od + resolvedImgPath);
-                }
-                if (!imgZip) {
-                  let decPath = '';
-                  try { decPath = decodeURIComponent(resolvedImgPath); } catch (_) {}
-                  if (decPath) {
-                    imgZip = zip.file(decPath);
-                    if (!imgZip && od && !decPath.startsWith(od)) imgZip = zip.file(od + decPath);
-                  }
-                }
+                let imgZip = findZipFile(resolvedImgPath) || (od && !resolvedImgPath.startsWith(od) ? findZipFile(od + resolvedImgPath) : null);
                 if (!imgZip) {
                   const filename = rawSrc.split('/').pop().split(/[#?]/)[0];
-                  let decFilename = filename;
-                  try { decFilename = decodeURIComponent(filename); } catch (_) {}
-                  const targetLower = decFilename.toLowerCase();
-                  const matchedKey = Object.keys(zip.files).find(k => {
-                    if (k.endsWith('/')) return false;
-                    const kBase = k.split('/').pop().split(/[#?]/)[0];
-                    let decKBase = kBase;
-                    try { decKBase = decodeURIComponent(kBase); } catch (_) {}
-                    return kBase === filename || decKBase === decFilename || decKBase.toLowerCase() === targetLower;
-                  });
-                  if (matchedKey) imgZip = zip.file(matchedKey);
+                  imgZip = findZipFile(filename);
                 }
                 if (imgZip) {
                   try {
                     const b64 = await imgZip.async('base64');
-                    const ext = resolvedImgPath.split('.').pop().toLowerCase();
+                    const ext = (resolvedImgPath || rawSrc).split('.').pop().toLowerCase();
                     const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg';
                     const dataUri = `data:${mime};base64,${b64}`;
                     imgEl.setAttribute('src', dataUri);
@@ -515,6 +569,100 @@
                 zipPath: cp
               });
             } catch (e) {}
+          }
+        }
+      }
+
+      // 3. Resilient Fallback: If spine items yielded 0 chapters, scan the archive directly for HTML/XHTML content
+      if (chapters.length === 0) {
+        console.warn('[FileParserEngine] Spine produced 0 chapters, scanning zip files for HTML / XHTML content...');
+        const candidateFiles = Object.keys(zip.files).filter(k => {
+          if (k.endsWith('/')) return false;
+          const kLower = k.toLowerCase();
+          if (!/\.(x?html?|xml)$/i.test(kLower)) return false;
+          if (/(?:^|\/)(?:nav|toc|table[-_ ]?of[-_ ]?contents|cover|meta-inf)(?:[-_.]|\/|$)/i.test(kLower)) return false;
+          if (kLower.endsWith('.opf') || kLower.endsWith('.ncx') || kLower.endsWith('container.xml')) return false;
+          return true;
+        });
+
+        // Natural sort candidate files so chapters appear in numerical sequence
+        candidateFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+        for (const filePath of candidateFiles) {
+          const file = zip.file(filePath);
+          if (!file) continue;
+          try {
+            const html = await file.async('text');
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+
+            const chapterImages = [];
+            const imgEls = Array.from(doc.querySelectorAll('img, image, svg image'));
+            for (const imgEl of imgEls) {
+              const rawSrc = imgEl.getAttribute('src') || imgEl.getAttribute('href') || imgEl.getAttribute('xlink:href') || '';
+              if (!rawSrc) continue;
+              if (rawSrc.startsWith('data:')) {
+                chapterImages.push(rawSrc);
+                continue;
+              }
+              const resolvedImgPath = resolveZipPath(filePath, rawSrc);
+              const imgZip = findZipFile(resolvedImgPath) || findZipFile(rawSrc.split('/').pop().split(/[#?]/)[0]);
+              if (imgZip) {
+                try {
+                  const b64 = await imgZip.async('base64');
+                  const ext = resolvedImgPath.split('.').pop().toLowerCase();
+                  const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg';
+                  const dataUri = `data:${mime};base64,${b64}`;
+                  imgEl.setAttribute('src', dataUri);
+                  imgEl.setAttribute('data-embedded-uri', dataUri);
+                  chapterImages.push(dataUri);
+                } catch (_) {}
+              }
+            }
+
+            let txt = extractText(doc.body);
+            for (const uri of chapterImages) {
+              if (!txt.includes(uri)) {
+                txt = txt ? `${txt}\n\n![Illustration](${uri})\n\n` : `![Illustration](${uri})\n\n`;
+              }
+            }
+
+            let title = '';
+            const headingEl = doc.querySelector('h1,h2,h3,h4, [class*="title"], [class*="heading"], [id*="title"], [class*="chap"]');
+            if (headingEl && headingEl.textContent.trim()) {
+              title = headingEl.textContent.trim();
+            }
+            if (!title) {
+              const firstLine = (txt || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0] || '';
+              if (firstLine && (/^(?:第[0-9零一二三四五六七八九十百千万]+[章节回节卷集部]|Chapter\s+\d+|Section\s+\d+|Volume\s+\d+|[【\[(]?(?:作品相关|内容简介|版权信息|制作信息|引言|序章|前言|楔子)[\]】)]?)/i.test(firstLine) || firstLine.length <= 40)) {
+                title = firstLine;
+              }
+            }
+            if (!title) {
+              const baseName = filePath.split('/').pop().replace(/\.[^.]+$/, '');
+              title = baseName.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            }
+
+            if (!txt || !txt.trim()) {
+              if (chapterImages.length > 0) {
+                txt = chapterImages.map(uri => `![Illustration](${uri})`).join('\n\n');
+              } else {
+                txt = doc.body?.textContent?.trim() || '[Chapter Content]';
+              }
+            }
+
+            chapters.push({
+              title,
+              text: txt,
+              content: txt,
+              volume: '',
+              arc: '',
+              level: 1,
+              images: chapterImages,
+              doc,
+              zipPath: filePath
+            });
+          } catch (e) {
+            console.warn('[FileParserEngine] Failed to parse fallback chapter:', filePath, e);
           }
         }
       }
@@ -641,12 +789,30 @@
         if (!extractedCover && coverHref) {
           const cleanHref = coverHref.split('#')[0];
           const fullCoverPath = od + cleanHref;
-          const coverZipFile = zip.file(fullCoverPath) || zip.file(cleanHref);
+          const coverZipFile = findZipFile(fullCoverPath) || findZipFile(cleanHref);
           if (coverZipFile) {
             const b64 = await coverZipFile.async('base64');
             const ext = fullCoverPath.split('.').pop().toLowerCase();
             const mime = coverMediaType || (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg');
             extractedCover = `data:${mime};base64,${b64}`;
+          }
+        }
+
+        // 5. Ultimate fallback: look for any image in the archive with 'cover' in its filename
+        if (!extractedCover) {
+          const coverImgKey = Object.keys(zip.files).find(k => {
+            if (k.endsWith('/')) return false;
+            const kLower = k.toLowerCase();
+            return /\.(jpe?g|png|webp|gif|svg)$/i.test(kLower) && kLower.includes('cover');
+          });
+          if (coverImgKey) {
+            const zf = zip.file(coverImgKey);
+            if (zf) {
+              const b64 = await zf.async('base64');
+              const ext = coverImgKey.split('.').pop().toLowerCase();
+              const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg';
+              extractedCover = `data:${mime};base64,${b64}`;
+            }
           }
         }
       } catch (coverErr) {
