@@ -254,7 +254,12 @@
         } catch (e) {}
       }
       
-      const allManifestItems = Array.from(opf.querySelectorAll('manifest item, *|manifest *|item, item'));
+      const allManifestItems = Array.from(
+        (opf.getElementsByTagNameNS ? opf.getElementsByTagNameNS('*', 'item') : null) ||
+        (opf.getElementsByTagName ? opf.getElementsByTagName('item') : null) ||
+        opf.querySelectorAll('item') ||
+        []
+      );
       const manifestMap = new Map();
       allManifestItems.forEach(item => {
         const mId = item.getAttribute('id');
@@ -392,7 +397,8 @@
                 }
               }
             };
-            const tocNav = nvd.querySelector('nav[*|type="toc"], nav#toc, nav.toc, nav');
+            const allNavs = Array.from(nvd.getElementsByTagName ? nvd.getElementsByTagName('nav') : nvd.querySelectorAll('nav'));
+            const tocNav = allNavs.find(n => (n.getAttribute('epub:type') === 'toc' || n.getAttribute('type') === 'toc' || n.id === 'toc' || (n.className && String(n.className).includes('toc')))) || allNavs[0] || null;
             const firstOl = tocNav?.querySelector('ol');
             if (firstOl) walkNavOl(firstOl, '', 1);
           } catch (e) {
@@ -436,13 +442,15 @@
       };
 
       const spineItems = Array.from(
-        opf.querySelectorAll('spine itemref, *|spine *|itemref, itemref') ||
-        (opf.getElementsByTagName ? opf.getElementsByTagName('itemref') : [])
+        (opf.getElementsByTagNameNS ? opf.getElementsByTagNameNS('*', 'itemref') : null) ||
+        (opf.getElementsByTagName ? opf.getElementsByTagName('itemref') : null) ||
+        opf.querySelectorAll('itemref') ||
+        []
       );
 
       for (const ir of spineItems) {
         const id = ir.getAttribute('idref');
-        const mi = (id && manifestMap.get(id)) || (id ? (opf.querySelector(`manifest item[id="${CSS.escape ? CSS.escape(id) : id}"]`) || null) : null);
+        const mi = (id && manifestMap.get(id)) || null;
         const href = mi?.getAttribute('href');
         if (!href) continue;
 
@@ -753,7 +761,7 @@
                 if (coverHtmlFile) {
                   const html = await coverHtmlFile.async('text');
                   const imgDoc = new DOMParser().parseFromString(html, 'text/html');
-                  const imgEl = imgDoc.querySelector('image[*|href], img[src]');
+                  const imgEl = imgDoc.querySelector('image, img');
                   const foundSrc = imgEl ? (imgEl.getAttribute('href') || imgEl.getAttribute('xlink:href') || imgEl.getAttribute('src')) : '';
                   if (foundSrc) {
                     const pageDir = (od + href.split('#')[0]).substring(0, (od + href.split('#')[0]).lastIndexOf('/') + 1);

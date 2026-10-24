@@ -1454,7 +1454,13 @@
             restoredCount++;
           }
         } catch (err) {
-          console.warn('[LibraryEngine] EPUB restore failed for', f.name, err);
+          console.error('[LibraryEngine] EPUB restore failed for', f.name, err);
+          if (window.telemetryLog) {
+            window.telemetryLog('EPUB_RESTORE', `Restore failed for ${f.name}: ${err?.message || err}`, { error: String(err), stack: err?.stack }, 'error');
+          }
+          if (typeof callbacks.toast === 'function') {
+            callbacks.toast(`Failed to restore ${f.name || 'EPUB'}: ${err?.message || 'Read error'}`, 'error');
+          }
         }
       }
 
