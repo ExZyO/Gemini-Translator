@@ -1011,7 +1011,8 @@
         const normalizedHistory = data.webImportHistory.map(item => ({
           ...item,
           sourceUrl: item.sourceUrl || item.url || '',
-          url: item.sourceUrl || item.url || ''
+          url: item.sourceUrl || item.url || '',
+          sources: Array.isArray(item.sources) && item.sources.length > 0 ? item.sources : (item.sourceUrl ? [{ url: item.sourceUrl, label: 'Source 1', active: true }] : [])
         }));
         if (setters.setWebImportHistory) setters.setWebImportHistory(normalizedHistory);
         try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(normalizedHistory)); } catch (e) {}
@@ -1032,6 +1033,7 @@
           isEpub: !!n.isEpub,
           sourceUrl: n.sourceUrl || n.url || '',
           url: n.sourceUrl || n.url || '',
+          sources: Array.isArray(n.sources) && n.sources.length > 0 ? n.sources : (n.sourceUrl ? [{ url: n.sourceUrl, label: 'Source 1', active: true }] : []),
           folderTreeUri: n.folderTreeUri || '',
           folderPath: n.folderPath || ''
         }));

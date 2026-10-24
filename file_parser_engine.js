@@ -150,7 +150,40 @@
       const bookTitle = (opf.querySelector('title, dc\\:title')?.textContent || '').trim();
       const bookAuthor = (opf.querySelector('creator, dc\\:creator')?.textContent || '').trim();
       const bookIdentifier = (opf.querySelector('identifier, dc\\:identifier')?.textContent || '').trim();
-      const bookSource = (opf.querySelector('source, dc\\:source')?.textContent || opf.querySelector('meta[name="source"]')?.getAttribute('content') || '').trim();
+      const bookSource = (
+        opf.querySelector('source, dc\\:source')?.textContent ||
+        opf.querySelector('meta[property="gemini:source_url"]')?.textContent ||
+        opf.querySelector('meta[name="source-url"]')?.getAttribute('content') ||
+        opf.querySelector('meta[name="source"]')?.getAttribute('content') ||
+        ''
+      ).trim();
+
+      // Extract invisible multi-source list
+      let sources = [];
+      const sourcesMeta = opf.querySelector('meta[property="gemini:sources"]')?.textContent;
+      if (sourcesMeta) {
+        try {
+          const parsed = JSON.parse(sourcesMeta);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            sources = parsed;
+          }
+        } catch (e) {}
+      }
+      if (!sources.length && bookSource) {
+        sources = [{ url: bookSource, label: 'Original Source', active: true }];
+      }
+
+      // Extract saved novel ID if previously assigned
+      const savedNovelId = (opf.querySelector('meta[property="gemini:novel_id"]')?.textContent || '').trim();
+
+      // Extract saved TOC hierarchy if embedded
+      let embeddedTocHierarchy = null;
+      const tocHierarchyMeta = opf.querySelector('meta[property="gemini:toc_hierarchy"]')?.textContent;
+      if (tocHierarchyMeta) {
+        try {
+          embeddedTocHierarchy = JSON.parse(tocHierarchyMeta);
+        } catch (e) {}
+      }
       
       const ncxI = opf.querySelector('manifest item[media-type="application/x-dtbncx+xml"]');
       const ncxH = ncxI ? od + ncxI.getAttribute('href') : null;
@@ -158,18 +191,113 @@
       const navH = navI ? od + navI.getAttribute('href') : null;
       
       const titles = new Map();
+      const tocMap = new Map();
+
+      // 1. Recursive NCX parser with volume hierarchy preservation
       if (ncxH) {
         const nf = zip.file(ncxH);
         if (nf) {
-          const nc = await nf.async('text');
-          const nd = new DOMParser().parseFromString(nc, 'text/xml');
-          nd.querySelectorAll('navPoint').forEach(np => {
-            const l = np.querySelector('navLabel text')?.textContent;
-            const s = np.querySelector('content')?.getAttribute('src');
-            if (l && s) titles.set(s.split('#')[0], l.trim());
-          });
+          try {
+            const nc = await nf.async('text');
+            const nd = new DOMParser().parseFromString(nc, 'text/xml');
+            const walkNcx = (parentEl, currentVolume = '', depth = 1) => {
+              const navPoints = Array.from(parentEl.children).filter(c => c.tagName && c.tagName.toLowerCase() === 'navpoint');
+              for (const np of navPoints) {
+                const label = (np.querySelector(':scope > navLabel > text')?.textContent || '').trim();
+                const src = np.querySelector(':scope > content')?.getAttribute('src') || '';
+                const cleanSrc = src ? src.split('#')[0] : '';
+                const childNavPoints = Array.from(np.children).filter(c => c.tagName && c.tagName.toLowerCase() === 'navpoint');
+
+                if (childNavPoints.length > 0) {
+                  // Volume or Arc heading
+                  const vol = label || currentVolume;
+                  if (cleanSrc) {
+                    titles.set(cleanSrc, label);
+                    if (!tocMap.has(cleanSrc)) {
+                      tocMap.set(cleanSrc, { title: label, volume: currentVolume, level: depth });
+                    }
+                  }
+                  walkNcx(np, vol, depth + 1);
+                } else {
+                  // Leaf chapter
+                  if (cleanSrc) {
+                    if (label) titles.set(cleanSrc, label);
+                    tocMap.set(cleanSrc, { title: label, volume: currentVolume, level: depth });
+                  }
+                }
+              }
+            };
+            const navMap = nd.querySelector('navMap');
+            if (navMap) walkNcx(navMap, '', 1);
+            else walkNcx(nd.documentElement, '', 1);
+          } catch (e) {
+            console.warn('[FileParserEngine] NCX parsing warning:', e);
+          }
         }
       }
+
+      // 2. Recursive EPUB 3 Nav parser with nested volume list
+      if (navH) {
+        const nvf = zip.file(navH);
+        if (nvf) {
+          try {
+            const nvc = await nvf.async('text');
+            const nvd = new DOMParser().parseFromString(nvc, 'text/html') || new DOMParser().parseFromString(nvc, 'application/xhtml+xml');
+            const walkNavOl = (olEl, currentVolume = '', depth = 1) => {
+              const lis = Array.from(olEl.children).filter(c => c.tagName && c.tagName.toLowerCase() === 'li');
+              for (const li of lis) {
+                const subOl = li.querySelector(':scope > ol');
+                const a = li.querySelector(':scope > a');
+                const span = li.querySelector(':scope > span');
+                const label = (a?.textContent || span?.textContent || '').trim();
+                const href = a?.getAttribute('href') || '';
+                const cleanHref = href ? href.split('#')[0] : '';
+
+                if (subOl) {
+                  const vol = label || currentVolume;
+                  if (cleanHref) {
+                    if (label && !titles.has(cleanHref)) titles.set(cleanHref, label);
+                    if (!tocMap.has(cleanHref)) {
+                      tocMap.set(cleanHref, { title: label, volume: currentVolume, level: depth });
+                    }
+                  }
+                  walkNavOl(subOl, vol, depth + 1);
+                } else if (cleanHref) {
+                  if (label && !titles.has(cleanHref)) titles.set(cleanHref, label);
+                  if (!tocMap.has(cleanHref) || !tocMap.get(cleanHref).volume) {
+                    tocMap.set(cleanHref, { title: label, volume: currentVolume, level: depth });
+                  }
+                }
+              }
+            };
+            const tocNav = nvd.querySelector('nav[*|type="toc"], nav#toc, nav.toc, nav');
+            const firstOl = tocNav?.querySelector('ol');
+            if (firstOl) walkNavOl(firstOl, '', 1);
+          } catch (e) {
+            console.warn('[FileParserEngine] Nav.xhtml parsing warning:', e);
+          }
+        }
+      }
+
+      // Helper to resolve relative zip file paths
+      const resolveZipPath = (baseFilePath, relPath) => {
+        if (!relPath) return '';
+        if (relPath.startsWith('/')) return relPath.slice(1);
+        if (/^[a-zA-Z]+:\/\//.test(relPath)) return '';
+        const baseDir = baseFilePath.substring(0, baseFilePath.lastIndexOf('/') + 1);
+        const combined = baseDir + relPath.split('#')[0].split('?')[0];
+        const parts = combined.split('/');
+        const stack = [];
+        for (const p of parts) {
+          if (p === '.' || p === '') continue;
+          if (p === '..') {
+            if (stack.length > 0) stack.pop();
+          } else {
+            stack.push(p);
+          }
+        }
+        return stack.join('/');
+      };
 
       // Extracts structured prose while maintaining paragraph breaks and punctuation spacing
       const extractText = n => {
@@ -180,6 +308,15 @@
         } else if (n.nodeType === 1) {
           const tag = n.tagName.toLowerCase();
           if (tag === 'br') return '\n';
+          if (tag === 'img') {
+            const src = n.getAttribute('data-embedded-uri') || n.getAttribute('src');
+            const alt = n.getAttribute('alt') || 'Illustration';
+            if (src) return `\n\n![${alt}](${src})\n\n`;
+          }
+          if (tag === 'image') {
+            const href = n.getAttribute('data-embedded-uri') || n.getAttribute('href') || n.getAttribute('xlink:href');
+            if (href) return `\n\n![Illustration](${href})\n\n`;
+          }
           for (const c of n.childNodes) {
             const childTxt = extractText(c);
             if (childTxt) {
@@ -214,8 +351,57 @@
             try {
               const html = await file.async('text');
               const doc = new DOMParser().parseFromString(html, 'text/html');
+
+              // Asynchronously extract and resolve all embedded illustrations at 100% full original resolution
+              const chapterImages = [];
+              const imgEls = Array.from(doc.querySelectorAll('img, image'));
+              for (const imgEl of imgEls) {
+                const rawSrc = imgEl.getAttribute('src') || imgEl.getAttribute('href') || imgEl.getAttribute('xlink:href') || '';
+                if (!rawSrc) continue;
+                if (rawSrc.startsWith('data:')) {
+                  chapterImages.push(rawSrc);
+                  continue;
+                }
+                const resolvedImgPath = resolveZipPath(cp, rawSrc);
+                let imgZip = zip.file(resolvedImgPath);
+                if (!imgZip && od && !resolvedImgPath.startsWith(od)) {
+                  imgZip = zip.file(od + resolvedImgPath);
+                }
+                if (!imgZip) {
+                  const filename = rawSrc.split('/').pop().split(/[#?]/)[0];
+                  const matchedKey = Object.keys(zip.files).find(k => k.endsWith('/' + filename) || k === filename);
+                  if (matchedKey) imgZip = zip.file(matchedKey);
+                }
+                if (imgZip) {
+                  try {
+                    const b64 = await imgZip.async('base64');
+                    const ext = resolvedImgPath.split('.').pop().toLowerCase();
+                    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg';
+                    const dataUri = `data:${mime};base64,${b64}`;
+                    imgEl.setAttribute('src', dataUri);
+                    imgEl.setAttribute('data-embedded-uri', dataUri);
+                    chapterImages.push(dataUri);
+                  } catch (e) {
+                    console.warn('[FileParserEngine] Failed to read image binary:', rawSrc, e);
+                  }
+                }
+              }
+
               let txt = extractText(doc.body);
-              let title = titles.get(href.split('#')[0]) || titles.get(href) || '';
+              let tocInfo = tocMap.get(hrefPath) || tocMap.get(href) || null;
+              if (!tocInfo) {
+                const bareHref = hrefPath.split('/').pop();
+                for (const [k, v] of tocMap.entries()) {
+                  if (k.endsWith('/' + bareHref) || k === bareHref) {
+                    tocInfo = v;
+                    break;
+                  }
+                }
+              }
+              let title = tocInfo?.title || titles.get(href.split('#')[0]) || titles.get(href) || '';
+              let volume = tocInfo?.volume || '';
+              let level = tocInfo?.level || 1;
+
               if (!title) {
                 const headingEl = doc.querySelector('h1,h2,h3,h4, [class*="title"], [class*="heading"], [id*="title"], [class*="chap"]');
                 if (headingEl && headingEl.textContent.trim()) {
@@ -237,15 +423,37 @@
                 title = 'Summary';
               }
 
-              if (!txt || !txt.trim()) {
-                const hasImg = doc.querySelector('img, image, svg');
-                if (hasImg) {
-                  txt = '[Illustration]';
-                } else {
-                  txt = doc.body?.textContent?.trim() || '[Chapter Content]';
+              // Auto-derive volume from title if not established in TOC
+              if (!volume) {
+                const volMatch = title.match(/^(?:第[0-9零一二三四五六七八九十百千万]+卷|Volume\s*\d+|Vol\.?\s*\d+|Book\s*\d+|Arc\s*\d+)/i);
+                if (volMatch) {
+                  volume = volMatch[0].trim();
                 }
               }
-              chapters.push({ title, text: txt, doc, zipPath: cp });
+
+              if (!txt || !txt.trim()) {
+                if (chapterImages.length > 0) {
+                  txt = chapterImages.map(uri => `![Illustration](${uri})`).join('\n\n');
+                } else {
+                  const hasImg = doc.querySelector('img, image, svg');
+                  if (hasImg) {
+                    txt = '[Illustration]';
+                  } else {
+                    txt = doc.body?.textContent?.trim() || '[Chapter Content]';
+                  }
+                }
+              }
+              chapters.push({
+                title,
+                text: txt,
+                content: txt,
+                volume: volume || '',
+                arc: volume || '',
+                level: level || 1,
+                images: chapterImages,
+                doc,
+                zipPath: cp
+              });
             } catch (e) {}
           }
         }
@@ -363,6 +571,12 @@
         sizeBytes: f.size
       });
 
+      // Compute total detected volumes
+      const uniqueVolumes = new Set();
+      chapters.forEach(c => {
+        if (c.volume) uniqueVolumes.add(c.volume.trim().toLowerCase());
+      });
+
       return {
         chapters,
         isEpub: true,
@@ -370,8 +584,12 @@
         cover: extractedCover,
         title: bookTitle,
         author: bookAuthor,
-        uuid: bookIdentifier,
-        sourceUrl: bookSource
+        uuid: bookIdentifier || savedNovelId,
+        novelId: savedNovelId || bookIdentifier,
+        sourceUrl: bookSource,
+        sources: sources,
+        volumeCount: uniqueVolumes.size,
+        tocHierarchy: embeddedTocHierarchy
       };
     },
 

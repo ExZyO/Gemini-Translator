@@ -2172,6 +2172,16 @@ ${childNavLinks}
           });
         }
 
+        const primarySourceUrl = String(options.sourceUrl || options.url || '').trim();
+        const sourcesList = Array.isArray(options.sources) && options.sources.length > 0
+          ? options.sources
+          : (primarySourceUrl ? [{ url: primarySourceUrl, label: 'Original Source', active: true }] : []);
+        const novelId = String(options.novelId || options.id || uuid).trim();
+        const tocHierarchyMap = isMultiVolume ? volumeGroups.map(v => ({
+          volume: v.volName,
+          chapters: (v.items || []).map(i => i.cleanTitle || i.fullTitle)
+        })) : [];
+
         const opfContent = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="3.0">
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -2180,6 +2190,12 @@ ${childNavLinks}
   <dc:language>${safeLang}</dc:language>
   <dc:identifier id="BookID">${uuid}</dc:identifier>
   <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta>
+  ${primarySourceUrl ? `<dc:source>${escapeXml(primarySourceUrl)}</dc:source>` : ''}
+  ${primarySourceUrl ? `<meta name="source-url" content="${escapeXml(primarySourceUrl)}"/>` : ''}
+  ${primarySourceUrl ? `<meta property="gemini:source_url">${escapeXml(primarySourceUrl)}</meta>` : ''}
+  ${sourcesList.length > 0 ? `<meta property="gemini:sources">${escapeXml(JSON.stringify(sourcesList))}</meta>` : ''}
+  <meta property="gemini:novel_id">${escapeXml(novelId)}</meta>
+  ${tocHierarchyMap.length > 0 ? `<meta property="gemini:toc_hierarchy">${escapeXml(JSON.stringify(tocHierarchyMap))}</meta>` : ''}
   ${coverCached ? '<meta name="cover" content="cover-image"/>' : ''}
 </metadata>
 <manifest>
@@ -2840,6 +2856,19 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
       const justifyText = state.epubJustifyText !== undefined ? !!state.epubJustifyText : (getPref('epubJustifyText', 'true') !== 'false');
       const fixedFilename = state.epubFixedFilename !== undefined ? (state.epubFixedFilename !== false) : (getPref('epubFixedFilename', 'true') !== 'false');
 
+      let sourceUrl = extraOpts?.sourceUrl || extraOpts?.url || state?.activeNovelRecord?.sourceUrl || state?.activeCrawlSession?.sourceUrl || state?.webImportData?.sourceUrl || '';
+      let sources = extraOpts?.sources || state?.activeNovelRecord?.sources || state?.activeCrawlSession?.sources || state?.webImportData?.sources || [];
+      let novelId = extraOpts?.novelId || extraOpts?.id || state?.activeNovelRecord?.id || state?.activeCrawlSession?.id || '';
+
+      if (matchedMeta) {
+        if (!sourceUrl && (matchedMeta.sourceUrl || matchedMeta.url)) sourceUrl = matchedMeta.sourceUrl || matchedMeta.url;
+        if ((!sources || !sources.length) && Array.isArray(matchedMeta.sources)) sources = matchedMeta.sources;
+        if (!novelId && matchedMeta.id) novelId = matchedMeta.id;
+      }
+      if (!sources.length && sourceUrl) {
+        sources = [{ url: sourceUrl, label: 'Original Source', active: true }];
+      }
+
       const cleanExtra = { ...extraOpts };
       if (!cleanExtra.coverUrl) delete cleanExtra.coverUrl;
       if (!cleanExtra.cover) delete cleanExtra.cover;
@@ -2852,6 +2881,9 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
         fontTheme,
         justifyText,
         fixedFilename,
+        sourceUrl,
+        sources,
+        novelId,
         ...cleanExtra,
         coverUrl: cleanExtra.coverUrl || coverCandidate
       };

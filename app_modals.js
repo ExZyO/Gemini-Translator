@@ -1224,95 +1224,24 @@
   // 9b. NOVEL ASSIGN WEBSITE MODAL
   // ─────────────────────────────────────────────────────────────────────────
   function NovelAssignWebsiteModal(props) {
-    const { novel, onClose, value, setValue, onSave, onSaveAndContinue } = props;
+    if (typeof window !== 'undefined' && window.LibraryEngine?.NovelAssignWebsiteModal) {
+      return getH()(window.LibraryEngine.NovelAssignWebsiteModal, props);
+    }
+    const { novel, onClose, value, setValue, onSave } = props;
     if (!novel) return null;
     const h = getH();
-
-    const handleSave = (andContinue = false) => {
-      const trimmed = (value || '').trim();
-      if (!trimmed) return;
-      if (andContinue && onSaveAndContinue) {
-        onSaveAndContinue(novel, trimmed);
-      } else if (onSave) {
-        onSave(novel, trimmed);
-      }
-      onClose();
-    };
-
     return h('div', { className: 'modal-overlay', onClick: onClose },
       h('div', { className: 'modal-box', style: { maxWidth: 480 }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            ic('Globe', 20, 'text-indigo-400'),
-            h('div', null,
-              h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Assign Website to Novel'),
-              h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Connect this ebook to an online novel webpage to fetch ongoing chapters')
-            )
-          ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Assign Website'),
+          h('button', { type: 'button', className: 'icon-btn', onClick: onClose }, ic('X', 16))
         ),
-        h('div', { className: 'modal-bd', style: { padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 } },
-          h('div', {
-            style: {
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              background: 'rgba(255, 255, 255, 0.03)',
-              padding: '10px 12px',
-              borderRadius: 8,
-              border: '1px solid var(--hairline)'
-            }
-          },
-            novel.cover
-              ? h('img', { src: novel.cover, style: { width: 32, height: 42, objectFit: 'cover', borderRadius: 4, flexShrink: 0 } })
-              : h('span', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 42, background: 'rgba(255,255,255,0.05)', borderRadius: 4, flexShrink: 0, color: 'var(--iris)' } }, ic('BookOpen', 18)),
-            h('div', { style: { minWidth: 0, flex: 1 } },
-              h('div', { style: { fontWeight: 600, fontSize: 13.5, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, novel.title || 'Novel'),
-              h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, `${novel.chapterCount || 0} chapters saved locally`)
-            )
-          ),
-          h('div', null,
-            h('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--paper)', marginBottom: 6 } }, 'Online Novel Webpage URL:'),
-            h('input', {
-              type: 'text',
-              className: 'url-input',
-              style: { width: '100%', boxSizing: 'border-box', fontSize: 13, height: 42, borderRadius: 10 },
-              value: value || '',
-              autoFocus: true,
-              placeholder: 'Paste website URL (e.g. https://royalroad.com/fiction/...)',
-              onChange: e => setValue(e.target.value),
-              onKeyDown: e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleSave(false);
-                }
-              }
-            })
-          ),
-          h('div', { style: { fontSize: 11.5, color: 'var(--slate)', lineHeight: 1.4 } },
-            'Once saved, this book will permanently remember this website. You can fetch newly published chapters and check for updates with a single tap.'
-          )
+        h('div', { className: 'modal-bd', style: { padding: '16px' } },
+          h('input', { type: 'text', className: 'url-input', style: { width: '100%' }, value: value || '', onChange: e => setValue(e.target.value) })
         ),
-        h('div', { className: 'modal-ft', style: { display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' } },
-          h('button', {
-            type: 'button',
-            className: 'mini-btn ghost',
-            onClick: onClose
-          }, 'Cancel'),
-          h('button', {
-            type: 'button',
-            className: 'mini-btn',
-            style: { background: 'rgba(255, 255, 255, 0.08)', color: 'var(--paper)', border: '1px solid var(--hairline)' },
-            disabled: !(value || '').trim() || !/^https?:\/\//i.test((value || '').trim()),
-            onClick: () => handleSave(false)
-          }, [ic('Check', 13), ' Save Website']),
-          h('button', {
-            type: 'button',
-            className: 'mini-btn primary',
-            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
-            disabled: !(value || '').trim() || !/^https?:\/\//i.test((value || '').trim()),
-            onClick: () => handleSave(true)
-          }, [ic('Download', 13), ' Save & Continue Fetching'])
+        h('div', { className: 'modal-ft' },
+          h('button', { type: 'button', className: 'mini-btn ghost', onClick: onClose }, 'Cancel'),
+          h('button', { type: 'button', className: 'mini-btn primary', onClick: () => { onSave?.(novel, value); onClose(); } }, 'Save Website')
         )
       )
     );
