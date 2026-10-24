@@ -271,7 +271,11 @@
       // 1. Preserve ORIGINAL EPUB structure (OPF/TOC/images/CSS) if translating from an EPUB
       if (currentIsEpub && currentOriginalZip && typeof currentOriginalZip.generateAsync === 'function' && typeof window.updateOriginalEpubNavigation === 'function') {
         if (onProgress) onProgress('Packaging original EPUB structure…', 40);
-        await window.updateOriginalEpubNavigation(currentOriginalZip, chaptersToExport);
+        await window.updateOriginalEpubNavigation(currentOriginalZip, chaptersToExport, {
+          sourceUrl: options.sourceUrl,
+          sources: options.sources,
+          novelId: options.novelId
+        });
         const zipBlob = await currentOriginalZip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' });
         const cleanDocName = sanitizeFn(cleanDocTitle).replace(/\s+/g, ' ').trim();
         const outFileName = `${cleanDocName}.epub`;
@@ -288,8 +292,14 @@
       if (onProgress) onProgress('Assembling translated EPUB archive…', 10);
       const getOptsFn = window.getEpubOptions;
       const epubOpts = typeof getOptsFn === 'function'
-        ? getOptsFn({ title: cleanDocTitle, coverUrl })
-        : { coverUrl };
+        ? getOptsFn({
+            title: cleanDocTitle,
+            coverUrl,
+            sourceUrl: options.sourceUrl,
+            sources: options.sources,
+            novelId: options.novelId
+          })
+        : { coverUrl, sourceUrl: options.sourceUrl, sources: options.sources, novelId: options.novelId };
 
       const blob = await window.generateEpubFromChapters(
         chaptersToExport,

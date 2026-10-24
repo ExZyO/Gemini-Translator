@@ -697,6 +697,10 @@
                           text: c.text || c.content || '',
                           content: c.text || c.content || '',
                           originalTitle: c.originalTitle || c.title || `Chapter ${idx + 1}`,
+                          arc: c.arc || c.volume || '',
+                          volume: c.volume || c.arc || '',
+                          level: c.level !== undefined ? c.level : 1,
+                          images: Array.isArray(c.images) ? c.images : [],
                           isTranslated: false
                         }));
                         setChapters(mappedChs);
@@ -1537,6 +1541,10 @@
                           text: c.text || c.content || '',
                           content: c.text || c.content || '',
                           originalTitle: c.originalTitle || c.title || `Chapter ${idx + 1}`,
+                          arc: c.arc || c.volume || '',
+                          volume: c.volume || c.arc || '',
+                          level: c.level !== undefined ? c.level : 1,
+                          images: Array.isArray(c.images) ? c.images : [],
                           isTranslated: Boolean(c.isTranslated || isTrans)
                         }));
                         setChapters(mappedChs);
@@ -2120,6 +2128,10 @@
                           text: c.text || c.content || '',
                           content: c.text || c.content || '',
                           originalTitle: c.originalTitle || c.title || `Chapter ${idx + 1}`,
+                          arc: c.arc || c.volume || '',
+                          volume: c.volume || c.arc || '',
+                          level: c.level !== undefined ? c.level : 1,
+                          images: Array.isArray(c.images) ? c.images : [],
                           isTranslated: Boolean(c.isTranslated || isTrans)
                         }));
                         setChapters(mappedChs);

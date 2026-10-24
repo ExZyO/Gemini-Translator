@@ -290,6 +290,10 @@
         content: cleanCh(c),
         text: cleanCh(c),
         originalTitle: c.originalTitle || c.title,
+        arc: c.arc || c.volume || '',
+        volume: c.volume || c.arc || '',
+        level: c.level !== undefined ? c.level : 1,
+        images: Array.isArray(c.images) ? c.images : [],
         isTranslated: Boolean(c.isTranslated || isTrans)
       }));
       if (typeof setReaderChapters === 'function') {

@@ -493,7 +493,7 @@
     }
 
 
-    const updateOriginalEpubNavigation = async (zip, translatedChapters) => {
+    const updateOriginalEpubNavigation = async (zip, translatedChapters, options = {}) => {
       if (!zip || !Array.isArray(translatedChapters) || typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') return;
       const containerFile = zip.file('META-INF/container.xml');
       if (!containerFile) return;
@@ -566,18 +566,22 @@
         }
         // Ensure <meta name="cover"> exists in metadata if cover-image item exists
         const coverItem = manifestItems.find(item => item.getAttribute('properties')?.split(/\s+/).includes('cover-image') || item.getAttribute('id') === 'cover-image');
-        if (coverItem) {
-          const metaTag = opfDoc.querySelector('metadata');
-          if (metaTag && !metaTag.querySelector('meta[name="cover"]')) {
+        const metaTag = opfDoc.querySelector('metadata');
+        let opfUpdated = false;
+
+        if (coverItem && metaTag) {
+          if (!metaTag.querySelector('meta[name="cover"]')) {
             const m = opfDoc.createElement('meta');
             m.setAttribute('name', 'cover');
             m.setAttribute('content', coverItem.getAttribute('id') || 'cover-image');
             metaTag.appendChild(m);
+            opfUpdated = true;
           }
           let guideTag = opfDoc.querySelector('guide');
           if (!guideTag) {
             guideTag = opfDoc.createElement('guide');
             opfDoc.documentElement.appendChild(guideTag);
+            opfUpdated = true;
           }
           if (!guideTag.querySelector('reference[type="cover"]')) {
             const coverPage = manifestItems.find(i => i.getAttribute('id') === 'cover_page' || i.getAttribute('href')?.includes('cover'));
@@ -586,7 +590,43 @@
             ref.setAttribute('title', 'Cover');
             ref.setAttribute('href', coverPage?.getAttribute('href') || coverItem.getAttribute('href') || 'cover.xhtml');
             guideTag.appendChild(ref);
+            opfUpdated = true;
           }
+        }
+
+        // Embed invisible source URL and multi-sources metadata into package OPF
+        if (metaTag && (options?.sourceUrl || options?.sources || options?.novelId)) {
+          const srcUrl = options.sourceUrl || (Array.isArray(options.sources) && options.sources[0]?.url) || '';
+          if (srcUrl && !metaTag.querySelector('dc\\:source, source')) {
+            const dcSrc = opfDoc.createElement('dc:source');
+            dcSrc.textContent = srcUrl;
+            metaTag.appendChild(dcSrc);
+            opfUpdated = true;
+          }
+          if (srcUrl && !metaTag.querySelector('meta[property="gemini:source_url"]')) {
+            const metaSrc = opfDoc.createElement('meta');
+            metaSrc.setAttribute('property', 'gemini:source_url');
+            metaSrc.textContent = srcUrl;
+            metaTag.appendChild(metaSrc);
+            opfUpdated = true;
+          }
+          if (Array.isArray(options.sources) && options.sources.length > 0 && !metaTag.querySelector('meta[property="gemini:sources"]')) {
+            const metaSources = opfDoc.createElement('meta');
+            metaSources.setAttribute('property', 'gemini:sources');
+            metaSources.textContent = JSON.stringify(options.sources);
+            metaTag.appendChild(metaSources);
+            opfUpdated = true;
+          }
+          if (options.novelId && !metaTag.querySelector('meta[property="gemini:novel_id"]')) {
+            const metaNovelId = opfDoc.createElement('meta');
+            metaNovelId.setAttribute('property', 'gemini:novel_id');
+            metaNovelId.textContent = options.novelId;
+            metaTag.appendChild(metaNovelId);
+            opfUpdated = true;
+          }
+        }
+
+        if (opfUpdated || coverItem) {
           zip.file(opfPath, serializer.serializeToString(opfDoc));
         }
       } catch (e) {
@@ -2819,19 +2859,20 @@ ${coverCached ? `<nav epub:type="landmarks" hidden="">
         ? state.webImportHistory
         : (typeof localStorage !== 'undefined' ? (() => { try { return JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]'); } catch (_) { return []; } })() : []);
 
-      if (!coverCandidate && Array.isArray(historyList) && historyList.length > 0) {
+      let matchedMeta = null;
+      if (Array.isArray(historyList) && historyList.length > 0) {
         const searchTitle = extraOpts?.novelId || extraOpts?.title || state.fileName || state.currentDocTitle || '';
         if (searchTitle) {
           const cleanST = (typeof window !== 'undefined' && window.normalizeTitleKey)
             ? window.normalizeTitleKey(searchTitle)
             : String(searchTitle).replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-          const matchedMeta = historyList.find(n => {
+          matchedMeta = historyList.find(n => {
             const nt = (typeof window !== 'undefined' && window.normalizeTitleKey)
               ? window.normalizeTitleKey(n?.title)
               : String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-            return nt && (nt === cleanST) && n.cover;
-          });
-          if (matchedMeta?.cover) coverCandidate = matchedMeta.cover;
+            return nt && (nt === cleanST);
+          }) || null;
+          if (!coverCandidate && matchedMeta?.cover) coverCandidate = matchedMeta.cover;
         }
       }
 

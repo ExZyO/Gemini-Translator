@@ -131,7 +131,13 @@
      */
     async readEpub(f) {
       if (!window.JSZip) throw new Error('JSZip is required to read .epub files.');
-      const zip = await window.JSZip.loadAsync(f);
+      let zipInput = f;
+      if (f && typeof f.arrayBuffer === 'function') {
+        zipInput = await f.arrayBuffer();
+      } else if (f && f.buffer && f.buffer instanceof ArrayBuffer) {
+        zipInput = f.buffer;
+      }
+      const zip = await (window.JSZip.loadAsync ? window.JSZip.loadAsync(zipInput) : new window.JSZip().loadAsync(zipInput));
       const chapters = [];
       const cf = zip.file('META-INF/container.xml');
       if (!cf) throw new Error('Invalid EPUB: META-INF/container.xml missing');
@@ -193,6 +199,26 @@
       const titles = new Map();
       const tocMap = new Map();
 
+      // Helper to resolve relative zip file paths
+      const resolveZipPath = (baseFilePath, relPath) => {
+        if (!relPath) return '';
+        if (relPath.startsWith('/')) return relPath.slice(1);
+        if (/^[a-zA-Z]+:\/\//.test(relPath)) return '';
+        const baseDir = baseFilePath.substring(0, baseFilePath.lastIndexOf('/') + 1);
+        const combined = baseDir + relPath.split('#')[0].split('?')[0];
+        const parts = combined.split('/');
+        const stack = [];
+        for (const p of parts) {
+          if (p === '.' || p === '') continue;
+          if (p === '..') {
+            if (stack.length > 0) stack.pop();
+          } else {
+            stack.push(p);
+          }
+        }
+        return stack.join('/');
+      };
+
       // 1. Recursive NCX parser with volume hierarchy preservation
       if (ncxH) {
         const nf = zip.file(ncxH);
@@ -206,24 +232,38 @@
                 const label = (np.querySelector(':scope > navLabel > text')?.textContent || '').trim();
                 const src = np.querySelector(':scope > content')?.getAttribute('src') || '';
                 const cleanSrc = src ? src.split('#')[0] : '';
+                const canonSrc = cleanSrc ? resolveZipPath(ncxH, cleanSrc) : '';
+                const bareName = cleanSrc ? cleanSrc.split('/').pop() : '';
                 const childNavPoints = Array.from(np.children).filter(c => c.tagName && c.tagName.toLowerCase() === 'navpoint');
 
                 if (childNavPoints.length > 0) {
                   // Volume or Arc heading
                   const vol = label || currentVolume;
+                  const entry = { title: label, volume: currentVolume, level: depth };
                   if (cleanSrc) {
                     titles.set(cleanSrc, label);
-                    if (!tocMap.has(cleanSrc)) {
-                      tocMap.set(cleanSrc, { title: label, volume: currentVolume, level: depth });
-                    }
+                    tocMap.set(cleanSrc, entry);
                   }
+                  if (canonSrc) {
+                    titles.set(canonSrc, label);
+                    tocMap.set(canonSrc, entry);
+                    if (od && canonSrc.startsWith(od)) tocMap.set(canonSrc.slice(od.length), entry);
+                  }
+                  if (bareName) tocMap.set(bareName, entry);
                   walkNcx(np, vol, depth + 1);
                 } else {
                   // Leaf chapter
+                  const entry = { title: label, volume: currentVolume, level: depth };
                   if (cleanSrc) {
                     if (label) titles.set(cleanSrc, label);
-                    tocMap.set(cleanSrc, { title: label, volume: currentVolume, level: depth });
+                    tocMap.set(cleanSrc, entry);
                   }
+                  if (canonSrc) {
+                    if (label) titles.set(canonSrc, label);
+                    tocMap.set(canonSrc, entry);
+                    if (od && canonSrc.startsWith(od)) tocMap.set(canonSrc.slice(od.length), entry);
+                  }
+                  if (bareName) tocMap.set(bareName, entry);
                 }
               }
             };
@@ -252,21 +292,33 @@
                 const label = (a?.textContent || span?.textContent || '').trim();
                 const href = a?.getAttribute('href') || '';
                 const cleanHref = href ? href.split('#')[0] : '';
+                const canonHref = cleanHref ? resolveZipPath(navH, cleanHref) : '';
+                const bareName = cleanHref ? cleanHref.split('/').pop() : '';
 
                 if (subOl) {
                   const vol = label || currentVolume;
+                  const entry = { title: label, volume: currentVolume, level: depth };
                   if (cleanHref) {
                     if (label && !titles.has(cleanHref)) titles.set(cleanHref, label);
-                    if (!tocMap.has(cleanHref)) {
-                      tocMap.set(cleanHref, { title: label, volume: currentVolume, level: depth });
-                    }
+                    tocMap.set(cleanHref, entry);
                   }
+                  if (canonHref) {
+                    if (label && !titles.has(canonHref)) titles.set(canonHref, label);
+                    tocMap.set(canonHref, entry);
+                    if (od && canonHref.startsWith(od)) tocMap.set(canonHref.slice(od.length), entry);
+                  }
+                  if (bareName) tocMap.set(bareName, entry);
                   walkNavOl(subOl, vol, depth + 1);
                 } else if (cleanHref) {
+                  const entry = { title: label, volume: currentVolume, level: depth };
                   if (label && !titles.has(cleanHref)) titles.set(cleanHref, label);
-                  if (!tocMap.has(cleanHref) || !tocMap.get(cleanHref).volume) {
-                    tocMap.set(cleanHref, { title: label, volume: currentVolume, level: depth });
+                  tocMap.set(cleanHref, entry);
+                  if (canonHref) {
+                    if (label && !titles.has(canonHref)) titles.set(canonHref, label);
+                    tocMap.set(canonHref, entry);
+                    if (od && canonHref.startsWith(od)) tocMap.set(canonHref.slice(od.length), entry);
                   }
+                  if (bareName) tocMap.set(bareName, entry);
                 }
               }
             };
@@ -278,26 +330,6 @@
           }
         }
       }
-
-      // Helper to resolve relative zip file paths
-      const resolveZipPath = (baseFilePath, relPath) => {
-        if (!relPath) return '';
-        if (relPath.startsWith('/')) return relPath.slice(1);
-        if (/^[a-zA-Z]+:\/\//.test(relPath)) return '';
-        const baseDir = baseFilePath.substring(0, baseFilePath.lastIndexOf('/') + 1);
-        const combined = baseDir + relPath.split('#')[0].split('?')[0];
-        const parts = combined.split('/');
-        const stack = [];
-        for (const p of parts) {
-          if (p === '.' || p === '') continue;
-          if (p === '..') {
-            if (stack.length > 0) stack.pop();
-          } else {
-            stack.push(p);
-          }
-        }
-        return stack.join('/');
-      };
 
       // Extracts structured prose while maintaining paragraph breaks and punctuation spacing
       const extractText = n => {
@@ -314,7 +346,7 @@
             if (src) return `\n\n![${alt}](${src})\n\n`;
           }
           if (tag === 'image') {
-            const href = n.getAttribute('data-embedded-uri') || n.getAttribute('href') || n.getAttribute('xlink:href');
+            const href = n.getAttribute('data-embedded-uri') || n.getAttribute('href') || n.getAttribute('xlink:href') || (n.getAttributeNS && n.getAttributeNS('http://www.w3.org/1999/xlink', 'href'));
             if (href) return `\n\n![Illustration](${href})\n\n`;
           }
           for (const c of n.childNodes) {
@@ -354,9 +386,9 @@
 
               // Asynchronously extract and resolve all embedded illustrations at 100% full original resolution
               const chapterImages = [];
-              const imgEls = Array.from(doc.querySelectorAll('img, image'));
+              const imgEls = Array.from(doc.querySelectorAll('img, image, svg image'));
               for (const imgEl of imgEls) {
-                const rawSrc = imgEl.getAttribute('src') || imgEl.getAttribute('href') || imgEl.getAttribute('xlink:href') || '';
+                const rawSrc = imgEl.getAttribute('src') || imgEl.getAttribute('href') || imgEl.getAttribute('xlink:href') || (imgEl.getAttributeNS && imgEl.getAttributeNS('http://www.w3.org/1999/xlink', 'href')) || '';
                 if (!rawSrc) continue;
                 if (rawSrc.startsWith('data:')) {
                   chapterImages.push(rawSrc);
@@ -368,8 +400,25 @@
                   imgZip = zip.file(od + resolvedImgPath);
                 }
                 if (!imgZip) {
+                  let decPath = '';
+                  try { decPath = decodeURIComponent(resolvedImgPath); } catch (_) {}
+                  if (decPath) {
+                    imgZip = zip.file(decPath);
+                    if (!imgZip && od && !decPath.startsWith(od)) imgZip = zip.file(od + decPath);
+                  }
+                }
+                if (!imgZip) {
                   const filename = rawSrc.split('/').pop().split(/[#?]/)[0];
-                  const matchedKey = Object.keys(zip.files).find(k => k.endsWith('/' + filename) || k === filename);
+                  let decFilename = filename;
+                  try { decFilename = decodeURIComponent(filename); } catch (_) {}
+                  const targetLower = decFilename.toLowerCase();
+                  const matchedKey = Object.keys(zip.files).find(k => {
+                    if (k.endsWith('/')) return false;
+                    const kBase = k.split('/').pop().split(/[#?]/)[0];
+                    let decKBase = kBase;
+                    try { decKBase = decodeURIComponent(kBase); } catch (_) {}
+                    return kBase === filename || decKBase === decFilename || decKBase.toLowerCase() === targetLower;
+                  });
                   if (matchedKey) imgZip = zip.file(matchedKey);
                 }
                 if (imgZip) {
@@ -379,6 +428,11 @@
                     const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg';
                     const dataUri = `data:${mime};base64,${b64}`;
                     imgEl.setAttribute('src', dataUri);
+                    imgEl.setAttribute('href', dataUri);
+                    imgEl.setAttribute('xlink:href', dataUri);
+                    if (imgEl.setAttributeNS) {
+                      try { imgEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', dataUri); } catch (_) {}
+                    }
                     imgEl.setAttribute('data-embedded-uri', dataUri);
                     chapterImages.push(dataUri);
                   } catch (e) {
@@ -388,6 +442,12 @@
               }
 
               let txt = extractText(doc.body);
+              // Ensure all extracted images are present in the chapter text markdown for the reader
+              for (const uri of chapterImages) {
+                if (!txt.includes(uri)) {
+                  txt = txt ? `${txt}\n\n![Illustration](${uri})\n\n` : `![Illustration](${uri})\n\n`;
+                }
+              }
               let tocInfo = tocMap.get(hrefPath) || tocMap.get(href) || null;
               if (!tocInfo) {
                 const bareHref = hrefPath.split('/').pop();
@@ -470,6 +530,35 @@
           }
         }
       }
+      // Apply embedded TOC hierarchy if preserved from prior export
+      if (Array.isArray(embeddedTocHierarchy) && embeddedTocHierarchy.length > 0) {
+        embeddedTocHierarchy.forEach((volGroup, vIdx) => {
+          const volName = volGroup.volume || `Volume ${vIdx + 1}`;
+          (volGroup.chapters || []).forEach(chTitle => {
+            const cleanTarget = String(chTitle || '').trim().toLowerCase();
+            const matchedCh = chapters.find(c =>
+              String(c.title || '').trim().toLowerCase() === cleanTarget
+            );
+            if (matchedCh) {
+              matchedCh.volume = volName;
+              matchedCh.arc = volName;
+              matchedCh.level = 2;
+            }
+          });
+        });
+      }
+
+      // Propagate forward volumes across sequential chapters
+      let activeVol = '';
+      chapters.forEach(c => {
+        if (c.volume) {
+          activeVol = c.volume;
+        } else if (activeVol) {
+          c.volume = activeVol;
+          c.arc = activeVol;
+        }
+      });
+
       if (!chapters.length) throw new Error('No readable text found in EPUB.');
 
       // Extract Cover Art

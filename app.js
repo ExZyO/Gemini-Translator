@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.21.99';
+    let VERSION = '8.22.00';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -381,7 +381,18 @@
       const handleRestoreAllTrash = () => window.LibraryEngine?.Controller?.restoreAll({ setWebImportHistory, loadTrashCount }, toast);
       const handlePermanentDelete = (id) => window.LibraryEngine?.Controller?.permanentDelete(id, { loadTrashCount, toast });
       const handleEmptyTrash = () => window.LibraryEngine?.Controller?.emptyTrash({ loadTrashCount, toast });
-      const handleRestoreFromEpubFiles = (e) => window.LibraryEngine?.Controller?.restoreEpubFiles(e?.target?.files ? Array.from(e.target.files) : (Array.isArray(e) ? e : []), { setWebImportHistory, setActiveCrawlSession: () => setActiveCrawlSession(null) }, toast);
+      const handleRestoreFromEpubFiles = (e) => {
+        const fileList = e?.target?.files ? Array.from(e.target.files) : (Array.isArray(e) ? e : []);
+        const ctrl = window.LibraryEngine?.Controller;
+        if (ctrl?.restoreEpubFiles) {
+          ctrl.restoreEpubFiles(fileList, { setWebImportHistory, setActiveCrawlSession: () => setActiveCrawlSession(null), toast }, toast);
+        } else if (ctrl?.restoreFromEpubFiles) {
+          ctrl.restoreFromEpubFiles(fileList, { setWebImportHistory, setActiveCrawlSession: () => setActiveCrawlSession(null), toast }, toast);
+        }
+        if (e?.target && 'value' in e.target) {
+          try { e.target.value = ''; } catch(err) {}
+        }
+      };
       const handleReindexFromTranslationHistory = () => window.LibraryEngine?.Controller?.reindex({ dbGetAll, webImportHistory, saveNovelToHistory, toast });
 
       // ══════════════════════════════════════════════════════════════════════════

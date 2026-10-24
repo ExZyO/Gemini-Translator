@@ -2131,6 +2131,7 @@
                         const targetT = (typeof window !== 'undefined' && window.normalizeTitleKey)
                             ? window.normalizeTitleKey(novelRecord.title)
                             : String(novelRecord.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
+                        const all = (typeof window.GeminiNovelDB.getAllNovels === 'function') ? await window.GeminiNovelDB.getAllNovels() : [];
                         full = all?.find(n => n.id === novelRecord.id || n.title === novelRecord.title || ((typeof window !== 'undefined' && window.normalizeTitleKey ? window.normalizeTitleKey(n.title) : String(n.title || '').toLowerCase()) === targetT));
                     }
                     if (full) {

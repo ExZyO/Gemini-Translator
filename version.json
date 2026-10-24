@@ -1,9 +1,9 @@
 {
-  "version": "8.21.99",
-  "versionCode": 8510,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.99/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.21.99/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.21.99",
+  "version": "8.22.00",
+  "versionCode": 8511,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.00/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.00/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.00",
   "releaseDate": "2026-10-24",
-  "releaseNotes": "v8.21.99: Invisible EPUB source metadata preservation, multi-source update management, 100% full original resolution image restore, and nested TOC volume hierarchy preservation."
+  "releaseNotes": "v8.22.00: Restore EPUB library ingestion fix with safe ArrayBuffer extraction, resolveZipPath temporal dead zone resolution, defensive update check metadata recovery, and modular novel source modal architecture."
 }
