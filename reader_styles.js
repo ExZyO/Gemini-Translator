@@ -50,8 +50,8 @@
         overflow-y: auto;
         overflow-x: hidden;
         scrollbar-width: thin;
-        scroll-behavior: smooth;
         -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
         padding-bottom: 56px;
         box-sizing: border-box;
       }
@@ -908,8 +908,8 @@
         pointer-events: none;
       }
       .moon-hud-back-btn, .moon-hud-menu-btn {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.25);
         color: #ffffff;
         width: 40px;
         height: 40px;
@@ -920,12 +920,16 @@
         cursor: pointer;
         transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease, border-color 0.15s ease;
         flex-shrink: 0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      }
+      .moon-hud-back-btn svg, .moon-hud-menu-btn svg {
+        stroke: #ffffff !important;
+        color: #ffffff !important;
       }
       .moon-hud-back-btn:active, .moon-hud-menu-btn:active {
         transform: scale(0.94);
-        background: rgba(255, 255, 255, 0.2);
-        border-color: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.25);
+        border-color: rgba(255, 255, 255, 0.4);
       }
       .moon-hud-title {
         flex: 1;
@@ -965,12 +969,14 @@
       .moon-hud-scrubber-row {
         display: flex;
         align-items: center;
-        gap: 10px;
+        width: 100% !important;
+        box-sizing: border-box;
+        gap: 12px;
         padding: 2px 4px 6px;
       }
       .moon-hud-scrub-btn {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.25);
         color: #ffffff;
         width: 38px;
         height: 38px;
@@ -980,33 +986,39 @@
         justify-content: center;
         cursor: pointer;
         flex-shrink: 0;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
         transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
       }
+      .moon-hud-scrub-btn svg {
+        stroke: #ffffff !important;
+        color: #ffffff !important;
+      }
       .moon-hud-scrub-btn:disabled {
-        opacity: 0.22;
+        opacity: 0.28;
         cursor: not-allowed;
-        background: rgba(255, 255, 255, 0.02);
-        border-color: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(255, 255, 255, 0.08);
         box-shadow: none;
       }
       .moon-hud-scrub-btn:not(:disabled):active {
         transform: scale(0.92);
-        background: rgba(255, 255, 255, 0.22);
-        border-color: rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.25);
+        border-color: rgba(255, 255, 255, 0.4);
       }
       .moon-hud-slider-wrap {
         position: relative;
-        flex: 1;
-        min-width: 0;
-        width: 100%;
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+        width: 100% !important;
         display: flex;
         align-items: center;
       }
       .moon-hud-range-slider {
-        flex: 1;
+        display: block;
+        flex: 1 1 0% !important;
         width: 100% !important;
-        min-width: 0;
+        min-width: 0 !important;
+        max-width: 100% !important;
         height: 6px;
         accent-color: var(--r-accent, #38bdf8);
         background: rgba(255, 255, 255, 0.22);
@@ -1022,6 +1034,7 @@
         height: 6px;
         border-radius: 9999px;
         background: rgba(255, 255, 255, 0.22);
+        width: 100%;
       }
       .moon-hud-range-slider::-webkit-slider-thumb {
         -webkit-appearance: none;
@@ -1042,7 +1055,7 @@
       .moon-hud-pct-text {
         font-size: 13px;
         font-weight: 700;
-        color: #e5e7eb;
+        color: #ffffff;
         min-width: 44px;
         text-align: right;
         font-variant-numeric: tabular-nums;
@@ -1382,15 +1395,21 @@
         cursor: pointer;
       }
 
-      /* ── Moon+ Reader Vertical Scroll Pull-to-Next Chapter Prompter ── */
-      .moon-reader-next-swipe-card {
-        margin: 28px auto 36px;
+      /* ── Moon+ Reader Vertical Scroll Pull-to-Next & Prev Chapter Prompters ── */
+      .moon-reader-next-swipe-card, .moon-reader-prev-swipe-card {
+        margin: 24px auto 28px;
         text-align: center;
         display: flex;
         justify-content: center;
         cursor: pointer;
-        padding-bottom: 24px;
         user-select: none;
+      }
+      .moon-reader-prev-swipe-card {
+        margin: 12px auto 24px;
+        padding-top: 4px;
+      }
+      .moon-reader-next-swipe-card {
+        padding-bottom: 24px;
       }
       .moon-swipe-pill {
         display: inline-flex;
@@ -1398,31 +1417,47 @@
         gap: 8px;
         padding: 10px 22px;
         border-radius: 9999px;
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        color: #f1f5f9;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        color: #ffffff;
         font-size: 13px;
         font-weight: 600;
         box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
         transition: transform 0.14s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease, border-color 0.15s ease;
       }
-      .moon-swipe-pill:hover, .moon-reader-next-swipe-card:active .moon-swipe-pill {
+      .moon-swipe-pill:hover,
+      .moon-reader-next-swipe-card:active .moon-swipe-pill,
+      .moon-reader-prev-swipe-card:active .moon-swipe-pill {
         transform: scale(0.96);
-        background: rgba(255, 255, 255, 0.16);
-        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.32);
       }
-      .moon-reader-next-swipe-card.active-release .moon-swipe-pill {
-        transform: scale(1.05);
-        background: var(--r-accent, #6366f1);
+      .moon-reader-next-swipe-card.active-release .moon-swipe-pill,
+      .moon-reader-prev-swipe-card.active-release .moon-swipe-pill {
+        transform: scale(1.06);
+        background: var(--r-accent, #38bdf8);
         border-color: #ffffff;
         color: #ffffff;
-        box-shadow: 0 6px 24px rgba(99, 102, 241, 0.6);
+        box-shadow: 0 6px 24px rgba(56, 189, 248, 0.6);
       }
       .moon-swipe-arrow {
         transition: transform 0.2s ease;
+        stroke: #ffffff !important;
       }
       .moon-reader-next-swipe-card.active-release .moon-swipe-arrow {
         transform: translateY(-2px);
+      }
+      .moon-reader-prev-swipe-card.active-release .moon-swipe-arrow {
+        transform: translateY(2px);
+      }
+      .moon-swipe-text-release { display: none; }
+      .moon-reader-next-swipe-card.active-release .moon-swipe-text-default,
+      .moon-reader-prev-swipe-card.active-release .moon-swipe-text-default {
+        display: none !important;
+      }
+      .moon-reader-next-swipe-card.active-release .moon-swipe-text-release,
+      .moon-reader-prev-swipe-card.active-release .moon-swipe-text-release {
+        display: inline !important;
       }
     `;
     document.head.appendChild(styleEl);

@@ -9,7 +9,6 @@
  * - Controller: buildTranslateOpts, buildTranslationConfig, pauseTranslation, resumeTranslation, discardSession, saveTranslationToLibrarySpace, executeTranslateText, executeTranslateEbook, createTranslationDispatcher
  * - splitChunks, batchParallel, calculateRealCost, formatDuration, generateJobId utilities
  */
-
 (function (global) {
   'use strict';
 
@@ -55,7 +54,6 @@
     }
     return chunks;
   }
-
   // --- Work-Stealing Multi-Key Parallel Worker Pool ---
   async function batchParallel(items, fn, concurrency = 3, signal = null) {
     if (typeof global !== 'undefined' && global.batchParallel) return global.batchParallel(items, fn, concurrency, signal);
@@ -109,7 +107,6 @@
     if (!text) return '';
     return text.replace(/\[(?:Context|Memory|Scene Context)[^\]]*\]/gi, '').trim();
   }
-
   function safeCleanNovelProse(text) {
     const fn = (typeof window !== 'undefined' && window.cleanNovelProse) ||
                (typeof global !== 'undefined' && global.cleanNovelProse);
@@ -157,7 +154,6 @@
     }
     throw new Error('streamWithRotation is not available');
   }
-
   async function safeTranslateWithRotation(chunk, opts) {
     const fn = (opts && opts.translateWithRotation) ||
                (typeof window !== 'undefined' && window.translateWithRotation) ||
@@ -230,7 +226,6 @@
     const useContext = Boolean(config.contextAware && chunks.length > 1 && isAIProvider);
     const activeLocks = opts.genderLocks ? Object.keys(opts.genderLocks) : [];
     const jobId = config.jobId || generateJobId(inputText);
-
     if (typeof window !== 'undefined' && window.telemetryLog) {
       window.telemetryLog('TRANSLATE', `Initiating text translation (${inputText.length} chars, ${chunks.length} chunk${chunks.length > 1 ? 's' : ''})`, {
         model: opts.model,
@@ -269,7 +264,6 @@
 
     // Snapshot state immediately so pausing at any point captures the session
     await saveState(result, ctx, startIndex);
-
     if (isAIProvider && config.enableStreaming) {
       for (let i = startIndex; i < chunks.length; i++) {
         if (callbacks.onProgressLabel) {
@@ -445,7 +439,6 @@
           }
         }
       });
-
       const translatedPieces = results.map(r => typeof r === 'string' ? r : (r?.text ? r.text : (r?.error ? `\n\n[Error: ${r.error}]\n\n` : '')));
       const combinedNew = safeCleanNovelProse(translatedPieces.join('\n\n').replace(/\r\n/g, '\n')).trim();
       result = safeStripContextLeak(result ? result + '\n\n' + combinedNew : combinedNew);
@@ -487,7 +480,6 @@
     const durationStr = formatDuration(elapsedMs);
     const totalToks = totalTokensUsed || (totalPromptTokens + totalOutputTokens);
     const tokPerSec = elapsedMs > 0 && totalToks ? Math.round((totalToks / (elapsedMs / 1000))) : 0;
-
     const activeM = provider === 'deepseek'
       ? (config.useCustomDeepseekModel && config.customDeepseekModel ? config.customDeepseekModel : config.deepseekModel)
       : (config.useCustomModel && config.customModel ? config.customModel : (config.geminiModel || config.model || opts.model));
@@ -571,7 +563,6 @@
       contextTokens: 0,
       systemTokens: 0
     };
-
     const allParts = curSession ? [...(curSession.allParts || [])] : [];
     const newChapters = curSession ? [...(curSession.newChapters || [])] : [];
     const startChapterIdx = curSession ? (curSession.currentChapterIdx || 0) : 0;
@@ -603,7 +594,6 @@
 
     let lastUiAssembledUpdate = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     let totalChunks = 0;
-
     // Disambiguate duplicate adjacent chapter titles in chapters array (e.g. AO3 summary block vs story chapter)
     for (let idx = 0; idx < chapters.length - 1; idx++) {
       const cur = chapters[idx];
@@ -669,7 +659,6 @@
       }
       return state;
     };
-
     // Snapshot state immediately at millisecond zero so pausing during chapter 1 never yields null
     await saveState(ctx, done, startChapterIdx, startChunkIdx, allParts, newChapters);
 
@@ -692,7 +681,6 @@
     const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
     const effectiveConcurrency = Math.max(1, config.concurrency || 3);
     const translatedTitleCache = new Map();
-
     const initialPct = Math.floor((done / totalChunks) * 100);
     if (callbacks.onProgress) callbacks.onProgress(initialPct);
     if (callbacks.onProgressLabel) {
@@ -719,7 +707,6 @@
         cachedT = rawTitle.trim();
         translatedTitleCache.set(rawTitle, cachedT);
       }
-
       const needsTitleTask = Boolean(rawTitle && hasCjk && !isTitleAlreadyTranslated && !cachedT);
 
       const tracker = {
@@ -757,7 +744,6 @@
         });
       }
     }
-
     const finalizeChapter = async (tracker) => {
       if (tracker.isFinalized) return;
       tracker.isFinalized = true;
@@ -813,7 +799,6 @@
         docHtml = ch.doc.documentElement.outerHTML;
         if (originalZip && ch.zipPath) originalZip.file(ch.zipPath, docHtml);
       }
-
       // Translation Revision Snapshot (§8.6)
       if (config.snapshotsEnabled && typeof window !== 'undefined' && window.TMDiffEngine && content) {
         const novelKey = (config.activeNovelRecord && config.activeNovelRecord.id) || (config.fileName && config.fileName.trim()) || 'active_doc';
@@ -841,7 +826,6 @@
         const workerKey = availableKeys.length > 0 ? availableKeys[workerId % availableKeys.length].key : opts.apiKey;
         const workerOpts = { ...opts, apiKey: workerKey, availableKeys, isParallelWorker: effectiveConcurrency > 1 };
         const tracker = chapterTrackers.get(task.chapterIdx);
-
         if (task.type === 'title') {
           try {
             const titleWorkerOpts = {
@@ -920,7 +904,6 @@
 
         tracker.parts[j] = translatedText;
         tracker.completedChunks++;
-
         done++;
         const curPct = Math.min(99, Math.floor((done / totalChunks) * 100));
         if (callbacks.onProgress) callbacks.onProgress(curPct);
@@ -944,7 +927,6 @@
         if (tracker.completedChunks >= tracker.totalChunks && tracker.titleDone && !tracker.isFinalized) {
           await finalizeChapter(tracker);
         }
-
         return { text: translatedText };
       }, effectiveConcurrency, opts.signal);
     } catch (batchErr) {
@@ -992,7 +974,6 @@
         }
       }
     }
-
     const final = safeStripContextLeak(allParts.join('\n\n\n')).trim();
     const elapsedMs = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime;
     const durationStr = formatDuration(elapsedMs);
@@ -1047,7 +1028,6 @@
       totalTokensUsed: totalToks
     };
   }
-
   /**
    * Translates an individual novel or chapter title accurately into English.
    */
@@ -1089,7 +1069,6 @@
         ? (opts.deepseekApiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('deepseekApiKey') : null))
         : (opts.geminiApiKey || (typeof localStorage !== 'undefined' ? (localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey')) : null))) ||
       (availableKeys.length > 0 ? (typeof availableKeys[0] === 'string' ? availableKeys[0] : availableKeys[0].key) : null);
-
     const fallbackModel = (typeof window !== 'undefined' && window.getProviderFallbackModel) ? window.getProviderFallbackModel(provider) : (provider === 'deepseek' ? 'deepseek-chat' : 'gemini-3.8-flash');
     const storedModel = (typeof localStorage !== 'undefined' ? (provider === 'deepseek' ? localStorage.getItem('deepseekModel') : localStorage.getItem('geminiModel')) : null);
     const activeModel = opts.model || (provider === 'deepseek'
@@ -1165,7 +1144,6 @@
         titleOnly: true
       };
     }
-
     if (!rawText || !rawText.trim()) {
       throw new Error('No chapter text provided for translation.');
     }
@@ -1184,7 +1162,6 @@
     const apiKeysByProvider = config.apiKeysByProvider || {};
     const availableKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
     const workerOpts = { ...opts, availableKeys };
-
     // 1. Translate Title (if CJK or non-English)
     let finalTitle = rawTitle;
     if (rawTitle && rawTitle.trim()) {
@@ -1264,7 +1241,6 @@
         if (callbacks.onProgress) {
           callbacks.onProgress(pct, `Translating chunk ${j + 1}/${chunks.length}${chunks.length > 1 ? ` (${pct}%)` : ''}…`);
         }
-
         const isLastChunk = j === chunks.length - 1;
         const hasIncomingContext = Boolean(chapterCtx && chapterCtx.trim());
         const shouldPassContext = useContext && (hasIncomingContext || j > 0);
@@ -1304,7 +1280,6 @@
         parts.push(chunks[r]);
       }
     }
-
     let content = safeCleanNovelProse(safeStripContextLeak(parts.join('\n\n')).replace(/\r\n/g, '\n')).trim();
     if (typeof stripFn === 'function' && finalTitle) {
       content = stripFn(content, finalTitle, rawTitle);
@@ -1334,7 +1309,6 @@
     }
 
     if (callbacks.onProgress) callbacks.onProgress(100, 'Chapter translated!');
-
     return {
       title: finalTitle,
       content,
@@ -1368,7 +1342,6 @@
           : (options.geminiModel || (typeof localStorage !== 'undefined' ? localStorage.getItem('geminiModel') : null) || 'gemini-3.7-flash');
       }
     }
-
     let strictModel = options.strictModel;
     if (strictModel === undefined) {
       if (typeof localStorage !== 'undefined') {
@@ -1430,7 +1403,6 @@
       libreUrl: options.libreUrl || ''
     };
   }
-
   /**
    * Builds normalized configuration for translation dispatcher.
    */
@@ -1499,7 +1471,6 @@
         session = await window.GeminiNovelDB.getActiveTranslationSession();
       } catch (_) {}
     }
-
     // Fallback: If still no session, synthesize one from current state so Resume is GUARANTEED to exist
     if (!session) {
       const chapters = params.chapters || [];
@@ -1569,7 +1540,6 @@
     if (typeof window !== 'undefined' && window.KeyPool?.clearCooldowns) {
       window.KeyPool.clearCooldowns();
     }
-
     if (typeof window !== 'undefined' && window.NativeBridge) {
       window.NativeBridge.clearProgressNotification?.(false);
       window.NativeBridge.showCompletionNotification?.('Translation Paused', 'Translation paused. Progress safely saved.');

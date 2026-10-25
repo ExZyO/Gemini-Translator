@@ -160,6 +160,7 @@
     }, [currentIdx]);
 
     const pendingScrollTargetRef = useRef(null);
+    const scrollRestoredRef = useRef(false);
 
     const changeChapter = useCallback((newIdx, options = {}) => {
       if (newIdx < 0 || newIdx >= safeChapters.length) return;
@@ -172,52 +173,42 @@
       if (typeof onChapterChange === 'function') onChapterChange(newIdx);
     }, [safeChapters.length, onChapterChange, activeIdx]);
 
-    // Position Restoration on Chapter Switch (Start at top on forward, start at bottom on backward)
-    useEffect(() => {
-      const target = pendingScrollTargetRef.current;
-      if (!target) return;
-
-      const container = document.getElementById('gemini-reader-scroll-area');
-      if (!container) return;
-
-      const applyScroll = () => {
-        if (target === 'bottom') {
-          const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
-          container.scrollTo({ top: maxScroll, behavior: 'instant' });
-          saveReadingProgress(activeNovelKey, activeIdx, maxScroll, 100);
-        } else {
-          container.scrollTo({ top: 0, behavior: 'instant' });
-          saveReadingProgress(activeNovelKey, activeIdx, 0, 0);
-        }
-      };
-
-      requestAnimationFrame(() => {
-        applyScroll();
-        setTimeout(applyScroll, 40);
-        setTimeout(applyScroll, 120);
-      });
-    }, [activeIdx, activeNovelKey]);
-
-    // Scroll Position Restoration
-    const scrollRestoredRef = useRef(false);
     useEffect(() => {
       scrollRestoredRef.current = false;
     }, [activeNovelKey]);
 
+    // Position Restoration on Chapter Switch (Consolidated layout pass with zero judder)
     useEffect(() => {
-      if (!open || scrollRestoredRef.current) return;
-      const prog = getReadingProgress(activeNovelKey);
-      if (prog && prog.chapterIdx === activeIdx && prog.scrollTop > 0) {
+      const container = document.getElementById('gemini-reader-scroll-area');
+      if (!container) return;
+      const target = pendingScrollTargetRef.current;
+      if (target) {
+        pendingScrollTargetRef.current = null;
         scrollRestoredRef.current = true;
-        const timer = setTimeout(() => {
-          const container = document.getElementById('gemini-reader-scroll-area');
-          if (container) {
-            container.scrollTo({ top: prog.scrollTop, behavior: 'instant' });
+        const setPos = () => {
+          if (!container) return;
+          if (target === 'bottom') {
+            const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+            container.scrollTop = maxScroll;
+            saveReadingProgress(activeNovelKey, activeIdx, maxScroll, 100);
+          } else {
+            container.scrollTop = 0;
+            saveReadingProgress(activeNovelKey, activeIdx, 0, 0);
           }
-        }, 80);
-        return () => clearTimeout(timer);
+        };
+        setPos();
+        requestAnimationFrame(setPos);
+        return;
       }
-    }, [open, activeIdx, activeNovelKey]);
+
+      if (!scrollRestoredRef.current && open) {
+        const prog = getReadingProgress(activeNovelKey);
+        if (prog && prog.chapterIdx === activeIdx && prog.scrollTop > 0) {
+          scrollRestoredRef.current = true;
+          requestAnimationFrame(() => { if (container) container.scrollTop = prog.scrollTop; });
+        }
+      }
+    }, [activeIdx, activeNovelKey, open]);
 
     // Debounced Scroll Persistence & Auto-Scroll Subpixel Accumulator
     const [chapterScrollPct, setChapterScrollPct] = useState(() => initialSavedProgress?.pct || 0);
@@ -237,14 +228,12 @@
       }, 200);
     }, [activeNovelKey, activeIdx]);
 
-    // Moon+ Reader Vertical Scroll Pull-to-Next Chapter Gestures
-    const [pullPrompt, setPullPrompt] = useState(null);
+    // Moon+ Reader Vertical Scroll Pull-to-Next & Prev Chapter Gestures
     const scrollGestures = useMemo(() => {
       if (typeof window.MoonReaderEngine?.SwipeHandler?.createGestureTracker !== 'function') return null;
       return window.MoonReaderEngine.SwipeHandler.createGestureTracker({
-        onNextChapter: () => changeChapter(activeIdx + 1),
-        onPrevChapter: () => changeChapter(activeIdx - 1),
-        setPullPrompt,
+        onNextChapter: () => changeChapter(activeIdx + 1, { scrollToBottom: false }),
+        onPrevChapter: () => changeChapter(activeIdx - 1, { scrollToBottom: true }),
         canGoNext: activeIdx < safeChapters.length - 1,
         canGoPrev: activeIdx > 0
       });
@@ -2641,6 +2630,19 @@
               }
             }),
             h('div', { className: `reader-v2-content-box ${widthClass} ${paragraphIndent ? 'reader-v2-indent' : ''}`, style: { textAlign: justify ? 'justify' : 'left' } },
+          // Moon+ Reader Pull-to-Prev Chapter Prompter
+          activeIdx > 0 && h('div', {
+            id: 'moon-reader-pull-prev',
+            className: 'moon-reader-prev-swipe-card',
+            onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx - 1, { scrollToBottom: true }); }
+          },
+            h('div', { className: 'moon-swipe-pill' },
+              ic('ChevronsDown', 16, 'moon-swipe-arrow'),
+              h('span', { className: 'moon-swipe-text-default' }, `Pull down for Chapter ${activeIdx}: ${(safeChapters[activeIdx - 1]?.title || `Chapter ${activeIdx}`).slice(0, 32)}`),
+              h('span', { className: 'moon-swipe-text-release' }, `Release to open Chapter ${activeIdx}`)
+            )
+          ),
+
           // Moon+ Reader Centered Bold Chapter Header (Screenshot 1)
           (() => {
             const rawT = (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(currentChapter.title) : (currentChapter.title || '');
@@ -2667,7 +2669,7 @@
               className: 'mini-btn ghost',
               disabled: activeIdx <= 0,
               style: { padding: '10px 18px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
-              onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx - 1); }
+              onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx - 1, { scrollToBottom: true }); }
             }, ic('ArrowLeft', 15), 'Previous Chapter'),
             h('span', { style: { fontSize: 12, color: 'var(--r-muted)' } }, `${activeIdx + 1} / ${safeChapters.length}`),
             h('button', {
@@ -2675,20 +2677,20 @@
               className: 'mini-btn',
               disabled: activeIdx >= safeChapters.length - 1,
               style: { padding: '10px 18px', background: 'var(--r-accent)', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
-              onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx + 1); }
+              onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx + 1, { scrollToBottom: false }); }
             }, 'Next Chapter', ic('ArrowRight', 15))
           ),
 
           // Moon+ Reader Vertical Scroll Pull-to-Next Chapter Prompter
           activeIdx < safeChapters.length - 1 && h('div', {
-            className: `moon-reader-next-swipe-card ${pullPrompt === 'release_next' ? 'active-release' : ''}`,
-            onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx + 1); }
+            id: 'moon-reader-pull-next',
+            className: 'moon-reader-next-swipe-card',
+            onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx + 1, { scrollToBottom: false }); }
           },
             h('div', { className: 'moon-swipe-pill' },
               ic('ChevronsUp', 16, 'moon-swipe-arrow'),
-              h('span', null, pullPrompt === 'release_next'
-                ? `Release to open Chapter ${activeIdx + 2}`
-                : `Swipe up for Chapter ${activeIdx + 2}: ${(safeChapters[activeIdx + 1]?.title || `Chapter ${activeIdx + 2}`).slice(0, 32)}`)
+              h('span', { className: 'moon-swipe-text-default' }, `Swipe up for Chapter ${activeIdx + 2}: ${(safeChapters[activeIdx + 1]?.title || `Chapter ${activeIdx + 2}`).slice(0, 32)}`),
+              h('span', { className: 'moon-swipe-text-release' }, `Release to open Chapter ${activeIdx + 2}`)
             )
           )
         )

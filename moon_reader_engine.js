@@ -1975,8 +1975,6 @@
           changeChapter = () => {},
           isScrubbing = false,
           setIsScrubbing = () => {},
-          scrubberIdx = 0,
-          setScrubberIdx = () => {},
           chapterScrollPct = 0,
           fontSize = 18,
           setFontSize = () => {},
@@ -1999,8 +1997,21 @@
         const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
         const ic = typeof window !== 'undefined' && window.ic ? window.ic : () => null;
 
+        const [isDragging, setIsDragging] = React.useState(false);
+        const [dragVal, setDragVal] = React.useState(activeIdx);
+        const dragValRef = React.useRef(activeIdx);
+
+        // Keep local scrubber in sync with active chapter when not dragging
+        React.useEffect(() => {
+          if (!isDragging) {
+            setDragVal(activeIdx);
+            dragValRef.current = activeIdx;
+          }
+        }, [activeIdx, isDragging]);
+
         const totalChs = Math.max(1, safeChapters.length);
-        const calcPct = Math.min(100, Math.max(0, Math.round(((activeIdx + Math.max(0, Math.min(1, (chapterScrollPct || 0) / 100))) / totalChs) * 100)));
+        const displayIdx = isDragging ? dragVal : activeIdx;
+        const calcPct = Math.min(100, Math.max(0, Math.round(((displayIdx + Math.max(0, Math.min(1, (chapterScrollPct || 0) / 100))) / totalChs) * 100)));
 
         return h('div', {
           className: `moon-reader-hud-bottom ${hudVisible ? '' : 'reader-v2-hud-hidden'}`,
@@ -2020,58 +2031,74 @@
               className: 'moon-hud-scrub-btn',
               disabled: activeIdx <= 0,
               title: 'Previous Chapter',
-              onClick: () => changeChapter(activeIdx - 1)
-            }, ic('ChevronLeft', 18) || '<'),
+              onClick: () => changeChapter(activeIdx - 1, { scrollToBottom: true })
+            }, ic('ChevronLeft', 20) || '<'),
 
-            h('div', { className: 'moon-hud-slider-wrap', style: { position: 'relative', flex: 1, minWidth: 0, width: '100%', display: 'flex', alignItems: 'center' } },
-              isScrubbing && h('div', {
+            h('div', { className: 'moon-hud-slider-wrap' },
+              isDragging && h('div', {
                 style: {
                   position: 'absolute',
-                  bottom: 'calc(100% + 8px)',
-                  left: `${Math.min(90, Math.max(10, ((scrubberIdx + 1) / totalChs) * 100))}%`,
+                  bottom: 'calc(100% + 10px)',
+                  left: `${Math.min(90, Math.max(10, ((dragVal + 0.5) / totalChs) * 100))}%`,
                   transform: 'translateX(-50%)',
                   background: '#181a20',
-                  color: '#fff',
-                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255,255,255,0.25)',
                   borderRadius: 8,
-                  padding: '5px 10px',
+                  padding: '6px 12px',
                   fontSize: 12,
                   fontWeight: 600,
                   whiteSpace: 'nowrap',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+                  boxShadow: '0 4px 18px rgba(0,0,0,0.7)',
                   pointerEvents: 'none',
                   zIndex: 100
                 }
-              }, `Ch. ${scrubberIdx + 1}: ${(safeChapters[scrubberIdx]?.title || `Chapter ${scrubberIdx + 1}`).slice(0, 30)}`),
+              }, `Ch. ${dragVal + 1}: ${(safeChapters[dragVal]?.title || `Chapter ${dragVal + 1}`).slice(0, 30)}`),
 
               h('input', {
                 type: 'range',
                 className: 'moon-hud-range-slider',
                 min: 0,
                 max: totalChs - 1,
-                value: isScrubbing ? scrubberIdx : activeIdx,
-                onPointerDown: () => setIsScrubbing(true),
-                onTouchStart: () => setIsScrubbing(true),
+                value: displayIdx,
+                onPointerDown: () => {
+                  setIsDragging(true);
+                  if (typeof setIsScrubbing === 'function') setIsScrubbing(true);
+                },
+                onTouchStart: () => {
+                  setIsDragging(true);
+                  if (typeof setIsScrubbing === 'function') setIsScrubbing(true);
+                },
                 onInput: (e) => {
-                  setIsScrubbing(true);
-                  setScrubberIdx(parseInt(e.target.value, 10));
+                  const val = parseInt(e.target.value, 10);
+                  dragValRef.current = val;
+                  setDragVal(val);
                 },
                 onChange: (e) => {
-                  const target = parseInt(e.target.value, 10);
-                  setScrubberIdx(target);
-                  setIsScrubbing(false);
-                  changeChapter(target);
+                  const val = parseInt(e.target.value, 10);
+                  dragValRef.current = val;
+                  setDragVal(val);
                 },
                 onPointerUp: () => {
-                  if (isScrubbing) {
-                    setIsScrubbing(false);
-                    changeChapter(scrubberIdx);
+                  if (isDragging) {
+                    setIsDragging(false);
+                    if (typeof setIsScrubbing === 'function') setIsScrubbing(false);
+                    const target = dragValRef.current;
+                    if (target !== activeIdx) changeChapter(target);
                   }
                 },
                 onTouchEnd: () => {
-                  if (isScrubbing) {
-                    setIsScrubbing(false);
-                    changeChapter(scrubberIdx);
+                  if (isDragging) {
+                    setIsDragging(false);
+                    if (typeof setIsScrubbing === 'function') setIsScrubbing(false);
+                    const target = dragValRef.current;
+                    if (target !== activeIdx) changeChapter(target);
+                  }
+                },
+                onKeyUp: (e) => {
+                  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') {
+                    const target = dragValRef.current;
+                    if (target !== activeIdx) changeChapter(target);
                   }
                 }
               })
@@ -2084,8 +2111,8 @@
               className: 'moon-hud-scrub-btn',
               disabled: activeIdx >= totalChs - 1,
               title: 'Next Chapter',
-              onClick: () => changeChapter(activeIdx + 1)
-            }, ic('ChevronRight', 18) || '>')
+              onClick: () => changeChapter(activeIdx + 1, { scrollToBottom: false })
+            }, ic('ChevronRight', 20) || '>')
           ),
 
           // Row 2: Secondary Tool Dock (···, Cloud Down, Cloud Up, A±, Search)
@@ -2220,7 +2247,6 @@
         const {
           onNextChapter = () => {},
           onPrevChapter = () => {},
-          setPullPrompt = () => {},
           canGoNext = true,
           canGoPrev = true
         } = options;
@@ -2230,11 +2256,27 @@
         let startTime = 0;
         let isAtBottom = false;
         let isAtTop = false;
+        let isTriggering = false;
         let wheelAccumulator = 0;
         let wheelTimer = null;
 
+        const updateVisuals = (dy) => {
+          const nextEl = document.getElementById('moon-reader-pull-next');
+          const prevEl = document.getElementById('moon-reader-pull-prev');
+          if (nextEl) nextEl.classList.toggle('active-release', isAtBottom && canGoNext && dy >= 45);
+          if (prevEl) prevEl.classList.toggle('active-release', isAtTop && canGoPrev && dy <= -45);
+        };
+
+        const clearVisuals = () => {
+          const nextEl = document.getElementById('moon-reader-pull-next');
+          const prevEl = document.getElementById('moon-reader-pull-prev');
+          if (nextEl) nextEl.classList.remove('active-release');
+          if (prevEl) prevEl.classList.remove('active-release');
+        };
+
         return {
           onTouchStart: (e) => {
+            if (isTriggering) return;
             const touch = e.touches && e.touches[0];
             const target = e.currentTarget;
             if (!touch || !target) return;
@@ -2244,45 +2286,43 @@
             const top = target.scrollTop || 0;
             const scrollH = target.scrollHeight;
             const clientH = target.clientHeight;
-            isAtBottom = (top + clientH >= scrollH - 24);
-            isAtTop = (top <= 8);
+            isAtBottom = (top + clientH >= scrollH - 6);
+            isAtTop = (top <= 4);
           },
 
           onTouchMove: (e) => {
+            if (!startTime || isTriggering) return;
             const touch = e.touches && e.touches[0];
-            const target = e.currentTarget;
-            if (!touch || !target || !startTime) return;
+            if (!touch) return;
             const dy = startY - touch.clientY;
             const dx = startX - touch.clientX;
-            if (Math.abs(dx) > Math.abs(dy) * 1.35) return;
-
-            if (isAtBottom && canGoNext && dy > 12) {
-              setPullPrompt(dy >= 45 ? 'release_next' : 'pull_next');
-            } else if (isAtTop && canGoPrev && dy < -12) {
-              setPullPrompt(dy <= -45 ? 'release_prev' : 'pull_prev');
-            } else {
-              setPullPrompt(null);
-            }
+            if (Math.abs(dx) > Math.abs(dy) * 1.25) return;
+            updateVisuals(dy);
           },
 
           onTouchEnd: (e) => {
-            if (!startTime) return;
+            if (!startTime || isTriggering) return;
             const touch = (e.changedTouches && e.changedTouches[0]);
             const dy = touch ? (startY - touch.clientY) : 0;
             const elapsed = Date.now() - startTime;
             startTime = 0;
-            setPullPrompt(null);
+            clearVisuals();
 
-            if (isAtBottom && canGoNext && dy >= 42 && elapsed < 900) {
+            if (isAtBottom && canGoNext && dy >= 45 && elapsed < 1200) {
+              isTriggering = true;
               try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
               onNextChapter();
-            } else if (isAtTop && canGoPrev && dy <= -42 && elapsed < 900) {
+              setTimeout(() => { isTriggering = false; }, 500);
+            } else if (isAtTop && canGoPrev && dy <= -45 && elapsed < 1200) {
+              isTriggering = true;
               try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
               onPrevChapter();
+              setTimeout(() => { isTriggering = false; }, 500);
             }
           },
 
           onWheel: (e) => {
+            if (isTriggering) return;
             const target = e.currentTarget;
             if (!target) return;
             const top = target.scrollTop || 0;
@@ -2293,19 +2333,23 @@
               wheelAccumulator += e.deltaY;
               clearTimeout(wheelTimer);
               wheelTimer = setTimeout(() => { wheelAccumulator = 0; }, 300);
-              if (wheelAccumulator >= 110) {
+              if (wheelAccumulator >= 90) {
                 wheelAccumulator = 0;
+                isTriggering = true;
                 try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
                 onNextChapter();
+                setTimeout(() => { isTriggering = false; }, 500);
               }
             } else if (e.deltaY < 0 && top <= 6 && canGoPrev) {
               wheelAccumulator += e.deltaY;
               clearTimeout(wheelTimer);
               wheelTimer = setTimeout(() => { wheelAccumulator = 0; }, 300);
-              if (wheelAccumulator <= -110) {
+              if (wheelAccumulator <= -90) {
                 wheelAccumulator = 0;
+                isTriggering = true;
                 try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
                 onPrevChapter();
+                setTimeout(() => { isTriggering = false; }, 500);
               }
             } else {
               wheelAccumulator = 0;
