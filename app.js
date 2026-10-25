@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.04';
+    let VERSION = '8.22.05';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2750,7 +2750,7 @@
               h('div', null,
                 h('div', { style: { fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 } },
                   availableUpdate.isBuilding ? ic(Loader2, 14, 'animate-spin') : null,
-                  availableUpdate.isBuilding ? `Update Compiling: ${availableUpdate.latestVersion} ⏳` : `Update Ready: ${availableUpdate.latestVersion}`
+                  availableUpdate.isBuilding ? `Update Compiling: ${availableUpdate.latestVersion}` : `Update Ready: ${availableUpdate.latestVersion}`
                 ),
                 h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } },
                   availableUpdate.isBuilding

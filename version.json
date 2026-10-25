@@ -1,9 +1,9 @@
 {
-  "version": "8.22.04",
-  "versionCode": 8515,
-  "apkUrl": "https://github.com/ExZyO/Gemini-EPUB-Translator/releases/download/v8.22.04/GeminiTranslator-v8.22.04.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-EPUB-Translator/releases/download/v8.22.04/GeminiTranslator-v8.22.04.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.04",
-  "releaseDate": "2026-10-24",
-  "releaseNotes": "v8.22.04: Guarded EPUB restore against directory selection in Android DocumentsUI picker and eliminated secondary false error notifications."
+  "version": "8.22.05",
+  "versionCode": 8516,
+  "apkUrl": "https://github.com/ExZyO/Gemini-EPUB-Translator/releases/download/v8.22.05/GeminiTranslator-v8.22.05.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-EPUB-Translator/releases/download/v8.22.05/GeminiTranslator-v8.22.05.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.05",
+  "releaseDate": "2026-10-25",
+  "releaseNotes": "v8.22.05: Craft-first design redesign applying frontend-design, better-ui, better-typography, better-colors, better-layout, and better-writing with concentric radii, layered shadows, tabular numbers, and tactile physics."
 }

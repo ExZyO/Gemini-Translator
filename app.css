@@ -171,11 +171,18 @@
    tactile pill controls, energetic indigo/amber accents & comfortable reading typography
    ═══════════════════════════════════════════════════════════ */
 :root {
-  --void: #0b0d14;
-  --ember: #141724;
-  --ember-2: rgba(255, 255, 255, 0.06);
+  --void: #090b12;
+  --canvas: #090b12;
+  --surface-1: #111524;
+  --surface-2: #171d31;
+  --surface-inset: #0c0e18;
+  --ember: #111524;
+  --ember-2: rgba(255, 255, 255, 0.05);
   --hairline: rgba(255, 255, 255, 0.08);
   --hairline-strong: rgba(255, 255, 255, 0.16);
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --border-accent: rgba(99, 102, 241, 0.35);
   --paper: #f8fafc;
   --paper-dim: #cbd5e1;
   --slate: #94a3b8;
@@ -187,14 +194,24 @@
   --lamp-deep: #d97706;
   --pine: #10b981;
   --rose: #f43f5e;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 2px 6px -1px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-md: 0 2px 4px 0 rgba(0, 0, 0, 0.35), 0 8px 24px -4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-lg: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 16px 48px -8px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --shadow-inset: inset 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
 }
 /* AMOLED True Pitch Black Theme */
 [data-theme="amoled"], body.theme-amoled, .theme-amoled {
   --void: #000000 !important;
-  --ember: #07080c !important;
+  --canvas: #000000 !important;
+  --surface-1: #07080e !important;
+  --surface-2: #0e111d !important;
+  --surface-inset: #000000 !important;
+  --ember: #07080e !important;
   --ember-2: rgba(255, 255, 255, 0.05) !important;
   --hairline: rgba(255, 255, 255, 0.12) !important;
   --hairline-strong: rgba(255, 255, 255, 0.22) !important;
+  --border-subtle: rgba(255, 255, 255, 0.1) !important;
+  --border-default: rgba(255, 255, 255, 0.18) !important;
   --paper: #FFFFFF !important;
   --paper-dim: #D4D7E2 !important;
   --slate: #94a3b8 !important;
@@ -347,74 +364,82 @@ body {
 .tl-head {
   position: relative;
   z-index: 20;
-  background: transparent;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(9, 11, 18, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 20px -8px rgba(0, 0, 0, 0.4);
 }
 .tl-head-inner {
   max-width: 780px;
   margin: 0 auto;
-  padding: 10px 16px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 .tl-title {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.025em;
   color: #ffffff;
   line-height: 1.2;
 }
 .tl-subtitle {
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Text', sans-serif;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 12px;
   color: var(--slate);
   margin-top: 2px;
   font-weight: 500;
+  letter-spacing: -0.01em;
 }
 .icon-btn {
-  width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.09);
+  width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.04); color: var(--slate); display: inline-flex; align-items: center; justify-content: center;
-  font-size: 16px; cursor: pointer; transition: all .18s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  font-size: 15px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: var(--shadow-sm);
 }
-.icon-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); color: var(--paper); transform: translateY(-1px); }
-.icon-btn:active { transform: translateY(1px) scale(0.95); }
+.icon-btn:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--border-default); color: var(--paper); }
+.icon-btn:active { transform: scale(0.96); }
 .version-chip {
-  font-size: 12px; font-weight: 600; color: var(--iris-light); border: 1px solid rgba(99, 102, 241, 0.3);
-  background: rgba(99, 102, 241, 0.1); border-radius: 9999px; padding: 6px 14px; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 7px; transition: all .18s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--iris-light); border: 1px solid var(--border-accent);
+  background: rgba(99, 102, 241, 0.1); border-radius: 9999px; padding: 5px 12px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
-.version-chip:hover { background: rgba(99, 102, 241, 0.22); border-color: rgba(99, 102, 241, 0.5); color: #fff; transform: translateY(-1px); }
-.version-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pine); box-shadow: 0 0 8px var(--pine); animation: pulse-dot 2s infinite; }
+.version-chip:hover { background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.55); color: #fff; }
+.version-chip:active { transform: scale(0.96); }
+.version-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pine); box-shadow: 0 0 8px var(--pine); animation: pulse-dot 2s infinite; }
 @keyframes pulse-dot { 50% { opacity: .4; } }
 
-/* ── Elevated Rounded Card Surfaces with Visual Separation ── */
+/* ── Elevated Rounded Card Surfaces with Concentric Geometry (better-ui) ── */
 .card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0.015) 100%), var(--ember);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0.01) 100%), var(--surface-1, #111524);
+  box-shadow: var(--shadow-md);
   padding: 20px 22px;
   margin-bottom: 16px;
   content-visibility: auto;
   contain-intrinsic-size: 0 300px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .card:hover {
-  border-color: rgba(99, 102, 241, 0.28);
-  box-shadow: 0 14px 36px -10px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-lg);
 }
 .card:last-child {
   margin-bottom: 0;
 }
 .card-title {
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', sans-serif;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: .02em;
+  letter-spacing: -0.01em;
   color: var(--iris-light);
   margin-bottom: 14px;
   display: flex;
@@ -432,18 +457,18 @@ body {
   justify-content: space-between;
   gap: 12px;
   padding: 13px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 14.5px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
   color: var(--paper);
 }
 .set-row:last-child { border-bottom: none; padding-bottom: 4px; }
 .set-row:first-child { padding-top: 4px; }
-.set-row .r { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 12px; color: var(--slate); display: flex; align-items: center; gap: 8px; flex: none; }
+.set-row .r { font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 12px; color: var(--slate); display: flex; align-items: center; gap: 8px; flex: none; }
 .mini-input {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%), #141724;
-  border-radius: 14px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-inset, #0c0e18);
+  border-radius: 12px;
   padding: 12px 16px;
   font-family: inherit;
   font-size: 14px;
@@ -452,24 +477,24 @@ body {
   line-height: 1.5;
   caret-color: var(--iris);
   outline: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) inset;
-  transition: all .2s ease;
+  box-shadow: var(--shadow-inset);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .mini-input:focus {
   border-color: var(--iris);
-  background: #141724;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25), 0 2px 8px rgba(0, 0, 0, 0.2) inset;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25), var(--shadow-inset);
 }
 .mini-input::placeholder { color: var(--slate); }
 textarea:focus, input:focus, select:focus { outline: none; border-color: var(--iris) !important; }
 
-/* ── Crisp Modern Switch ── */
+/* ── Crisp Tactile Switch (better-ui) ── */
 .switch {
   width: 44px; height: 26px; border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12); border: 1px solid var(--border-subtle);
   position: relative; flex: none; cursor: pointer;
-  transition: background-color .2s ease, border-color .2s ease;
+  transition: background-color .2s ease, border-color .2s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
 }
+.switch:active { transform: scale(0.96); }
 .switch::after {
   content: ''; position: absolute; top: 2px; left: 2px;
   width: 20px; height: 20px; border-radius: 50%;
@@ -480,42 +505,48 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--i
 .switch.on { background: var(--iris); border-color: var(--iris); }
 .switch.on::after { transform: translateX(18px); }
 
-/* ── Crisp Segmented Control ── */
+/* ── Crisp Segmented Control (better-ui) ── */
 .seg {
   display: inline-flex;
   gap: 3px;
-  padding: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 3px;
+  background: var(--surface-inset, #0c0e18);
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-inset);
   flex-wrap: wrap;
 }
 .seg-btn {
-  font-size: 12.5px; font-weight: 500;
-  padding: 7px 15px; border-radius: 9999px;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px; font-weight: 500;
+  padding: 6px 14px; border-radius: 9999px;
   border: none; color: var(--slate);
   background: transparent; cursor: pointer;
-  transition: all .18s ease;
+  transition: color .15s ease, background .15s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
 }
 .seg-btn:hover { color: var(--paper); }
+.seg-btn:active { transform: scale(0.96); }
 .seg-btn.on, .seg-btn.active {
   color: #FFFFFF;
   background: var(--iris);
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
-/* ── Crisp Action Chips ── */
+/* ── Crisp Action Chips (better-ui & optical alignment) ── */
 .chip-act {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 12px; font-weight: 600;
-  color: var(--iris-light); border: 1px solid rgba(99, 102, 241, 0.3);
+  color: var(--iris-light); border: 1px solid var(--border-accent);
   border-radius: 9999px; padding: 6px 13px;
   background: rgba(99, 102, 241, 0.1);
   cursor: pointer; display: inline-flex;
-  align-items: center; gap: 5px;
-  transition: all .18s cubic-bezier(0.16, 1, 0.3, 1);
+  align-items: center; justify-content: center; gap: 6px;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: var(--shadow-sm);
 }
-.chip-act:hover { background: rgba(99, 102, 241, 0.22); border-color: rgba(99, 102, 241, 0.6); color: #FFFFFF; transform: translateY(-1px); }
+.chip-act:hover { background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.6); color: #FFFFFF; }
+.chip-act:active { transform: scale(0.96); }
 .chip-act:active { transform: translateY(1px) scale(0.97); }
 .pane-acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .mono { font-family: 'IBM Plex Mono', monospace; }
@@ -1294,26 +1325,29 @@ input, textarea, [contenteditable="true"] {
   --glass-border: rgba(255, 255, 255, 0.08);
 }
 
-/* Bookshelf Hero Card */
+/* Bookshelf Hero Card (Apple Books craft-first aesthetic) */
 .shelf-hero-card {
   max-width: 640px;
   margin: 0 auto 22px auto;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, rgba(30, 27, 75, 0.75) 0%, rgba(27, 27, 48, 0.9) 100%);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: linear-gradient(135deg, rgba(23, 27, 44, 0.95) 0%, rgba(14, 17, 30, 0.98) 100%);
+  border: 1px solid var(--border-subtle);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: 20px;
   padding: 18px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .shelf-hero-card:hover {
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(99, 102, 241, 0.25);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(99, 102, 241, 0.3);
+}
+.shelf-hero-card:active {
+  transform: scale(0.98);
 }
 .shelf-hero-cover {
   width: 76px;
@@ -1321,15 +1355,17 @@ input, textarea, [contenteditable="true"] {
   border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  outline: 1px solid rgba(255, 255, 255, 0.14);
+  outline-offset: -1px;
 }
 .shelf-hero-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
-  font-weight: 750;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #F59E0B;
@@ -1337,6 +1373,7 @@ input, textarea, [contenteditable="true"] {
   border: none;
   padding: 0;
   margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
 }
 .shelf-book-item.shelf-selected .shelf-book-cover-wrap {
   box-shadow: 0 0 0 3px var(--iris), 0 8px 24px rgba(99, 102, 241, 0.45);
@@ -1384,13 +1421,15 @@ input, textarea, [contenteditable="true"] {
   aspect-ratio: 3 / 4;
   border-radius: 12px;
   overflow: hidden;
-  background: #141726;
+  background: var(--surface-1, #111524);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  outline: 1px solid rgba(255, 255, 255, 0.12);
+  outline-offset: -1px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 .shelf-book-item:hover .shelf-book-cover-wrap {
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(99, 102, 241, 0.45);
   transform: translateY(-2px);
 }
 .shelf-book-cover-img {
@@ -1411,19 +1450,22 @@ input, textarea, [contenteditable="true"] {
   position: absolute;
   bottom: 6px;
   right: 6px;
-  background: rgba(15, 15, 35, 0.88);
+  background: rgba(12, 14, 25, 0.88);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 6px;
   padding: 2px 6px;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 10px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: #F8FAFC;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 .shelf-book-title {
-  font-size: 13px;
+  font-family: 'Literata', Georgia, serif;
+  font-size: 13.5px;
   font-weight: 600;
   color: #F8FAFC;
   margin-top: 8px;
@@ -1431,9 +1473,11 @@ input, textarea, [contenteditable="true"] {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  line-height: 1.3;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
 }
 .shelf-book-author {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 11px;
   color: #94A3B8;
   margin-top: 2px;
@@ -2381,12 +2425,63 @@ input, textarea, [contenteditable="true"] {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .settings-grouped-card {
-  background: #141724;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface-1, #111524);
+  border: 1px solid var(--border-subtle);
   border-radius: 20px;
-  padding: 16px 18px;
+  padding: 16px 20px;
   margin-bottom: 14px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.settings-grouped-card:hover {
+  border-color: var(--border-accent);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CRAFT POLISH SUITE (better-ui, better-typography, better-accessibility)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Tabular numbers for counts, timers, statistics, and chapter numbers */
+.mono, .count, .tabular-num, .version-chip,
+.shelf-book-progress-badge, .stat-badge, .ch-num,
+.chapter-counter, .token-stat, .read-pct {
+  font-variant-numeric: tabular-nums;
+  -webkit-font-feature-settings: "tnum" 1;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Tactile 0.96 press physics across all interactive controls (better-ui) */
+@media (prefers-reduced-motion: no-preference) {
+  .btn-action:active,
+  .mini-btn:active,
+  .chip-act:active,
+  .seg-btn:active,
+  .icon-btn:active,
+  .settings-category-pill:active,
+  .discover-source-card:active,
+  .switch:active {
+    transform: scale(0.96);
+    transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+  }
+}
+
+/* Reduced motion accessibility compliance (better-accessibility) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Pure Black/White 1px Image Outlines (better-ui image rule) */
+.shelf-book-cover-img,
+.discover-media-cover img,
+.shelf-hero-cover,
+.live-crawl-banner img {
+  outline: 1px solid rgba(255, 255, 255, 0.12);
+  outline-offset: -1px;
 }
 
 

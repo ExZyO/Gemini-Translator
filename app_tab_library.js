@@ -332,22 +332,39 @@
 
     function renderBookshelfGrid() {
       if (displayedBooks.length === 0) {
-        return h('div', { className: 'card', style: { textAlign: 'center', padding: '44px 16px' } },
-          h('p', { style: { fontSize: 13, color: 'var(--slate)', fontWeight: 600 } },
-            libQuery
-              ? 'No saved books match your search.'
-              : libTab === 'saved'
-                ? 'Your Saved Space is empty. Star any book to pin it here!'
-                : libTab === 'translated'
-                  ? 'No translated books in your library yet.'
-                  : libTab === 'incomplete'
-                    ? 'No incomplete crawls or paused downloads found.'
-                    : 'Your library is empty.'
+        return h('div', { className: 'card', style: { textAlign: 'center', padding: '48px 20px', borderRadius: 20 } },
+          h('div', { style: { width: 48, height: 48, borderRadius: 12, background: 'rgba(99, 102, 241, 0.12)', color: 'var(--iris)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' } },
+            ic(BookOpen, 24)
           ),
-          h('p', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 6 } },
+          h('div', { style: { fontSize: 16, fontWeight: 700, color: 'var(--paper)', letterSpacing: '-0.015em' } },
             libQuery
-              ? 'Try a different search term.'
-              : 'Translated books and downloaded novels will appear here automatically.'
+              ? 'No books match your search'
+              : libTab === 'saved'
+                ? 'Your Saved Space is empty'
+                : libTab === 'translated'
+                  ? 'No translated books yet'
+                  : libTab === 'incomplete'
+                    ? 'No incomplete crawls found'
+                    : 'Your library is waiting for its first story'
+          ),
+          h('p', { style: { fontSize: 13, color: 'var(--slate)', maxWidth: 360, margin: '8px auto 18px', lineHeight: 1.5 } },
+            libQuery
+              ? `Check your spelling for "${libQuery}", or browse web sources in Discover.`
+              : 'Discover popular web novels across trusted sources, or restore your existing EPUB books.'
+          ),
+          !libQuery && h('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+            h('button', {
+              type: 'button',
+              className: 'mini-btn primary',
+              style: { padding: '8px 18px', fontWeight: 600 },
+              onClick: () => setActiveTab('web_importer')
+            }, ic(Globe, 14), 'Discover Novels'),
+            h('button', {
+              type: 'button',
+              className: 'mini-btn ghost',
+              style: { padding: '8px 16px' },
+              onClick: () => epubRestoreInputRef.current?.click()
+            }, ic(Download, 14), 'Restore EPUB')
           )
         );
       }
