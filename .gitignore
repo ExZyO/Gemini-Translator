@@ -35,3 +35,4 @@ GEMINI.md
 AGENTS.md
 *.keystore
 keystore.properties
+skills-lock.json
