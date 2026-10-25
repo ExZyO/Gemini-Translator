@@ -30,12 +30,7 @@
 
   // ── Reading Progress Persistence (Moon+ Reader standard) ──
   const getReadingProgressMap = () => {
-    try {
-      const raw = localStorage.getItem('gemini_reading_progress');
-      return raw ? JSON.parse(raw) : {};
-    } catch (e) {
-      return {};
-    }
+    try { const raw = localStorage.getItem('gemini_reading_progress'); return raw ? JSON.parse(raw) : {}; } catch (_) { return {}; }
   };
 
   const getReadingProgress = (key) => {
@@ -46,9 +41,8 @@
   };
 
   const saveReadingProgress = (key, chapterIdx, scrollTop, pct) => {
-    if (!key) return;
+    if (!key || (typeof localStorage !== 'undefined' && localStorage.getItem('incognitoMode') === 'true')) return;
     try {
-      if (typeof localStorage !== 'undefined' && localStorage.getItem('incognitoMode') === 'true') return;
       const map = getReadingProgressMap();
       map[String(key)] = {
         chapterIdx: typeof chapterIdx === 'number' ? chapterIdx : 0,
@@ -58,9 +52,7 @@
       };
       localStorage.setItem('gemini_reading_progress', JSON.stringify(map));
       window.MoonReaderEngine?.PositionBridge?.savePositionToPo?.(key, { chapterIdx, scrollTop, pct });
-    } catch (e) {
-      console.warn('saveReadingProgress error:', e);
-    }
+    } catch (e) { console.warn('saveReadingProgress error:', e); }
   };
 
   window.getReadingProgress = getReadingProgress;
@@ -167,15 +159,44 @@
       }
     }, [currentIdx]);
 
-    const changeChapter = useCallback((newIdx) => {
+    const pendingScrollTargetRef = useRef(null);
+
+    const changeChapter = useCallback((newIdx, options = {}) => {
       if (newIdx < 0 || newIdx >= safeChapters.length) return;
+      const isBackward = typeof options.scrollToBottom === 'boolean'
+        ? options.scrollToBottom
+        : (newIdx < activeIdx);
+
+      pendingScrollTargetRef.current = isBackward ? 'bottom' : 'top';
       setActiveIdx(newIdx);
       if (typeof onChapterChange === 'function') onChapterChange(newIdx);
-      saveReadingProgress(activeNovelKey, newIdx, 0, 0);
-      // Reset scroll
+    }, [safeChapters.length, onChapterChange, activeIdx]);
+
+    // Position Restoration on Chapter Switch (Start at top on forward, start at bottom on backward)
+    useEffect(() => {
+      const target = pendingScrollTargetRef.current;
+      if (!target) return;
+
       const container = document.getElementById('gemini-reader-scroll-area');
-      if (container) container.scrollTo({ top: 0, behavior: 'instant' });
-    }, [safeChapters.length, onChapterChange, activeNovelKey]);
+      if (!container) return;
+
+      const applyScroll = () => {
+        if (target === 'bottom') {
+          const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+          container.scrollTo({ top: maxScroll, behavior: 'instant' });
+          saveReadingProgress(activeNovelKey, activeIdx, maxScroll, 100);
+        } else {
+          container.scrollTo({ top: 0, behavior: 'instant' });
+          saveReadingProgress(activeNovelKey, activeIdx, 0, 0);
+        }
+      };
+
+      requestAnimationFrame(() => {
+        applyScroll();
+        setTimeout(applyScroll, 40);
+        setTimeout(applyScroll, 120);
+      });
+    }, [activeIdx, activeNovelKey]);
 
     // Scroll Position Restoration
     const scrollRestoredRef = useRef(false);
@@ -1118,9 +1139,11 @@
     const [colWidth, setColWidth] = useState(0);
     const touchStartRef = useRef(null);
 
-    // Reset to page 0 whenever active chapter changes
+    // Reset to page 0 (or last page if navigating backward) whenever active chapter changes
     useEffect(() => {
-      setCurrentPage(0);
+      if (pendingScrollTargetRef.current !== 'bottom') {
+        setCurrentPage(0);
+      }
     }, [activeIdx]);
 
     const updatePagination = useCallback(() => {
@@ -1136,7 +1159,11 @@
         const scrollW = tr.scrollWidth;
         const computedTotal = Math.max(1, Math.round((scrollW + gap) / (w + gap)));
         setTotalPages(computedTotal);
-        setCurrentPage(prev => Math.min(prev, computedTotal - 1));
+        if (pendingScrollTargetRef.current === 'bottom') {
+          setCurrentPage(computedTotal - 1);
+        } else {
+          setCurrentPage(prev => Math.min(prev, computedTotal - 1));
+        }
       }
     }, [viewMode]);
 
