@@ -2023,7 +2023,7 @@
               onClick: () => changeChapter(activeIdx - 1)
             }, ic('ChevronLeft', 18) || '<'),
 
-            h('div', { style: { position: 'relative', flex: 1, display: 'flex', alignItems: 'center' } },
+            h('div', { className: 'moon-hud-slider-wrap', style: { position: 'relative', flex: 1, minWidth: 0, width: '100%', display: 'flex', alignItems: 'center' } },
               isScrubbing && h('div', {
                 style: {
                   position: 'absolute',

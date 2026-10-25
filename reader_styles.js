@@ -995,16 +995,49 @@
         background: rgba(255, 255, 255, 0.22);
         border-color: rgba(255, 255, 255, 0.35);
       }
-        background: rgba(255, 255, 255, 0.1);
+      .moon-hud-slider-wrap {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+        width: 100%;
+        display: flex;
+        align-items: center;
       }
       .moon-hud-range-slider {
         flex: 1;
-        height: 3px;
-        accent-color: #38bdf8;
-        background: rgba(255, 255, 255, 0.25);
-        border-radius: 2px;
+        width: 100% !important;
+        min-width: 0;
+        height: 6px;
+        accent-color: var(--r-accent, #38bdf8);
+        background: rgba(255, 255, 255, 0.22);
+        border-radius: 9999px;
         cursor: pointer;
         outline: none;
+        margin: 0;
+        padding: 0;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .moon-hud-range-slider::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.22);
+      }
+      .moon-hud-range-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+        margin-top: -6px;
+        cursor: pointer;
+        transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease;
+      }
+      .moon-hud-range-slider:active::-webkit-slider-thumb {
+        transform: scale(1.22);
+        background: var(--r-accent, #38bdf8);
       }
       .moon-hud-pct-text {
         font-size: 13px;
