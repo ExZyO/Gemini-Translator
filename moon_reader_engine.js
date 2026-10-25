@@ -2213,6 +2213,106 @@
           )
         );
       }
+    },
+
+    SwipeHandler: {
+      createGestureTracker: function(options = {}) {
+        const {
+          onNextChapter = () => {},
+          onPrevChapter = () => {},
+          setPullPrompt = () => {},
+          canGoNext = true,
+          canGoPrev = true
+        } = options;
+
+        let startX = 0;
+        let startY = 0;
+        let startTime = 0;
+        let isAtBottom = false;
+        let isAtTop = false;
+        let wheelAccumulator = 0;
+        let wheelTimer = null;
+
+        return {
+          onTouchStart: (e) => {
+            const touch = e.touches && e.touches[0];
+            const target = e.currentTarget;
+            if (!touch || !target) return;
+            startX = touch.clientX;
+            startY = touch.clientY;
+            startTime = Date.now();
+            const top = target.scrollTop || 0;
+            const scrollH = target.scrollHeight;
+            const clientH = target.clientHeight;
+            isAtBottom = (top + clientH >= scrollH - 24);
+            isAtTop = (top <= 8);
+          },
+
+          onTouchMove: (e) => {
+            const touch = e.touches && e.touches[0];
+            const target = e.currentTarget;
+            if (!touch || !target || !startTime) return;
+            const dy = startY - touch.clientY;
+            const dx = startX - touch.clientX;
+            if (Math.abs(dx) > Math.abs(dy) * 1.35) return;
+
+            if (isAtBottom && canGoNext && dy > 12) {
+              setPullPrompt(dy >= 45 ? 'release_next' : 'pull_next');
+            } else if (isAtTop && canGoPrev && dy < -12) {
+              setPullPrompt(dy <= -45 ? 'release_prev' : 'pull_prev');
+            } else {
+              setPullPrompt(null);
+            }
+          },
+
+          onTouchEnd: (e) => {
+            if (!startTime) return;
+            const touch = (e.changedTouches && e.changedTouches[0]);
+            const dy = touch ? (startY - touch.clientY) : 0;
+            const elapsed = Date.now() - startTime;
+            startTime = 0;
+            setPullPrompt(null);
+
+            if (isAtBottom && canGoNext && dy >= 42 && elapsed < 900) {
+              try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
+              onNextChapter();
+            } else if (isAtTop && canGoPrev && dy <= -42 && elapsed < 900) {
+              try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
+              onPrevChapter();
+            }
+          },
+
+          onWheel: (e) => {
+            const target = e.currentTarget;
+            if (!target) return;
+            const top = target.scrollTop || 0;
+            const scrollH = target.scrollHeight;
+            const clientH = target.clientHeight;
+
+            if (e.deltaY > 0 && top + clientH >= scrollH - 6 && canGoNext) {
+              wheelAccumulator += e.deltaY;
+              clearTimeout(wheelTimer);
+              wheelTimer = setTimeout(() => { wheelAccumulator = 0; }, 300);
+              if (wheelAccumulator >= 110) {
+                wheelAccumulator = 0;
+                try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
+                onNextChapter();
+              }
+            } else if (e.deltaY < 0 && top <= 6 && canGoPrev) {
+              wheelAccumulator += e.deltaY;
+              clearTimeout(wheelTimer);
+              wheelTimer = setTimeout(() => { wheelAccumulator = 0; }, 300);
+              if (wheelAccumulator <= -110) {
+                wheelAccumulator = 0;
+                try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
+                onPrevChapter();
+              }
+            } else {
+              wheelAccumulator = 0;
+            }
+          }
+        };
+      }
     }
   };
 

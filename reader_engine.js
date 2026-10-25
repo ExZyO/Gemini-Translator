@@ -216,6 +216,19 @@
       }, 200);
     }, [activeNovelKey, activeIdx]);
 
+    // Moon+ Reader Vertical Scroll Pull-to-Next Chapter Gestures
+    const [pullPrompt, setPullPrompt] = useState(null);
+    const scrollGestures = useMemo(() => {
+      if (typeof window.MoonReaderEngine?.SwipeHandler?.createGestureTracker !== 'function') return null;
+      return window.MoonReaderEngine.SwipeHandler.createGestureTracker({
+        onNextChapter: () => changeChapter(activeIdx + 1),
+        onPrevChapter: () => changeChapter(activeIdx - 1),
+        setPullPrompt,
+        canGoNext: activeIdx < safeChapters.length - 1,
+        canGoPrev: activeIdx > 0
+      });
+    }, [activeIdx, safeChapters.length, changeChapter]);
+
     // ── 2. UI Chrome & Menus ──
     const [hudVisible, setHudVisible] = useState(false);
     const [showToc, setShowToc] = useState(false);
@@ -2565,6 +2578,10 @@
             id: 'gemini-reader-scroll-area',
             className: 'reader-v2-scroll-container',
             onScroll: handleScroll,
+            onTouchStart: scrollGestures?.onTouchStart,
+            onTouchMove: scrollGestures?.onTouchMove,
+            onTouchEnd: scrollGestures?.onTouchEnd,
+            onWheel: scrollGestures?.onWheel,
             onClick: (e) => {
               // Toggle HUD on central canvas click (ignore if user is selecting text)
               const selection = window.getSelection();
@@ -2633,6 +2650,19 @@
               style: { padding: '10px 18px', background: 'var(--r-accent)', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
               onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx + 1); }
             }, 'Next Chapter', ic('ArrowRight', 15))
+          ),
+
+          // Moon+ Reader Vertical Scroll Pull-to-Next Chapter Prompter
+          activeIdx < safeChapters.length - 1 && h('div', {
+            className: `moon-reader-next-swipe-card ${pullPrompt === 'release_next' ? 'active-release' : ''}`,
+            onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx + 1); }
+          },
+            h('div', { className: 'moon-swipe-pill' },
+              ic('ChevronsUp', 16, 'moon-swipe-arrow'),
+              h('span', null, pullPrompt === 'release_next'
+                ? `Release to open Chapter ${activeIdx + 2}`
+                : `Swipe up for Chapter ${activeIdx + 2}: ${(safeChapters[activeIdx + 1]?.title || `Chapter ${activeIdx + 2}`).slice(0, 32)}`)
+            )
           )
         )
       ),

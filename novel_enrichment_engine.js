@@ -1036,7 +1036,7 @@
             const isApkReady = !!(discoveredApk && discoveredApk.includes(latestTag));
             update = {
               isNewer,
-              isBuilding: isNewer && (buildStatus?.isBuilding || !isApkReady),
+              isBuilding: isNewer && Boolean(buildStatus?.isBuilding),
               buildStatus,
               latestVersion: latestTag,
               currentVersion: 'v' + [cMaj, cMin, cPat].join('.'),
@@ -1053,7 +1053,9 @@
           if (!update.buildStatus) {
             try {
               update.buildStatus = await AppUpdate.checkBuildStatus();
-              if (update.buildStatus?.isBuilding) update.isBuilding = true;
+              if (update.buildStatus) {
+                update.isBuilding = Boolean(update.buildStatus.isBuilding);
+              }
               if (update.buildStatus?.htmlUrl) update.actionsUrl = update.buildStatus.htmlUrl;
             } catch (_) {}
           }

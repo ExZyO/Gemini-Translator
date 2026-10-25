@@ -885,20 +885,21 @@
         border-radius: 4px;
       }
 
-      /* ── MOON+ READER 1:1 OVERLAY HUD BARS (Screenshots 1 & 2) ── */
+      /* ── MOON+ READER 1:1 OVERLAY HUD BARS (High-Contrast OLED & Mobile Safe-Area) ── */
       .moon-reader-hud-top {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
-        height: 52px;
+        height: calc(56px + env(safe-area-inset-top, 0px));
         background: #000000;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
         z-index: 900;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 12px;
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.7);
+        padding: env(safe-area-inset-top, 0px) 14px 0 14px;
+        box-shadow: 0 4px 22px rgba(0, 0, 0, 0.85);
         transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
       }
       .moon-reader-hud-top.reader-v2-hud-hidden {
@@ -907,28 +908,31 @@
         pointer-events: none;
       }
       .moon-hud-back-btn, .moon-hud-menu-btn {
-        background: none;
-        border: none;
-        color: #f3f4f6;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        color: #ffffff;
         width: 40px;
         height: 40px;
-        border-radius: 50%;
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: background 0.15s ease;
+        transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease, border-color 0.15s ease;
         flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       }
       .moon-hud-back-btn:active, .moon-hud-menu-btn:active {
-        background: rgba(255, 255, 255, 0.12);
+        transform: scale(0.94);
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.3);
       }
       .moon-hud-title {
         flex: 1;
-        margin: 0 8px;
+        margin: 0 12px;
         font-size: 15px;
         font-weight: 700;
-        color: #f3f4f6;
+        color: #f9fafb;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -942,13 +946,14 @@
         left: 0;
         right: 0;
         background: #000000;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
         z-index: 900;
         display: flex;
         flex-direction: column;
-        padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
-        box-shadow: 0 -4px 22px rgba(0, 0, 0, 0.75);
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+        box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.85);
         transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
-        gap: 2px;
+        gap: 4px;
       }
       .moon-reader-hud-bottom.reader-v2-hud-hidden {
         transform: translateY(100%);
@@ -960,29 +965,36 @@
       .moon-hud-scrubber-row {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         padding: 2px 4px 6px;
       }
       .moon-hud-scrub-btn {
-        background: none;
-        border: none;
-        color: #9ca3af;
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        color: #ffffff;
+        width: 38px;
+        height: 38px;
+        border-radius: 11px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         flex-shrink: 0;
-        transition: color 0.15s ease, background 0.15s ease;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
       }
       .moon-hud-scrub-btn:disabled {
-        opacity: 0.3;
+        opacity: 0.22;
         cursor: not-allowed;
+        background: rgba(255, 255, 255, 0.02);
+        border-color: rgba(255, 255, 255, 0.05);
+        box-shadow: none;
       }
       .moon-hud-scrub-btn:not(:disabled):active {
-        color: #fff;
+        transform: scale(0.92);
+        background: rgba(255, 255, 255, 0.22);
+        border-color: rgba(255, 255, 255, 0.35);
+      }
         background: rgba(255, 255, 255, 0.1);
       }
       .moon-hud-range-slider {
@@ -1335,6 +1347,49 @@
         height: 72px;
         z-index: 46;
         cursor: pointer;
+      }
+
+      /* ── Moon+ Reader Vertical Scroll Pull-to-Next Chapter Prompter ── */
+      .moon-reader-next-swipe-card {
+        margin: 28px auto 36px;
+        text-align: center;
+        display: flex;
+        justify-content: center;
+        cursor: pointer;
+        padding-bottom: 24px;
+        user-select: none;
+      }
+      .moon-swipe-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 22px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        color: #f1f5f9;
+        font-size: 13px;
+        font-weight: 600;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+        transition: transform 0.14s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease, border-color 0.15s ease;
+      }
+      .moon-swipe-pill:hover, .moon-reader-next-swipe-card:active .moon-swipe-pill {
+        transform: scale(0.96);
+        background: rgba(255, 255, 255, 0.16);
+        border-color: rgba(255, 255, 255, 0.28);
+      }
+      .moon-reader-next-swipe-card.active-release .moon-swipe-pill {
+        transform: scale(1.05);
+        background: var(--r-accent, #6366f1);
+        border-color: #ffffff;
+        color: #ffffff;
+        box-shadow: 0 6px 24px rgba(99, 102, 241, 0.6);
+      }
+      .moon-swipe-arrow {
+        transition: transform 0.2s ease;
+      }
+      .moon-reader-next-swipe-card.active-release .moon-swipe-arrow {
+        transform: translateY(-2px);
       }
     `;
     document.head.appendChild(styleEl);

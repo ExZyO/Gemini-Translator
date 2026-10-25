@@ -1,9 +1,9 @@
 {
-  "version": "8.22.05",
-  "versionCode": 8516,
-  "apkUrl": "https://github.com/ExZyO/Gemini-EPUB-Translator/releases/download/v8.22.05/GeminiTranslator-v8.22.05.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-EPUB-Translator/releases/download/v8.22.05/GeminiTranslator-v8.22.05.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.05",
+  "version": "8.22.06",
+  "versionCode": 8517,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.06/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.06/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.06",
   "releaseDate": "2026-10-25",
-  "releaseNotes": "v8.22.05: Craft-first design redesign applying frontend-design, better-ui, better-typography, better-colors, better-layout, and better-writing with concentric radii, layered shadows, tabular numbers, and tactile physics."
+  "releaseNotes": "v8.22.06: Restored missing reader exit and chapter skip chevron icons, added high-contrast OLED HUD styling with safe-area padding, added Moon+ Reader continuous vertical swipe-to-next-chapter gesture with tactile haptics, and resolved update compiling polling loop."
 }

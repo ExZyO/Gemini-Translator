@@ -308,7 +308,7 @@
 
                 return {
                     isNewer,
-                    isBuilding: isNewer && !isApkUploaded,
+                    isBuilding: false,
                     latestVersion: latestTag,
                     currentVersion: 'v' + [cMajor, cMinor, cPatch].join('.'),
                     releaseNotes: releaseNotes || `Gemini Translator ${latestTag} is available!`,

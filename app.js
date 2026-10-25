@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.05';
+    let VERSION = '8.22.06';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -2761,21 +2761,21 @@
               h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
                 availableUpdate.isBuilding ? h('button', {
                   type: 'button',
-                  className: 'mini-btn',
+                  className: 'mini-btn ghost',
+                  title: 'View live compile progress on GitHub Actions',
                   onClick: () => window.open(availableUpdate?.actionsUrl || 'https://github.com/ExZyO/Gemini-Translator/actions', '_blank')
-                }, 'View Build Progress') : h(React.Fragment, null,
-                  h('button', { type: 'button', className: 'mini-btn', disabled: isUpdating, onClick: handlePerformUpdate }, isUpdating ? 'Downloading…' : 'Update Now'),
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn ghost',
-                    title: 'Download APK directly using your device browser',
-                    onClick: () => {
-                      const apkUrl = availableUpdate?.releasePage || availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest";
-                      window.AppLogger?.log('info', 'Updater', 'Opening browser download: ' + apkUrl);
-                      window.open(apkUrl, '_blank');
-                    }
-                  }, 'Browser Download')
-                ),
+                }, 'Build Status') : null,
+                h('button', { type: 'button', className: 'mini-btn', disabled: isUpdating, onClick: handlePerformUpdate }, isUpdating ? 'Downloading…' : 'Update Now'),
+                h('button', {
+                  type: 'button',
+                  className: 'mini-btn ghost',
+                  title: 'Download APK directly using your device browser',
+                  onClick: () => {
+                    const apkUrl = availableUpdate?.releasePage || availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest";
+                    window.AppLogger?.log('info', 'Updater', 'Opening browser download: ' + apkUrl);
+                    window.open(apkUrl, '_blank');
+                  }
+                }, 'Browser Download'),
                 h('button', { type: 'button', className: 'icon-btn', onClick: () => setAvailableUpdate(null) }, ic(X, 14))
               )
             )
