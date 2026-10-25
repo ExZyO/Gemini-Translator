@@ -908,6 +908,8 @@
         pointer-events: none;
       }
       .moon-hud-back-btn, .moon-hud-menu-btn {
+        position: relative;
+        touch-action: manipulation;
         background: rgba(255, 255, 255, 0.14);
         border: 1px solid rgba(255, 255, 255, 0.25);
         color: #ffffff;
@@ -921,6 +923,17 @@
         transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease, border-color 0.15s ease;
         flex-shrink: 0;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      }
+      /* Invisible 44x44pt Apple HIG Touch Target Expansion */
+      .moon-hud-back-btn::after, .moon-hud-menu-btn::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        min-width: 44px;
+        min-height: 44px;
+        pointer-events: auto;
       }
       .moon-hud-back-btn svg, .moon-hud-menu-btn svg {
         stroke: #ffffff !important;
@@ -975,6 +988,8 @@
         padding: 2px 4px 6px;
       }
       .moon-hud-scrub-btn {
+        position: relative;
+        touch-action: manipulation;
         background: rgba(255, 255, 255, 0.14);
         border: 1px solid rgba(255, 255, 255, 0.25);
         color: #ffffff;
@@ -988,6 +1003,16 @@
         flex-shrink: 0;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
         transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+      }
+      .moon-hud-scrub-btn::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        min-width: 44px;
+        min-height: 44px;
+        pointer-events: auto;
       }
       .moon-hud-scrub-btn svg {
         stroke: #ffffff !important;
@@ -1055,6 +1080,7 @@
       .moon-hud-pct-text {
         font-size: 13px;
         font-weight: 700;
+        letter-spacing: 0.015em;
         color: #ffffff;
         min-width: 44px;
         text-align: right;
@@ -1071,7 +1097,9 @@
       }
       .moon-hud-tool-btn {
         flex: 1;
-        height: 42px;
+        height: 44px;
+        min-width: 44px;
+        touch-action: manipulation;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1458,6 +1486,34 @@
       .moon-reader-next-swipe-card.active-release .moon-swipe-text-release,
       .moon-reader-prev-swipe-card.active-release .moon-swipe-text-release {
         display: inline !important;
+      }
+
+      /* Apple HIG & Fluid Motion Accessibility Adaptations */
+      @media (prefers-reduced-transparency: reduce) {
+        .moon-reader-hud-top,
+        .moon-reader-hud-bottom {
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          background: #000000 !important;
+        }
+      }
+      @media (prefers-contrast: more) {
+        .moon-hud-back-btn,
+        .moon-hud-menu-btn,
+        .moon-hud-scrub-btn {
+          border: 2px solid #ffffff !important;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .moon-reader-hud-top,
+        .moon-reader-hud-bottom {
+          transition: opacity 0.15s ease !important;
+          transform: none !important;
+        }
+        .moon-swipe-pill {
+          transition: none !important;
+          transform: none !important;
+        }
       }
     `;
     document.head.appendChild(styleEl);

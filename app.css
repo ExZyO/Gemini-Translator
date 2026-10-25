@@ -393,23 +393,49 @@ body {
   color: var(--slate);
   margin-top: 2px;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.015em;
 }
 .icon-btn {
+  position: relative;
   width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.04); color: var(--slate); display: inline-flex; align-items: center; justify-content: center;
   font-size: 15px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
   box-shadow: var(--shadow-sm);
+  touch-action: manipulation;
+}
+/* Invisible 44x44pt Apple HIG Touch Target Expansion */
+.icon-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+  pointer-events: auto;
 }
 .icon-btn:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--border-default); color: var(--paper); }
 .icon-btn:active { transform: scale(0.96); }
 .version-chip {
+  position: relative;
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+  letter-spacing: 0.015em;
   color: var(--iris-light); border: 1px solid var(--border-accent);
   background: rgba(99, 102, 241, 0.1); border-radius: 9999px; padding: 5px 12px; cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  touch-action: manipulation;
+}
+.version-chip::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+  pointer-events: auto;
 }
 .version-chip:hover { background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.55); color: #fff; }
 .version-chip:active { transform: scale(0.96); }
@@ -850,7 +876,7 @@ body:has(.gloss-overlay) .bottomnav {
   border-radius: 9999px;
   color: var(--slate);
   opacity: 0.7;
-  touch-action: none;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: opacity 0.22s ease, color 0.22s ease, transform 0.12s ease;
 }
@@ -891,7 +917,7 @@ body:has(.gloss-overlay) .bottomnav {
 .nav-label {
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.015em;
   line-height: 1;
   max-height: 14px;
   opacity: 0.85;
@@ -2483,6 +2509,53 @@ input, textarea, [contenteditable="true"] {
   outline: 1px solid rgba(255, 255, 255, 0.12);
   outline-offset: -1px;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   APPLE DESIGN & HIG ACCESSIBILITY COMPLIANCE (PHASE 1)
+   ═══════════════════════════════════════════════════════════ */
+
+/* 1. Reduced Transparency Fallbacks (materials.md) */
+@media (prefers-reduced-transparency: reduce) {
+  .bottomnav,
+  .tl-head,
+  .modal-overlay,
+  .modal-box,
+  .nav-sliding-pill,
+  .moon-reader-hud-bottom,
+  .moon-reader-hud-top,
+  .moon-swipe-pill {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--surface-1, #111524) !important;
+  }
+  [data-theme="amoled"] .bottomnav,
+  [data-theme="amoled"] .moon-reader-hud-bottom,
+  [data-theme="amoled"] .moon-reader-hud-top,
+  body.theme-amoled .bottomnav {
+    background: #000000 !important;
+  }
+}
+
+/* 2. Increased Contrast Enhancements (color.md) */
+@media (prefers-contrast: more) {
+  .card,
+  .modal-box,
+  .bottomnav,
+  .icon-btn,
+  .version-chip,
+  .moon-hud-scrub-btn,
+  .moon-hud-back-btn,
+  .moon-hud-menu-btn {
+    border: 2px solid #ffffff !important;
+  }
+  .tl-subtitle,
+  .nav-label,
+  .mono,
+  .count {
+    color: #ffffff !important;
+  }
+}
+
 
 
 

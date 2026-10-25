@@ -1,9 +1,9 @@
 {
-  "version": "8.22.09",
-  "versionCode": 8520,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.09/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.09/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.09",
+  "version": "8.22.10",
+  "versionCode": 8521,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.10/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.10/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.10",
   "releaseDate": "2026-10-25",
-  "releaseNotes": "v8.22.09: Moon+ Reader Pro vertical scroll and scrubber physics parity with zero-jitter scroll positioning, release-only chapter jumping, pull-to-next/prev chapter gesture prompters, and high-contrast OLED HUD styling."
+  "releaseNotes": "v8.22.10: Phase 1 Apple Design & HIG polish featuring 44x44pt invisible touch target expansions, optical typography tracking calibration (+0.015em), mobile tap latency elimination, and comprehensive accessibility fallbacks for reduced transparency and high contrast."
 }
