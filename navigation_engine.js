@@ -440,6 +440,9 @@
     const pillRef = React.useRef(null);
     const isGlidingRef = React.useRef(false);
     const lastXRef = React.useRef(0);
+    const startXRef = React.useRef(0);
+    const hasDraggedRef = React.useRef(false);
+    const touchStartTabRef = React.useRef(null);
     const lastScrollYRef = React.useRef(0);
     const scrollAccumulatorRef = React.useRef(0);
     const lastTapRef = React.useRef({ key: null, time: 0 });
@@ -553,6 +556,9 @@
       if (e.button !== undefined && e.button !== 0) return;
       isGlidingRef.current = true;
       lastXRef.current = e.clientX;
+      startXRef.current = e.clientX;
+      hasDraggedRef.current = false;
+      touchStartTabRef.current = activeTab;
 
       const metrics = getTabMetrics();
       const targetPercent = calculatePillPercent(e.clientX, metrics);
@@ -566,6 +572,11 @@
 
       const onPointerMove = function (moveEvt) {
         if (!isGlidingRef.current || !pillRef.current) return;
+        const deltaFromStart = Math.abs(moveEvt.clientX - startXRef.current);
+        if (deltaFromStart > 10) {
+          hasDraggedRef.current = true;
+        }
+
         const currentMetrics = getTabMetrics();
         const continuousPercent = calculatePillPercent(moveEvt.clientX, currentMetrics);
         const currentIdx = getIndexFromPercent(continuousPercent);
@@ -592,7 +603,7 @@
           pillRef.current.style.transform = 'translate3d(' + (finalIdx * 100) + '%, 0, 0) scaleX(1)';
         }
 
-        if (navItems[finalIdx] && navItems[finalIdx][0] !== activeTab) {
+        if (hasDraggedRef.current && navItems[finalIdx] && navItems[finalIdx][0] !== activeTab) {
           onSelectTab(navItems[finalIdx][0]);
         }
 
@@ -642,16 +653,20 @@
               setIsCollapsed(false);
             }
             const now = Date.now();
-            const isDoubleTap = (lastTapRef.current.key === key && (now - lastTapRef.current.time) < 450);
+            const isDoubleTap = (lastTapRef.current.key === key && (now - lastTapRef.current.time) < 380);
             lastTapRef.current = { key: key, time: now };
 
-            if (activeTab !== key) {
-              onSelectTab(key);
-              if (key === 'web_importer' && isDoubleTap) {
+            const wasAlreadyOnTab = (touchStartTabRef.current === key && activeTab === key);
+
+            if (wasAlreadyOnTab) {
+              if (key === 'web_importer') {
                 focusDiscoverSearch();
               }
             } else {
-              if (key === 'web_importer') {
+              if (activeTab !== key) {
+                onSelectTab(key);
+              }
+              if (key === 'web_importer' && isDoubleTap) {
                 focusDiscoverSearch();
               }
             }

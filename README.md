@@ -2,8 +2,8 @@
 
 > High-Performance Web Novel Crawler, AI Translation Engine, EPUB Studio, and Moon+ Reader Reading Workstation for Android, Web, and PWA.
 
-[![Version](https://img.shields.io/badge/version-8.22.12-blue.svg)](package.json)
-[![Build](https://img.shields.io/badge/build-8523-indigo.svg)](version.json)
+[![Version](https://img.shields.io/badge/version-8.22.13-blue.svg)](package.json)
+[![Build](https://img.shields.io/badge/build-8524-indigo.svg)](version.json)
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20Web%20%7C%20PWA-teal.svg)](android/)
 [![Architecture](https://img.shields.io/badge/architecture-Zero--Build%20UMD-orange.svg)](app.js)
 [![Database](https://img.shields.io/badge/database-IndexedDB%20(GeminiNovelDB)-green.svg)](db_engine.js)

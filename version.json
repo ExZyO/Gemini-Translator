@@ -1,9 +1,9 @@
 {
-  "version": "8.22.12",
-  "versionCode": 8523,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.12/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.12/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.12",
+  "version": "8.22.13",
+  "versionCode": 8524,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.13/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.13/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.13",
   "releaseDate": "2026-10-27",
-  "releaseNotes": "v8.22.12: Refined Discover search activation with vibration-free execution, natural single-tap tab switching, re-click and double-tap keyboard focus, and automatic search text highlighting."
+  "releaseNotes": "v8.22.13: Resolved Discover tab navigation focus arbitration. Single-click switches tabs normally without keyboard focus; keyboard and search highlight activate strictly on double-tap or re-clicking while already active on Discover."
 }
