@@ -1883,6 +1883,7 @@
           key: c.id,
           type: 'button',
           className: 'moon-color-chip',
+          'aria-label': `Choose ${c.label} highlight`,
           title: c.label,
           style: {
             background: c.color,
@@ -1914,6 +1915,7 @@
           h('button', {
             type: 'button',
             className: 'moon-hud-back-btn',
+            'aria-label': 'Back to Library',
             title: 'Back to Library',
             onClick: (e) => { e.stopPropagation(); onClose(); }
           }, ic('ChevronLeft', 22) || ic('ArrowLeft', 20) || '<'),
@@ -1926,6 +1928,7 @@
           h('button', {
             type: 'button',
             className: 'moon-hud-menu-btn',
+            'aria-label': 'More Actions',
             title: 'More Actions',
             onClick: (e) => { e.stopPropagation(); onToggleMore(); }
           }, ic('MoreVertical', 20) || '⋮')
@@ -1943,6 +1946,7 @@
           h('button', {
             type: 'button',
             className: 'moon-font-step-btn',
+            'aria-label': 'Decrease Font Size',
             title: 'Decrease Font Size',
             onClick: () => { if (typeof setFontSize === 'function') setFontSize(s => Math.max(11, s - 1)); }
           }, 'A–'),
@@ -1952,6 +1956,7 @@
             min: 11,
             max: 36,
             value: fontSize,
+            'aria-label': 'Font size',
             onChange: (e) => {
               const val = parseInt(e.target.value, 10);
               if (typeof setFontSize === 'function') setFontSize(val);
@@ -1960,6 +1965,7 @@
           h('button', {
             type: 'button',
             className: 'moon-font-step-btn',
+            'aria-label': 'Increase Font Size',
             title: 'Increase Font Size',
             onClick: () => { if (typeof setFontSize === 'function') setFontSize(s => Math.min(36, s + 1)); }
           }, 'A+'),
@@ -2030,6 +2036,7 @@
               type: 'button',
               className: 'moon-hud-scrub-btn',
               disabled: activeIdx <= 0,
+              'aria-label': 'Previous Chapter',
               title: 'Previous Chapter',
               onClick: () => changeChapter(activeIdx - 1, { scrollToBottom: true })
             }, ic('ChevronLeft', 20) || '<'),
@@ -2061,6 +2068,7 @@
                 min: 0,
                 max: totalChs - 1,
                 value: displayIdx,
+                'aria-label': 'Chapter progress',
                 onPointerDown: () => {
                   setIsDragging(true);
                   if (typeof setIsScrubbing === 'function') setIsScrubbing(true);
@@ -2110,6 +2118,7 @@
               type: 'button',
               className: 'moon-hud-scrub-btn',
               disabled: activeIdx >= totalChs - 1,
+              'aria-label': 'Next Chapter',
               title: 'Next Chapter',
               onClick: () => changeChapter(activeIdx + 1, { scrollToBottom: false })
             }, ic('ChevronRight', 20) || '>')
@@ -2121,6 +2130,7 @@
             h('button', {
               type: 'button',
               className: 'moon-hud-tool-btn',
+              'aria-label': 'More Actions',
               title: 'More Actions',
               onClick: (e) => { e.stopPropagation(); onToggleMore(); }
             }, h('span', { style: { fontSize: 20, fontWeight: 900, letterSpacing: 1 } }, '···')),
@@ -2129,6 +2139,7 @@
             h('button', {
               type: 'button',
               className: 'moon-hud-tool-btn',
+              'aria-label': 'Chapter Translation Suite and Line Healing',
               title: 'Chapter Translation Suite & Line Healing',
               onClick: (e) => { e.stopPropagation(); onOpenSuite(); }
             },
@@ -2143,6 +2154,7 @@
             h('button', {
               type: 'button',
               className: 'moon-hud-tool-btn',
+              'aria-label': 'Live Translation Dashboard',
               title: 'Live Translation Dashboard',
               onClick: (e) => { e.stopPropagation(); onOpenDashboard(); }
             },
@@ -2157,6 +2169,7 @@
             h('button', {
               type: 'button',
               className: `moon-hud-tool-btn ${showQuickFont ? 'active' : ''}`,
+              'aria-label': 'Font Size',
               title: 'Font Size',
               onClick: (e) => { e.stopPropagation(); setShowQuickFont(s => !s); }
             },
@@ -2167,6 +2180,7 @@
             h('button', {
               type: 'button',
               className: 'moon-hud-tool-btn',
+              'aria-label': 'Search in Chapter',
               title: 'Search in Chapter',
               onClick: (e) => { e.stopPropagation(); onToggleSearch(); }
             }, ic('Search', 20))
@@ -2178,6 +2192,7 @@
             h('button', {
               type: 'button',
               className: `moon-hud-tool-btn ${ttsActive ? 'active' : ''}`,
+              'aria-label': ttsActive ? 'Pause Read Aloud' : 'Read Aloud',
               title: ttsActive ? 'Pause Read Aloud' : 'Read Aloud (Speak)',
               onClick: (e) => { e.stopPropagation(); toggleTts(); }
             }, ic(ttsActive ? 'VolumeX' : 'Volume2', 21)),
@@ -2186,6 +2201,7 @@
             h('button', {
               type: 'button',
               className: 'moon-hud-tool-btn',
+              'aria-label': 'Visual and Typography Options',
               title: 'Visual & Typography Options',
               onClick: (e) => { e.stopPropagation(); onOpenSettings(); }
             },
@@ -2200,6 +2216,7 @@
             h('button', {
               type: 'button',
               className: `moon-hud-tool-btn ${autoScroll ? 'active' : ''}`,
+              'aria-label': autoScroll ? 'Stop Auto-Scroll' : 'Start Auto-Scroll',
               title: autoScroll ? 'Stop Auto-Scroll' : 'Start Auto-Scroll',
               onClick: (e) => { e.stopPropagation(); onToggleAutoScroll(); }
             }, ic('ArrowUpDown', 20)),
@@ -2208,6 +2225,7 @@
             h('button', {
               type: 'button',
               className: `moon-hud-tool-btn ${isCurrentBookmarked ? 'active' : ''}`,
+              'aria-label': 'Open bookmarks. Hold or right-click to bookmark this chapter.',
               title: 'Bookmarks (All) · Hold or right-click to bookmark chapter',
               onClick: (e) => {
                 e.stopPropagation();
@@ -2234,6 +2252,7 @@
             h('button', {
               type: 'button',
               className: 'moon-hud-tool-btn',
+              'aria-label': 'Table of Contents',
               title: 'Table of Contents (Chapters)',
               onClick: (e) => { e.stopPropagation(); onOpenToc(); }
             }, ic('List', 21))

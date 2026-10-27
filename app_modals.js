@@ -43,7 +43,7 @@
               }
             }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Send', 13), 'Send to Agent')),
             h('button', { type: 'button', className: 'chip-act', onClick: () => { window.AppLogger?.clear(); toast('Logs cleared', 'info'); } }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Trash2', 13), 'Clear')),
-            h('button', { type: 'button', className: 'icon-btn', onClick: onClose, title: 'Close' }, ic('X', 16))
+            h('button', { type: 'button', className: 'icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
           )
         ),
         h('div', {
@@ -105,7 +105,7 @@
       h('div', { className: 'gloss-box', style: { maxWidth: 520 } },
         h('div', { className: 'gloss-head', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
           h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 14 } }, ic('Key', 16), `Bulk Paste ${(provider || '').toUpperCase()} Keys`),
-          h('button', { type: 'button', className: 'icon-btn', onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0' } },
           h('p', { style: { fontSize: 12, color: 'var(--paper-dim)', margin: 0 } }, 'Paste keys below (one per line or comma-separated):'),
@@ -207,7 +207,7 @@
           h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('cote') }, 'School'),
           h('button', { type: 'button', className: 'chip-act', onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia'),
           h('button', { type: 'button', className: 'chip-act accent', disabled: isOptimizingGlossary, onClick: handleAiOptimizeGlossary }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Sparkles', 13), isOptimizingGlossary ? 'Optimizing…' : 'AI Optimize')),
-          h('button', { type: 'button', className: 'icon-btn', onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         )
       ),
       h('div', {
@@ -348,7 +348,7 @@
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, qaAuditResult?.title || 'Active Document')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
           h('div', {
@@ -587,7 +587,7 @@
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, activeDiffData?.title || 'Chapter Revisions')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
           h('div', { style: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)' } },
@@ -717,7 +717,7 @@
               novelTitle && h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--iris)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ic('BookOpen', 12), novelTitle)
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd' },
           h('p', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 14, lineHeight: 1.5 } },
@@ -858,7 +858,7 @@
             ic('Search', 18, 'text-indigo-400'),
             h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'Name Consistency & Leak Verifier')
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd' },
           h('p', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 14, lineHeight: 1.5 } },
@@ -973,7 +973,7 @@
             ic('Cloud', 18, 'text-sky-400'),
             h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'Google Drive Settings (Mihon/Komikku)')
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd', style: { display: 'flex', flexDirection: 'column', gap: 12 } },
           h('div', { style: { background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 6, padding: '10px 12px' } },
@@ -1149,7 +1149,7 @@
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Custom title for EPUB export, library, and future updates')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd', style: { padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 } },
           novel.originalSourceTitle && novel.originalSourceTitle !== (value || '').trim() && h('div', {
@@ -1235,7 +1235,7 @@
       h('div', { className: 'modal-box', style: { maxWidth: 480 }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
           h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Assign Website'),
-          h('button', { type: 'button', className: 'icon-btn', onClick: onClose }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd', style: { padding: '16px' } },
           h('input', { type: 'text', className: 'url-input', style: { width: '100%' }, value: value || '', onChange: e => setValue(e.target.value) })
@@ -1266,7 +1266,7 @@
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Pre-translation token economics and multi-stream time projections (§7.2 / §3.6)')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd', style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14, padding: '14px 16px' } },
           h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 } },
@@ -1475,7 +1475,7 @@
               h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, `${item.chapterCount || 0} chapters · ${item.author || 'Author'}`)
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: handleOverlayClick, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: handleOverlayClick, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '14px 16px' } },
           (() => {
@@ -1785,6 +1785,7 @@
               className: 'icon-btn',
               style: { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--hairline)', color: 'var(--paper)', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
               onClick: onClose,
+              'aria-label': 'Back to Import',
               title: 'Back to Import'
             }, '←'),
             h('div', { style: { minWidth: 0, flex: 1 } },
@@ -2303,6 +2304,7 @@
               padding: 0
             },
             onClick: () => setEpubPackagingModal(null),
+            'aria-label': 'Dismiss loading card',
             title: 'Dismiss loading card'
           }, ic('X', 12))
         )
@@ -2472,6 +2474,7 @@
       h('button', {
         type: 'button',
         className: 'toast-dismiss-btn',
+        'aria-label': 'Dismiss toast',
         title: 'Dismiss toast',
         onClick: (e) => {
           e.stopPropagation();

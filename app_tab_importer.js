@@ -1018,6 +1018,7 @@
                   h('div', { className: 'apple-search-bar' },
                     ic('Search', 16, 'apple-search-icon'),
                     h('input', {
+                      id: 'discover-search-input',
                       className: 'apple-search-input',
                       type: 'text',
                       placeholder: (importCategoryTab === 'books' || isBookSearchMode)

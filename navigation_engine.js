@@ -442,8 +442,51 @@
     const lastXRef = React.useRef(0);
     const lastScrollYRef = React.useRef(0);
     const scrollAccumulatorRef = React.useRef(0);
+    const lastTapRef = React.useRef({ key: null, time: 0 });
+    const lastFocusTimeRef = React.useRef(0);
     const [hoverIdx, setHoverIdx] = React.useState(null);
     const [isCollapsed, setIsCollapsed] = React.useState(false);
+
+    const focusDiscoverSearch = function () {
+      const now = Date.now();
+      if (now - lastFocusTimeRef.current < 200) return;
+      lastFocusTimeRef.current = now;
+
+      const triggerFocus = function () {
+        const input = document.getElementById('discover-search-input') ||
+                      document.querySelector('.apple-search-input') ||
+                      document.querySelector('.url-input');
+        if (input) {
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          input.focus();
+          try {
+            const val = input.value || '';
+            input.setSelectionRange(val.length, val.length);
+          } catch (_) {}
+          try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
+          return true;
+        }
+        return false;
+      };
+
+      if (!triggerFocus()) {
+        requestAnimationFrame(function () {
+          if (!triggerFocus()) {
+            setTimeout(triggerFocus, 60);
+            setTimeout(triggerFocus, 180);
+          }
+        });
+      } else {
+        setTimeout(function () {
+          const input = document.getElementById('discover-search-input') || document.querySelector('.apple-search-input');
+          if (input && document.activeElement !== input) {
+            input.focus();
+          }
+        }, 80);
+      }
+    };
+
+    window.focusDiscoverSearch = focusDiscoverSearch;
 
     // Dynamic scroll collapse matching NuvioMobile NavigationBar.kt
     React.useEffect(function () {
@@ -548,8 +591,20 @@
           pillRef.current.style.transform = 'translate3d(' + (finalIdx * 100) + '%, 0, 0) scaleX(1)';
         }
 
-        if (navItems[finalIdx] && navItems[finalIdx][0] !== activeTab) {
-          onSelectTab(navItems[finalIdx][0]);
+        if (navItems[finalIdx]) {
+          const selectedKey = navItems[finalIdx][0];
+          const now = Date.now();
+          const isDoubleTap = (lastTapRef.current.key === selectedKey && (now - lastTapRef.current.time) < 450);
+          lastTapRef.current = { key: selectedKey, time: now };
+
+          if (selectedKey !== activeTab) {
+            onSelectTab(selectedKey);
+            if (selectedKey === 'web_importer' && isDoubleTap) {
+              focusDiscoverSearch();
+            }
+          } else if (selectedKey === 'web_importer') {
+            focusDiscoverSearch();
+          }
         }
 
         window.removeEventListener('pointermove', onPointerMove);
@@ -597,8 +652,28 @@
             if (isCollapsed) {
               setIsCollapsed(false);
             }
+            const now = Date.now();
+            const isDoubleTap = (lastTapRef.current.key === key && (now - lastTapRef.current.time) < 450);
+            lastTapRef.current = { key: key, time: now };
+
             if (activeTab !== key) {
               onSelectTab(key);
+              if (key === 'web_importer' && isDoubleTap) {
+                focusDiscoverSearch();
+              }
+            } else {
+              if (key === 'web_importer') {
+                focusDiscoverSearch();
+              }
+            }
+          },
+          onDoubleClick: function (e) {
+            e.preventDefault();
+            if (key === 'web_importer') {
+              if (activeTab !== key) {
+                onSelectTab(key);
+              }
+              focusDiscoverSearch();
             }
           }
         },

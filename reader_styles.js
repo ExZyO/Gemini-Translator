@@ -294,11 +294,12 @@
         background: rgba(255, 255, 255, 0.05);
         color: inherit;
         cursor: pointer;
+        touch-action: manipulation;
         font-size: 12px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.15s ease;
+        transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
       }
       .reader-search-nav-btn:hover:not(:disabled) {
         background: rgba(255, 255, 255, 0.12);
@@ -326,10 +327,11 @@
         border: 1px solid currentColor;
         border-radius: 9999px;
         cursor: pointer;
+        touch-action: manipulation;
         user-select: none;
         vertical-align: super;
         line-height: 1;
-        transition: all 0.15s ease;
+        transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
       }
       .reader-footnote-badge:hover {
         transform: scale(1.12);
@@ -468,7 +470,7 @@
         border-radius: 4px;
         box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.38);
         color: #fff;
-        transition: all 0.2s ease;
+        transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
       }
 
       /* Lightbox Modal */
@@ -725,7 +727,8 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: all 0.15s ease;
+        touch-action: manipulation;
+        transition: background-color 0.15s ease, color 0.15s ease;
       }
       .moon-toc-action-btn:hover {
         color: #ffffff;
@@ -856,6 +859,7 @@
         border-radius: 50%;
         border: 2px solid rgba(255, 255, 255, 0.4);
         cursor: pointer;
+        touch-action: manipulation;
         transition: transform 0.15s ease;
       }
       .moon-color-chip:hover {
@@ -1157,6 +1161,7 @@
         font-weight: 700;
         font-size: 13px;
         cursor: pointer;
+        touch-action: manipulation;
         flex-shrink: 0;
       }
       .moon-font-step-btn:active {
@@ -1221,10 +1226,11 @@
         font-size: 11.5px;
         font-weight: 600;
         cursor: pointer;
+        touch-action: manipulation;
         background: rgba(255, 255, 255, 0.06);
         color: #94a3b8;
         border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.15s ease;
+        transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
         white-space: nowrap;
       }
       .moon-bm-filter-chip.active {

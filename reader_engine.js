@@ -2492,6 +2492,7 @@
           className: 'reader-search-nav-btn',
           disabled: searchMatches.length === 0,
           onClick: handlePrevSearchMatch,
+          'aria-label': 'Previous search match',
           title: 'Previous match (Shift+Enter)'
         }, ic('ChevronUp', 14)),
         h('button', {
@@ -2499,6 +2500,7 @@
           className: 'reader-search-nav-btn',
           disabled: searchMatches.length === 0,
           onClick: handleNextSearchMatch,
+          'aria-label': 'Next search match',
           title: 'Next match (Enter)'
         }, ic('ChevronDown', 14)),
         h('button', {
@@ -2508,6 +2510,7 @@
             setShowSearch(false);
             setSearchQuery('');
           },
+          'aria-label': 'Close search',
           title: 'Close search'
         }, ic('X', 14))
       ),
@@ -2971,7 +2974,9 @@
             type: 'button',
             className: 'reader-search-nav-btn close',
             style: { width: 28, height: 28, minWidth: 28, minHeight: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-            onClick: () => setActiveFootnote(null)
+            onClick: () => setActiveFootnote(null),
+            'aria-label': 'Close cultural context note',
+            title: 'Close cultural context note'
           }, ic('X', 14))
         ),
         h('div', { style: { fontSize: 13.5, lineHeight: 1.55, color: 'var(--r-text)' } }, activeFootnote.text)
