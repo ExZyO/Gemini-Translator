@@ -448,10 +448,6 @@
     const [isCollapsed, setIsCollapsed] = React.useState(false);
 
     const focusDiscoverSearch = function () {
-      const now = Date.now();
-      if (now - lastFocusTimeRef.current < 200) return;
-      lastFocusTimeRef.current = now;
-
       const triggerFocus = function () {
         const input = document.getElementById('discover-search-input') ||
                       document.querySelector('.apple-search-input') ||
@@ -460,10 +456,10 @@
           input.scrollIntoView({ behavior: 'smooth', block: 'center' });
           input.focus();
           try {
-            const val = input.value || '';
-            input.setSelectionRange(val.length, val.length);
+            if (input.value && input.value.length > 0) {
+              input.select();
+            }
           } catch (_) {}
-          try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
           return true;
         }
         return false;
@@ -481,6 +477,11 @@
           const input = document.getElementById('discover-search-input') || document.querySelector('.apple-search-input');
           if (input && document.activeElement !== input) {
             input.focus();
+            try {
+              if (input.value && input.value.length > 0) {
+                input.select();
+              }
+            } catch (_) {}
           }
         }, 80);
       }
@@ -591,20 +592,8 @@
           pillRef.current.style.transform = 'translate3d(' + (finalIdx * 100) + '%, 0, 0) scaleX(1)';
         }
 
-        if (navItems[finalIdx]) {
-          const selectedKey = navItems[finalIdx][0];
-          const now = Date.now();
-          const isDoubleTap = (lastTapRef.current.key === selectedKey && (now - lastTapRef.current.time) < 450);
-          lastTapRef.current = { key: selectedKey, time: now };
-
-          if (selectedKey !== activeTab) {
-            onSelectTab(selectedKey);
-            if (selectedKey === 'web_importer' && isDoubleTap) {
-              focusDiscoverSearch();
-            }
-          } else if (selectedKey === 'web_importer') {
-            focusDiscoverSearch();
-          }
+        if (navItems[finalIdx] && navItems[finalIdx][0] !== activeTab) {
+          onSelectTab(navItems[finalIdx][0]);
         }
 
         window.removeEventListener('pointermove', onPointerMove);

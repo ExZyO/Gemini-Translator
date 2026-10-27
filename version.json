@@ -1,9 +1,9 @@
 {
-  "version": "8.22.11",
-  "versionCode": 8522,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.11/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.11/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.11",
+  "version": "8.22.12",
+  "versionCode": 8523,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.12/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.12/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.12",
   "releaseDate": "2026-10-27",
-  "releaseNotes": "v8.22.11: Phase 2 Apple Design polish. Replaced broad transitions with composite-only properties, added immediate touch response, full aria-label accessibility names across reader HUD and modals, and one-tap/double-tap Discover navigation bar search focus with keyboard pop-up."
+  "releaseNotes": "v8.22.12: Refined Discover search activation with vibration-free execution, natural single-tap tab switching, re-click and double-tap keyboard focus, and automatic search text highlighting."
 }
