@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gemini-translator-v8.22.13';
+const CACHE_NAME = 'gemini-translator-v8.22.14';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -16,6 +16,7 @@ const ASSETS_TO_CACHE = [
     './novel_enrichment_engine.js',
     './key_manager_engine.js',
     './glossary_manager_engine.js',
+    './translation_chapter_runner.js',
     './translation_loop_engine.js',
     './crawler_engine.js',
     './site_recipe_engine.js',
@@ -29,6 +30,8 @@ const ASSETS_TO_CACHE = [
     './app_modal_audio.js',
     './app_modal_lofter.js',
     './app_modal_novel_source.js',
+    './app_modal_extensions.js',
+    './app_modal_download_success.js',
     './app_modals.js',
     './app_tab_translate.js',
     './app_tab_importer.js',
@@ -57,9 +60,12 @@ const ASSETS_TO_CACHE = [
     './gdrive_sync.js',
     './reader_styles.js',
     './reader_chapter_translator.js',
+    './reader_modal_translation_suite.js',
+    './reader_modal_dashboard.js',
     './reader_ui_modals.js',
     './reader_engine.js',
     './illustration_registry.js',
+    './epub_hash_registry.js',
     './epub_engine.js',
     './glossary_presets.js',
     './glossary_presets_extended.js',

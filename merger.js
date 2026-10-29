@@ -189,7 +189,11 @@ async function extractCoverFromEpub(file) {
             const coverFile = zip.file(fullCoverPath);
             if (coverFile) {
                 const coverBlob = await coverFile.async("blob");
+                if (window._mergerActiveCoverBlobUrl) {
+                    try { URL.revokeObjectURL(window._mergerActiveCoverBlobUrl); } catch (_) {}
+                }
                 const blobUrl = URL.createObjectURL(coverBlob);
+                window._mergerActiveCoverBlobUrl = blobUrl;
                 coverPreview.innerHTML = `<img src="${blobUrl}" class="w-full h-full object-cover">`;
             }
         }

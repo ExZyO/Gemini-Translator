@@ -14,6 +14,12 @@ function escapeXml(unsafe) {
 }
 window.escapeXml = escapeXml;
 
+function escapeRegExp(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+window.escapeRegExp = escapeRegExp;
+
 // Utility functions for Gemini Translator & EPUB Studio
 
 function sanitizeFilename(name) {
@@ -429,6 +435,13 @@ function decodeHtmlEntities(str) {
         return match;
     });
 }
+window.decodeHtmlEntities = decodeHtmlEntities;
+
+function stripHtml(str) {
+    if (!str) return '';
+    return decodeHtmlEntities(String(str).replace(/<[^>]+>/g, '')).trim();
+}
+window.stripHtml = stripHtml;
 
 const AI_REFUSAL_PATTERNS = [
     /cannot provide a direct translation/i,
@@ -2036,7 +2049,10 @@ function getSafeImageFallbackUrl(src) {
 
     // Return cached native blob if available
     if (typeof window !== 'undefined' && window._nativeImageBlobCache && window._nativeImageBlobCache.has(clean)) {
-        return window._nativeImageBlobCache.get(clean);
+        const cachedUrl = window._nativeImageBlobCache.get(clean);
+        window._nativeImageBlobCache.delete(clean);
+        window._nativeImageBlobCache.set(clean, cachedUrl);
+        return cachedUrl;
     }
 
     // Known hotlink-protected image hosts that return 403 on direct browser <img> tags
@@ -2062,7 +2078,10 @@ function handleImageErrorFallback(e, originalSrc) {
         img.dataset.nativeBridgeTried = '1';
         if (!window._nativeImageBlobCache) window._nativeImageBlobCache = new Map();
         if (window._nativeImageBlobCache.has(raw)) {
-            img.src = window._nativeImageBlobCache.get(raw);
+            const cachedUrl = window._nativeImageBlobCache.get(raw);
+            window._nativeImageBlobCache.delete(raw);
+            window._nativeImageBlobCache.set(raw, cachedUrl);
+            img.src = cachedUrl;
             return;
         }
 
@@ -2078,6 +2097,14 @@ function handleImageErrorFallback(e, originalSrc) {
                 
                 const blob = new Blob([buf], { type: mime });
                 const blobUrl = URL.createObjectURL(blob);
+                if (window._nativeImageBlobCache.size >= 60) {
+                    const oldestKey = window._nativeImageBlobCache.keys().next().value;
+                    if (oldestKey) {
+                        const oldUrl = window._nativeImageBlobCache.get(oldestKey);
+                        window._nativeImageBlobCache.delete(oldestKey);
+                        try { if (oldUrl && oldUrl.startsWith('blob:')) URL.revokeObjectURL(oldUrl); } catch (_) {}
+                    }
+                }
                 window._nativeImageBlobCache.set(raw, blobUrl);
                 img.src = blobUrl;
             } else {
@@ -2091,6 +2118,16 @@ function handleImageErrorFallback(e, originalSrc) {
 
     proceedProxyFallback(img, raw);
 }
+
+function clearNativeImageBlobCache() {
+    if (typeof window !== 'undefined' && window._nativeImageBlobCache) {
+        for (const url of window._nativeImageBlobCache.values()) {
+            try { if (url && url.startsWith('blob:')) URL.revokeObjectURL(url); } catch (_) {}
+        }
+        window._nativeImageBlobCache.clear();
+    }
+}
+window.clearNativeImageBlobCache = clearNativeImageBlobCache;
 
 function proceedProxyFallback(img, raw) {
     if (!img) return;
@@ -2187,7 +2224,10 @@ if (typeof module !== 'undefined' && module.exports) {
         resolveSetting,
         getProviderFallbackModel,
         getSafeImageFallbackUrl,
-        handleImageErrorFallback
+        handleImageErrorFallback,
+        escapeRegExp,
+        stripHtml,
+        clearNativeImageBlobCache
     };
 }
 })();
