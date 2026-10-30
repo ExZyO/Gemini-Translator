@@ -656,7 +656,7 @@ async function processSplitFile(file) {
             const sizeStr = chap.fileSize > 1024 ? `${(chap.fileSize / 1024).toFixed(0)}KB` : `${chap.fileSize}B`;
             const wcStr = chap.wordCount > 0 ? formatWordStat(chap.wordCount) : '';
             const div = document.createElement('div');
-            div.className = "flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-slate-100/70 dark:hover:bg-slate-800/50 transition-colors chap-row";
+            div.className = "flex items-center gap-3 py-3 px-2 border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors chap-row";
             div.setAttribute('data-idref', chap.idref);
             div.innerHTML = `
                 <input type="checkbox" id="chk-${chap.idref}" value="${chap.idref}" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer chap-checkbox accent-indigo-600 shrink-0" checked>

@@ -285,7 +285,7 @@ function renderMergeList() {
 
     mergeFiles.forEach((f, idx) => {
         const div = document.createElement('div');
-        div.className = "p-2.5 bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-700/80 rounded-xl flex items-center justify-between gap-2 shadow-2xs hover:border-fuchsia-400/50 transition-all";
+        div.className = "py-3.5 px-2 border-b border-white/[0.04] flex items-center justify-between gap-3 hover:bg-white/[0.03] transition-colors";
 
         div.draggable = true;
         div.addEventListener('dragstart', () => draggedIdx = idx);
@@ -324,13 +324,13 @@ function renderMergeList() {
                 <div class="flex flex-col min-w-0 flex-1">
                     <span class="font-semibold text-xs break-words whitespace-normal leading-tight pr-1 text-slate-800 dark:text-slate-200 max-h-10 overflow-hidden text-ellipsis">${f.name}</span>
                     <span class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">${infoParts}</span>
-                    <input type="text" class="book-label-input mt-1.5 w-full bg-slate-50/70 dark:bg-slate-950/70 border border-slate-300/80 dark:border-slate-700/80 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500" value="${f.customLabel}" placeholder="e.g. Volume 1">
+                    <input type="text" class="book-label-input mt-1 w-full bg-transparent border-none text-xs font-bold text-white focus:outline-none hover:bg-white/[0.04] px-1 py-0.5 rounded transition-colors" value="${f.customLabel}" placeholder="e.g. Volume 1">
                 </div>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
-                <button type="button" class="btn-up w-8 h-8 flex items-center justify-center text-slate-500 hover:text-fuchsia-600 bg-slate-100 dark:bg-slate-800 rounded-lg disabled:opacity-30 transition-all cursor-pointer font-bold" ${idx === 0 ? 'disabled' : ''}>↑</button>
-                <button type="button" class="btn-down w-8 h-8 flex items-center justify-center text-slate-500 hover:text-fuchsia-600 bg-slate-100 dark:bg-slate-800 rounded-lg disabled:opacity-30 transition-all cursor-pointer font-bold" ${idx === mergeFiles.length - 1 ? 'disabled' : ''}>↓</button>
-                <button type="button" class="btn-remove w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg text-sm font-bold transition-all cursor-pointer" aria-label="Remove"></button>
+                <button type="button" class="btn-up w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all cursor-pointer font-bold" ${idx === 0 ? 'disabled' : ''}>↑</button>
+                <button type="button" class="btn-down w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all cursor-pointer font-bold" ${idx === mergeFiles.length - 1 ? 'disabled' : ''}>↓</button>
+                <button type="button" class="btn-remove text-xs text-rose-400 hover:underline px-2 transition-all cursor-pointer" aria-label="Remove">Remove</button>
             </div>
         `;
 

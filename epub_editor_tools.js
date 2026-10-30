@@ -396,49 +396,47 @@
 
             const row = document.createElement('div');
             row.dataset.idx = idx;
-            row.className = 'flex items-center gap-2 p-2 rounded-xl border transition-all';
-            row.style.background = ch.level === 2 ? 'rgba(99,102,241,0.05)' : 'var(--ember-2)';
-            row.style.borderColor = ch.level === 2 ? 'rgba(99,102,241,0.3)' : 'var(--hairline)';
-            if (ch.level === 2) {
-                row.style.marginLeft = '16px';
-            }
+            row.className = `py-3 px-2 flex items-center justify-between gap-3 border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${
+                ch.level === 2 ? 'pl-8 sm:pl-12' : ''
+            }`;
 
-            // Index badge
+            // Left: Index badge & Title input
+            const rowLeft = document.createElement('div');
+            rowLeft.className = 'flex items-center gap-3 min-w-0 flex-1';
+
             const num = document.createElement('span');
-            num.className = 'text-xs font-mono font-bold shrink-0 px-2 py-1 rounded bg-white/5';
-            num.style.color = ch.level === 2 ? '#818cf8' : 'var(--paper-dim)';
+            num.className = 'text-xs font-mono font-bold shrink-0 px-2 py-0.5 rounded-full select-none';
+            num.style.color = ch.level === 2 ? '#818cf8' : '#94a3b8';
+            num.style.background = 'rgba(255,255,255,0.06)';
             num.textContent = ch.level === 2 ? `↳ #${idx + 1}` : `#${idx + 1}`;
-            row.appendChild(num);
+            rowLeft.appendChild(num);
 
-            // Title input
             const input = document.createElement('input');
             input.type = 'text';
-            input.className = 'tl-field';
+            input.className = 'bg-transparent border-none text-sm font-semibold text-white focus:outline-none flex-1 hover:bg-white/[0.04] px-2 py-1 rounded transition-colors';
             input.dataset.idx = idx;
             input.value = ch.title;
             input.placeholder = `Chapter ${idx + 1} Title`;
-            input.style.flex = '1';
-            input.style.fontSize = '13px';
-            input.style.fontWeight = '600';
-            input.style.padding = '6px 10px';
-            input.style.margin = '0';
-            input.oninput = (e) => {
-                ch.title = e.target.value;
-            };
-            input.onchange = (e) => {
-                ch.title = e.target.value;
-            };
-            row.appendChild(input);
+            input.oninput = (e) => { ch.title = e.target.value; };
+            input.onchange = (e) => { ch.title = e.target.value; };
+            rowLeft.appendChild(input);
 
-            // Level toggle button
+            row.appendChild(rowLeft);
+
+            // Right: Level Toggle, Reorder, Delete
+            const rowRight = document.createElement('div');
+            rowRight.className = 'flex items-center gap-1.5 shrink-0';
+
+            // Level toggle pill
             const lvlBtn = document.createElement('button');
             lvlBtn.type = 'button';
-            lvlBtn.className = 'chip-act shrink-0 text-xs font-semibold';
-            lvlBtn.style.padding = '5px 9px';
+            lvlBtn.className = 'stu-chip-btn ghost';
+            lvlBtn.style.padding = '0 10px';
+            lvlBtn.style.height = '32px';
+            lvlBtn.style.fontSize = '12px';
             if (ch.level === 2) {
-                lvlBtn.textContent = '↰ Normal';
+                lvlBtn.textContent = '↰ Main';
                 lvlBtn.style.color = '#34d399';
-                lvlBtn.style.borderColor = 'rgba(52,211,153,0.3)';
                 lvlBtn.title = 'Switch to Normal Chapter (Level 1)';
             } else {
                 if (idx === 0) {
@@ -458,15 +456,12 @@
                 ch.level = ch.level === 2 ? 1 : 2;
                 renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
             };
-            row.appendChild(lvlBtn);
+            rowRight.appendChild(lvlBtn);
 
-            // Reorder buttons (▲ / ▼)
-            const reorderBox = document.createElement('div');
-            reorderBox.className = 'inline-flex items-center rounded-lg border border-white/10 bg-white/5 overflow-hidden shrink-0';
-
+            // Up / Down arrows
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
-            upBtn.className = 'px-2.5 py-1 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-20';
+            upBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none';
             upBtn.textContent = '▲';
             upBtn.title = 'Move up';
             upBtn.disabled = idx === 0;
@@ -479,15 +474,11 @@
                     renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
                 }
             };
-            reorderBox.appendChild(upBtn);
-
-            const divSep = document.createElement('div');
-            divSep.className = 'w-px h-3.5 bg-white/10';
-            reorderBox.appendChild(divSep);
+            rowRight.appendChild(upBtn);
 
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
-            downBtn.className = 'px-2.5 py-1 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-20';
+            downBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none';
             downBtn.textContent = '▼';
             downBtn.title = 'Move down';
             downBtn.disabled = idx >= tocManagerTempChapters.length - 1;
@@ -500,17 +491,17 @@
                     renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
                 }
             };
-            reorderBox.appendChild(downBtn);
+            rowRight.appendChild(downBtn);
 
-            row.appendChild(reorderBox);
-
-            // Delete button
+            // Delete button with two-tap confirm
             const delBtn = document.createElement('button');
             delBtn.type = 'button';
-            delBtn.className = 'chip-act shrink-0 text-xs text-rose-400 hover:text-rose-300';
-            delBtn.style.padding = '5px 8px';
+            delBtn.className = 'stu-chip-btn danger';
+            delBtn.style.padding = '0 10px';
+            delBtn.style.height = '32px';
+            delBtn.style.fontSize = '12px';
             delBtn.textContent = 'Delete';
-            delBtn.title = 'Remove chapter';
+            delBtn.title = 'Remove chapter from Table of Contents';
             delBtn.onclick = (e) => {
                 e.stopPropagation();
                 if (delBtn.dataset.confirming === 'true') {
@@ -538,8 +529,9 @@
                     }, 3500);
                 }
             };
-            row.appendChild(delBtn);
+            rowRight.appendChild(delBtn);
 
+            row.appendChild(rowRight);
             container.appendChild(row);
         });
     }

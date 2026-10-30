@@ -882,41 +882,23 @@
             }
 
             const card = document.createElement('div');
-            card.className = `stu-chapter-row flex flex-col gap-2.5 p-3.5 sm:p-4 rounded-2xl border transition-all ${
-                isSub ? 'ml-4 sm:ml-8' : ''
+            card.className = `stu-chapter-row flex items-center justify-between gap-3 ${
+                isSub ? 'pl-6 sm:pl-10' : ''
             }`;
-            card.style.background = isSub
-                ? 'rgba(99,102,241,0.035)'
-                : (isExplicitVolume ? 'rgba(99,102,241,0.08)' : (hasChildren ? 'rgba(99,102,241,0.04)' : 'rgba(255,255,255,0.025)'));
-            card.style.borderColor = isSub
-                ? 'rgba(99,102,241,0.25)'
-                : (isExplicitVolume ? 'rgba(99,102,241,0.45)' : (hasChildren ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.06)'));
-            if (isExplicitVolume) {
-                card.style.borderLeft = '4px solid #6366f1';
-            } else if (isSub) {
-                card.style.borderLeft = '2.5px solid rgba(129,140,248,0.5)';
-            }
+            card.onclick = () => openChapterModal(idx);
 
-            // ── LINE 1: Title, Hierarchy, Badges ──
-            const line1 = document.createElement('div');
-            line1.className = 'flex items-center justify-between gap-2.5 min-w-0';
+            // Left: Index, Chevron, Title & Subtitle Stack
+            const rowLeft = document.createElement('div');
+            rowLeft.className = 'flex items-center gap-3 min-w-0 flex-1';
 
-            const line1Left = document.createElement('div');
-            line1Left.className = 'flex items-center gap-2.5 min-w-0 flex-1';
-
-            // If volume header or has sub-chapters, add collapse toggle chevron
+            // Collapse Chevron if parent
             if (hasChildren) {
                 const collBtn = document.createElement('button');
                 collBtn.type = 'button';
-                collBtn.className = 'stu-chip-btn ghost shrink-0';
-                collBtn.style.padding = '0 8px';
-                collBtn.style.height = '30px';
-                collBtn.style.fontSize = '11px';
-                collBtn.style.fontWeight = '700';
-                collBtn.style.color = '#a5b4fc';
+                collBtn.className = 'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-sky-400 hover:bg-white/10 shrink-0';
                 const subCount = blockEnd - blockStart;
                 const isCollapsed = state.collapsedVolumes.has(ch.id);
-                collBtn.textContent = isCollapsed ? `▶ (${subCount})` : '▼';
+                collBtn.textContent = isCollapsed ? '▶' : '▼';
                 collBtn.title = isCollapsed ? `Expand ${subCount} sub-chapters` : 'Collapse sub-chapters';
                 collBtn.onclick = (e) => {
                     e.stopPropagation();
@@ -927,13 +909,13 @@
                     }
                     renderChapterList();
                 };
-                line1Left.appendChild(collBtn);
+                rowLeft.appendChild(collBtn);
             }
 
-            // Index / Hierarchy Badge (Clickable to jump to position)
+            // Index Pill
             const numBadge = document.createElement('span');
-            numBadge.className = 'text-xs font-mono font-bold shrink-0 cursor-pointer select-none px-2 py-0.5 rounded-lg';
-            numBadge.style.color = isSub ? '#818cf8' : (isExplicitVolume ? '#a5b4fc' : 'var(--paper-dim)');
+            numBadge.className = 'text-xs font-mono font-bold shrink-0 px-2 py-0.5 rounded-full select-none';
+            numBadge.style.color = isSub ? '#818cf8' : (isExplicitVolume ? '#a5b4fc' : '#94a3b8');
             numBadge.style.background = 'rgba(255,255,255,0.06)';
             numBadge.textContent = isSub ? `↳ #${idx + 1}` : (isExplicitVolume ? `[Vol] #${idx + 1}` : `#${idx + 1}`);
             numBadge.title = 'Click to jump to a specific position number';
@@ -955,241 +937,112 @@
                     }
                 }
             };
-            line1Left.appendChild(numBadge);
+            rowLeft.appendChild(numBadge);
 
-            // Chapter Title & Dedicated Rename Button
-            const titleContainer = document.createElement('div');
-            titleContainer.className = 'flex items-center gap-2 flex-1 min-w-0';
+            // Title & Metrics Stack
+            const textStack = document.createElement('div');
+            textStack.className = 'flex flex-col min-w-0 flex-1';
 
             const titleSpan = document.createElement('span');
-            titleSpan.className = 'font-bold text-sm sm:text-base truncate cursor-pointer select-none hover:underline text-slate-100';
+            titleSpan.className = 'font-bold text-sm sm:text-base truncate text-slate-100 hover:text-sky-400 transition-colors';
             titleSpan.textContent = ch.title;
-            titleSpan.title = 'Click to rename chapter';
-            titleSpan.onclick = (e) => {
-                e.stopPropagation();
-                openRenameChapterModal(idx);
-            };
+            textStack.appendChild(titleSpan);
 
-            const renameBtn = document.createElement('button');
-            renameBtn.type = 'button';
-            renameBtn.className = 'stu-chip-btn ghost shrink-0 text-slate-400 hover:text-white flex items-center gap-1';
-            renameBtn.style.padding = '0 8px';
-            renameBtn.style.height = '28px';
-            renameBtn.style.fontSize = '11px';
-            renameBtn.style.fontWeight = '600';
-            renameBtn.textContent = 'Rename';
-            renameBtn.title = 'Rename this chapter';
-            renameBtn.onclick = (e) => {
-                e.stopPropagation();
-                openRenameChapterModal(idx);
-            };
-
-            titleContainer.appendChild(titleSpan);
-            titleContainer.appendChild(renameBtn);
-            line1Left.appendChild(titleContainer);
-
-            line1.appendChild(line1Left);
-
-            // Right side of Line 1: Word Count & Image Badges
-            const line1Right = document.createElement('div');
-            line1Right.className = 'flex items-center gap-2 shrink-0';
-
-            const wordBadge = document.createElement('span');
-            wordBadge.className = 'text-xs font-mono font-medium text-slate-400';
-            wordBadge.textContent = `${(ch.words || 0).toLocaleString()}w`;
-            line1Right.appendChild(wordBadge);
-
+            const metaSpan = document.createElement('span');
+            metaSpan.className = 'text-xs text-slate-500 font-mono mt-0.5';
             const imgCount = (ch.images || []).length;
-            if (imgCount > 0) {
-                const imgBadge = document.createElement('span');
-                imgBadge.className = 'stu-badge-sky text-[11px] font-semibold px-2 py-0.5';
-                imgBadge.textContent = `${imgCount} img`;
-                line1Right.appendChild(imgBadge);
-            }
+            metaSpan.textContent = `${(ch.words || 0).toLocaleString()} words${imgCount > 0 ? ` · ${imgCount} img` : ''}${isSub ? ' · Sub-Chapter' : ''}`;
+            textStack.appendChild(metaSpan);
 
-            line1.appendChild(line1Right);
-            card.appendChild(line1);
+            rowLeft.appendChild(textStack);
+            card.appendChild(rowLeft);
 
-            // ── LINE 2: Actions Bar (Sleek, Balanced & Visually Pleasing) ──
-            const line2 = document.createElement('div');
-            line2.className = 'flex items-center justify-between gap-2.5 pt-2.5 border-t border-white/5 flex-wrap';
+            // Right: Reorder & Action Pills
+            const rowRight = document.createElement('div');
+            rowRight.className = 'flex items-center gap-1.5 shrink-0';
 
-            const line2Left = document.createElement('div');
-            line2Left.className = 'flex items-center gap-2 flex-wrap';
-
-            // Edit Prose Button
-            const editBtn = document.createElement('button');
-            editBtn.type = 'button';
-            editBtn.className = 'stu-btn-radiant-sky flex items-center gap-1.5';
-            editBtn.style.padding = '0 16px';
-            editBtn.style.fontSize = '12.5px';
-            editBtn.style.fontWeight = '700';
-            editBtn.style.height = '38px';
-            editBtn.textContent = 'Edit Prose';
-            editBtn.title = 'Open chapter prose editor';
-            editBtn.onclick = () => openChapterModal(idx);
-            line2Left.appendChild(editBtn);
-
-            // Unified Segmented Reorder Control [ ▲ | ▼ | ⤒ Top | ⤓ Btm ]
-            const reorderGroup = document.createElement('div');
-            reorderGroup.className = 'inline-flex items-stretch rounded-xl border border-white/10 bg-slate-900/80 shadow-sm overflow-hidden shrink-0';
-            reorderGroup.style.height = '38px';
-
-            // Move Up
+            // Up arrow
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
-            upBtn.className = 'px-3.5 py-1 text-sm font-black text-slate-200 hover:text-white hover:bg-indigo-500/25 active:bg-indigo-500/40 transition-all disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center';
+            upBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none';
             upBtn.textContent = '▲';
-            upBtn.title = 'Move up 1 position';
+            upBtn.title = 'Move up';
             upBtn.disabled = idx === 0;
             upBtn.onclick = (e) => {
                 e.stopPropagation();
                 const [bStart, bEnd] = getChapterBlockRange(idx);
                 moveChapterBlock(bStart, bEnd, -1);
             };
-            reorderGroup.appendChild(upBtn);
+            rowRight.appendChild(upBtn);
 
-            const div1 = document.createElement('div');
-            div1.className = 'w-px bg-white/10 self-stretch';
-            reorderGroup.appendChild(div1);
-
-            // Move Down
+            // Down arrow
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
-            downBtn.className = 'px-3.5 py-1 text-sm font-black text-slate-200 hover:text-white hover:bg-indigo-500/25 active:bg-indigo-500/40 transition-all disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center';
+            downBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none';
             downBtn.textContent = '▼';
-            downBtn.title = 'Move down 1 position';
+            downBtn.title = 'Move down';
             downBtn.disabled = idx >= state.chapters.length - 1;
             downBtn.onclick = (e) => {
                 e.stopPropagation();
                 const [bStart, bEnd] = getChapterBlockRange(idx);
                 moveChapterBlock(bStart, bEnd, 1);
             };
-            reorderGroup.appendChild(downBtn);
+            rowRight.appendChild(downBtn);
 
-            const div2 = document.createElement('div');
-            div2.className = 'w-px bg-white/10 self-stretch';
-            reorderGroup.appendChild(div2);
-
-            // Move to Top
-            const topBtn = document.createElement('button');
-            topBtn.type = 'button';
-            topBtn.className = 'px-3 py-1 text-xs font-bold text-slate-300 hover:text-white hover:bg-indigo-500/25 active:bg-indigo-500/40 transition-all disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center gap-1';
-            topBtn.innerHTML = '<span style="font-size:13px; font-weight:800; line-height:1;">⤒</span><span>Top</span>';
-            topBtn.title = 'Move to top of book';
-            topBtn.disabled = idx === 0;
-            topBtn.onclick = (e) => {
+            // Rename button
+            const renameBtn = document.createElement('button');
+            renameBtn.type = 'button';
+            renameBtn.className = 'stu-chip-btn ghost';
+            renameBtn.style.padding = '0 10px';
+            renameBtn.style.height = '32px';
+            renameBtn.style.fontSize = '12px';
+            renameBtn.textContent = 'Rename';
+            renameBtn.title = 'Rename chapter';
+            renameBtn.onclick = (e) => {
                 e.stopPropagation();
-                const [bStart, bEnd] = getChapterBlockRange(idx);
-                moveChapterBlock(bStart, bEnd, 'top');
+                openRenameChapterModal(idx);
             };
-            reorderGroup.appendChild(topBtn);
+            rowRight.appendChild(renameBtn);
 
-            const div3 = document.createElement('div');
-            div3.className = 'w-px bg-white/10 self-stretch';
-            reorderGroup.appendChild(div3);
-
-            // Move to Bottom
-            const btmBtn = document.createElement('button');
-            btmBtn.type = 'button';
-            btmBtn.className = 'px-3 py-1 text-xs font-bold text-slate-300 hover:text-white hover:bg-indigo-500/25 active:bg-indigo-500/40 transition-all disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center gap-1';
-            btmBtn.innerHTML = '<span style="font-size:13px; font-weight:800; line-height:1;">⤓</span><span>Btm</span>';
-            btmBtn.title = 'Move to bottom of book';
-            btmBtn.disabled = idx >= state.chapters.length - 1;
-            btmBtn.onclick = (e) => {
-                e.stopPropagation();
-                const [bStart, bEnd] = getChapterBlockRange(idx);
-                moveChapterBlock(bStart, bEnd, 'bottom');
-            };
-            reorderGroup.appendChild(btmBtn);
-
-            line2Left.appendChild(reorderGroup);
-
-            // Hierarchy Level Action Pill
-            const lvlToggleBtn = document.createElement('button');
-            lvlToggleBtn.type = 'button';
-            lvlToggleBtn.className = 'stu-chip-btn shrink-0 inline-flex items-center';
-            lvlToggleBtn.style.padding = '0 12px';
-            lvlToggleBtn.style.height = '38px';
-            lvlToggleBtn.style.fontSize = '12px';
-            lvlToggleBtn.style.fontWeight = '600';
-
+            // Level / Nesting toggle button
+            const lvlBtn = document.createElement('button');
+            lvlBtn.type = 'button';
+            lvlBtn.className = 'stu-chip-btn ghost';
+            lvlBtn.style.padding = '0 10px';
+            lvlBtn.style.height = '32px';
+            lvlBtn.style.fontSize = '12px';
             if (isSub) {
-                // Currently nested sub-chapter: 1-tap restore to normal
-                lvlToggleBtn.textContent = '↰ Make Normal';
-                lvlToggleBtn.title = 'Restore to normal flat chapter (Level 1)';
-                lvlToggleBtn.style.color = '#34d399';
-                lvlToggleBtn.style.borderColor = 'rgba(52,211,153,0.3)';
-                lvlToggleBtn.onclick = (e) => {
+                lvlBtn.textContent = '↰ Main';
+                lvlBtn.style.color = '#34d399';
+                lvlBtn.title = 'Restore to normal chapter';
+                lvlBtn.onclick = (e) => {
                     e.stopPropagation();
                     ch.level = 1;
                     renderChapterList();
                     updateStats();
                     saveNovelToDatabase({ silent: true }).catch(err => console.warn('Auto-save error:', err));
-                    if (typeof window.toast === 'function') window.toast(`Chapter #${idx + 1} restored to normal chapter!`, 'success');
                 };
-            } else if (hasChildren) {
-                // Chapter with nested sub-chapters under it: 1-tap un-nest / flatten children
-                const childCount = blockEnd - blockStart;
-                lvlToggleBtn.textContent = '↰ Flatten Subs';
-                lvlToggleBtn.title = `Reset all ${childCount} nested sub-chapters under this chapter back to normal flat chapters`;
-                lvlToggleBtn.style.color = '#a78bfa';
-                lvlToggleBtn.style.borderColor = 'rgba(167,139,250,0.3)';
-                lvlToggleBtn.onclick = (e) => {
+            } else {
+                lvlBtn.textContent = '↳ Sub';
+                lvlBtn.style.color = '#818cf8';
+                lvlBtn.title = `Nest under Chapter #${idx}`;
+                lvlBtn.disabled = idx === 0;
+                lvlBtn.onclick = (e) => {
                     e.stopPropagation();
-                    for (let cIdx = idx + 1; cIdx <= blockEnd; cIdx++) {
-                        if (state.chapters[cIdx]) state.chapters[cIdx].level = 1;
-                    }
+                    ch.level = 2;
                     renderChapterList();
                     updateStats();
                     saveNovelToDatabase({ silent: true }).catch(err => console.warn('Auto-save error:', err));
-                    if (typeof window.toast === 'function') window.toast(`Un-nested ${childCount} sub-chapter(s) to normal flat chapters!`, 'success');
                 };
-            } else {
-                // Normal chapter
-                if (idx === 0) {
-                    lvlToggleBtn.textContent = 'Normal';
-                    lvlToggleBtn.title = 'Chapter 1 is the starting chapter and cannot be indented';
-                    lvlToggleBtn.style.color = 'var(--slate)';
-                    lvlToggleBtn.disabled = true;
-                } else {
-                    lvlToggleBtn.textContent = `↳ Nest Under #${idx}`;
-                    lvlToggleBtn.title = `Nest as sub-chapter under Chapter #${idx}`;
-                    lvlToggleBtn.style.color = '#818cf8';
-                    lvlToggleBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        ch.level = 2;
-                        renderChapterList();
-                        updateStats();
-                        saveNovelToDatabase({ silent: true }).catch(err => console.warn('Auto-save error:', err));
-                        if (typeof window.toast === 'function') window.toast(`Nested Chapter #${idx + 1} under #${idx}!`, 'success');
-                    };
-                }
             }
-            line2Left.appendChild(lvlToggleBtn);
+            rowRight.appendChild(lvlBtn);
 
-            line2.appendChild(line2Left);
-
-            // Line 2 Right: Quick Actions (Insert Below, Delete)
-            const line2Right = document.createElement('div');
-            line2Right.className = 'flex items-center gap-2 shrink-0';
-
-            const insBtn = document.createElement('button');
-            insBtn.type = 'button';
-            insBtn.className = 'stu-chip-btn';
-            insBtn.style.padding = '0 12px';
-            insBtn.style.height = '38px';
-            insBtn.style.fontSize = '12px';
-            insBtn.textContent = 'Insert Below';
-            insBtn.title = 'Insert a new chapter directly below this one';
-            insBtn.onclick = () => insertChapterAt(idx, 'below');
-            line2Right.appendChild(insBtn);
-
+            // Delete button with two-tap confirm
             const delBtn = document.createElement('button');
             delBtn.type = 'button';
             delBtn.className = 'stu-chip-btn danger';
             delBtn.style.padding = '0 12px';
-            delBtn.style.height = '38px';
+            delBtn.style.height = '32px';
             delBtn.style.fontSize = '12px';
             delBtn.textContent = 'Delete';
             delBtn.title = 'Delete this chapter';
@@ -1219,11 +1072,9 @@
                     }, 3500);
                 }
             };
-            line2Right.appendChild(delBtn);
+            rowRight.appendChild(delBtn);
 
-            line2.appendChild(line2Right);
-            card.appendChild(line2);
-
+            card.appendChild(rowRight);
             frag.appendChild(card);
         });
 

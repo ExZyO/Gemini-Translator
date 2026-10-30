@@ -1270,52 +1270,54 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
   flex-wrap: wrap;
 }
 
-/* ── Hero Inspector Card (Apple Books style) ── */
+/* ── Fluid Hero (Chimanew / Nuvio Style - Zero Enclosing Boxes) ── */
 .stu-hero-card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-  margin-bottom: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 8px 0 24px;
+  box-shadow: none;
+  margin-bottom: 20px;
   display: flex;
   gap: 24px;
   align-items: flex-start;
   flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 .stu-card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 20px;
-  padding: 22px 24px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 16px 0;
+  box-shadow: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 .stu-cover-column {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  width: 140px;
+  width: 130px;
   flex-shrink: 0;
 }
 .stu-book-cover {
-  width: 135px;
-  height: 195px;
-  border-radius: 14px;
+  width: 125px;
+  height: 180px;
+  border-radius: 12px;
   overflow: hidden;
-  background: #181d28;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0d121f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06);
   position: relative;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .stu-book-cover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.75), 0 0 16px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 20px 42px -6px rgba(0, 0, 0, 0.85), 0 0 16px rgba(56, 189, 248, 0.2);
 }
 .stu-cover-btn-deck {
   display: flex;
@@ -1338,33 +1340,33 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
 .stu-field-label {
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
+  color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
 .stu-title-input {
   width: 100%;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   color: #f8fafc;
-  letter-spacing: -0.02em;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  padding: 8px 0;
   outline: none;
   transition: all 0.15s ease;
 }
 .stu-title-input:focus {
   border-color: #38bdf8;
-  background: rgba(56, 189, 248, 0.04);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+  background: transparent;
+  box-shadow: none;
 }
 .stu-text-input {
   width: 100%;
   background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
   padding: 10px 14px;
   font-size: 13.5px;
   color: #f8fafc;
@@ -1378,8 +1380,8 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
 .stu-textarea {
   width: 100%;
   background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
   padding: 10px 14px;
   font-size: 13px;
   color: #cbd5e1;
@@ -1395,8 +1397,8 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
 .stu-select {
   width: 100%;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
   padding: 10px 14px;
   font-size: 13.5px;
   color: #f8fafc;
@@ -1418,17 +1420,16 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  padding-top: 4px;
 }
 .stu-stat-pill {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
-  color: var(--slate);
+  font-family: 'IBM Plex Mono', monospace;
+  color: #94a3b8;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
   padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 .stu-stat-pill.sky {
   color: #38bdf8;
@@ -1436,18 +1437,19 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
   border-color: rgba(56, 189, 248, 0.2);
 }
 
-/* ── Command Action Deck ── */
+/* ── Fluid Action Cluster (Mihon MangaActionRow style - No Enclosing Box) ── */
 .stu-action-deck {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 20px;
-  padding: 16px 20px;
-  margin-bottom: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 10px 0 20px;
+  margin-bottom: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 .stu-tools-cluster {
   display: flex;
@@ -1462,16 +1464,16 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
   flex-wrap: wrap;
 }
 .stu-btn-radiant-sky {
-  height: 46px;
+  height: 44px;
   padding: 0 22px;
   font-size: 13.5px;
   font-weight: 700;
   color: #ffffff !important;
   background: linear-gradient(135deg, #0284c7, #0ea5e9);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 12px;
+  border: none;
+  border-radius: 9999px;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.35);
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1481,22 +1483,22 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
 }
 .stu-btn-radiant-sky:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.45);
+  box-shadow: 0 6px 18px rgba(14, 165, 233, 0.45);
 }
 .stu-btn-radiant-sky:active {
   transform: scale(0.98);
 }
 .stu-btn-radiant-emerald {
-  height: 46px;
+  height: 44px;
   padding: 0 22px;
   font-size: 13.5px;
   font-weight: 700;
   color: #ffffff !important;
   background: linear-gradient(135deg, #059669, #10b981);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 12px;
+  border: none;
+  border-radius: 9999px;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1506,54 +1508,31 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
 }
 .stu-btn-radiant-emerald:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.4);
 }
 .stu-btn-radiant-emerald:active {
   transform: scale(0.98);
 }
-.stu-btn-glass {
-  height: 46px;
-  padding: 0 20px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #f8fafc;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-.stu-btn-glass:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-.stu-btn-glass:active {
-  transform: scale(0.98);
-}
 .stu-chip-btn {
-  height: 36px;
-  padding: 0 14px;
-  font-size: 12px;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--paper-dim);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 9999px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 .stu-chip-btn:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.09);
   border-color: rgba(255, 255, 255, 0.15);
 }
 .stu-chip-btn:active {
@@ -1584,13 +1563,13 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
 }
 .stu-tool-btn {
   height: 38px;
-  padding: 0 14px;
+  padding: 0 16px;
   font-size: 12.5px;
   font-weight: 600;
   color: var(--paper-dim);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 9999px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1613,11 +1592,11 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
   border-color: rgba(56, 189, 248, 0.25);
 }
 
-/* ── TOC & Hierarchy Section ── */
+/* ── Fluid TOC Header & Outline Section ── */
 .stu-toc-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
 }
 .stu-toc-header {
   display: flex;
@@ -1625,6 +1604,8 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .stu-toc-headline-cluster {
   display: flex;
@@ -1638,46 +1619,54 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
   gap: 8px;
 }
 .stu-section-title {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 800;
   color: #f8fafc;
-  letter-spacing: -0.015em;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   margin: 0;
 }
 .stu-filter-input {
   width: 170px;
   height: 36px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 0 12px;
-  font-size: 12.5px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  padding: 0 8px;
+  font-size: 13px;
   color: #f8fafc;
   outline: none;
   transition: all 0.15s ease;
 }
 .stu-filter-input:focus {
   border-color: #38bdf8;
-  background: rgba(56, 189, 248, 0.04);
 }
+
+/* ── Fluid Edge-to-Edge Chapters List (Chimanew MangaChapterListItem Standard) ── */
 .stu-chapter-list {
-  max-height: 620px;
-  overflow-y: auto;
-  padding: 8px 4px;
+  max-height: none;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
 }
 .stu-chapter-row {
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 14px 16px;
-  transition: all 0.15s ease-out;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  padding: 14px 12px !important;
+  transition: background 0.15s ease-out;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-.stu-chapter-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
+.stu-chapter-row:hover,
+.stu-chapter-row:active {
+  background: rgba(255, 255, 255, 0.035) !important;
 }
 .stu-badge-sky {
   font-size: 11.5px;
@@ -1691,13 +1680,13 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
 .stu-badge-idx {
   width: 32px;
   height: 32px;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 800;
-  background: rgba(56, 189, 248, 0.15);
+  background: rgba(56, 189, 248, 0.12);
   color: #38bdf8;
   flex-shrink: 0;
 }
@@ -1723,9 +1712,9 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
   font-size: 11.5px;
   line-height: 1.7;
   padding: 12px 14px;
-  border-radius: 12px;
-  background: #080a10;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  background: #060910;
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 /* ── Modals & Sheets (Apple / M3 Floating Aesthetics) ── */
