@@ -1833,6 +1833,7 @@
         if (clean.includes('syosetu.com') || clean.includes('syosetu.org') || clean.includes('kakuyomu.jp')) return 'syosetu';
         if (clean.includes('novelfull.com') || clean.includes('boxnovel.com') || clean.includes('readlightnovel') || clean.includes('allnovelfull.') || clean.includes('readnovelfull.') || clean.includes('freewebnovel.') || clean.includes('lightnovelpub.')) return 'novelfull';
         if (clean.includes('novelarchive.cc')) return 'novelarchive';
+        if (clean.includes('animeanyway.com')) return 'animeanyway';
         if (clean.includes('wattpad.com')) return 'wattpad';
         if (clean.includes('pixiv.net/novel/')) return 'pixiv';
         return 'universal';
@@ -1948,6 +1949,25 @@
                 }
                 if (!plugin && typeof window.NovelArchivePlugin === 'function') {
                     plugin = new window.NovelArchivePlugin();
+                }
+            }
+            if (plugin) return await crawlWithPlugin(plugin, url, progressCb, options);
+            return await crawlUniversal(url, progressCb, options);
+        }
+        else if (type === 'animeanyway') {
+            let plugin = null;
+            if (typeof window !== 'undefined') {
+                const reg = window.sourceRegistry || window.SourceRegistry;
+                if (reg) {
+                    if (typeof reg.getPlugin === 'function') {
+                        plugin = reg.getPlugin('animeanyway');
+                    }
+                    if (!plugin && typeof reg.findPlugin === 'function') {
+                        plugin = reg.findPlugin(url);
+                    }
+                }
+                if (!plugin && typeof window.AnimeAnywayPlugin === 'function') {
+                    plugin = new window.AnimeAnywayPlugin();
                 }
             }
             if (plugin) return await crawlWithPlugin(plugin, url, progressCb, options);

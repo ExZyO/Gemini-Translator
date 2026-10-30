@@ -10,6 +10,7 @@
   const RoyalRoadPlugin = isNode ? require('./royalroad').RoyalRoadPlugin : window.RoyalRoadPlugin;
   const NovelFirePlugin = isNode ? require('./novelfire').NovelFirePlugin : window.NovelFirePlugin;
   const NovelArchivePlugin = isNode ? require('./novelarchive').NovelArchivePlugin : window.NovelArchivePlugin;
+  const AnimeAnywayPlugin = isNode ? require('./animeanyway').AnimeAnywayPlugin : window.AnimeAnywayPlugin;
   const UniversalPlugin = isNode ? require('./universal').UniversalPlugin : window.UniversalPlugin;
   const WattpadPlugin = isNode ? require('./wattpad').WattpadPlugin : window.WattpadPlugin;
   const LofterPlugin = isNode ? require('./lofter').LofterPlugin : (window.LofterPluginClass || window.LofterPlugin?.constructor);
@@ -18,7 +19,7 @@
     constructor() {
       this.plugins = new Map();
       this.universalPlugin = null;
-      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'novelfire', 'novelarchive', 'universal', 'wattpad', 'lofter']);
+      this.builtinIds = new Set(['syosetu', 'witchcult', 'royalroad', 'novelfire', 'novelarchive', 'animeanyway', 'universal', 'wattpad', 'lofter']);
       this.initBuiltins();
       this.loadPersistedPlugins();
     }
@@ -29,6 +30,7 @@
       if (RoyalRoadPlugin) this.register(new RoyalRoadPlugin());
       if (NovelFirePlugin) this.register(new NovelFirePlugin());
       if (NovelArchivePlugin) this.register(new NovelArchivePlugin());
+      if (AnimeAnywayPlugin) this.register(new AnimeAnywayPlugin());
       if (WattpadPlugin) this.register(new WattpadPlugin());
       if (LofterPlugin) this.register(new LofterPlugin());
       else if (typeof window !== 'undefined' && window.LofterPlugin) this.register(window.LofterPlugin);

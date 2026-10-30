@@ -1,9 +1,9 @@
 {
-  "version": "8.22.16",
-  "versionCode": 8527,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.16/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.16/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.16",
+  "version": "8.22.17",
+  "versionCode": 8528,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.17/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.17/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.17",
   "releaseDate": "2026-10-30",
-  "releaseNotes": "v8.22.16: Critical bug fix for Toast and Extension modals. Defined getH helper in app_modal_download_success.js and app_modal_extensions.js, completely eliminating the ReferenceError crash when toast notifications render during update checks."
+  "releaseNotes": "v8.22.17: Added dedicated source scraper plugin for Anime Anyway with native Sanity Portable Text and Next.js SSR extraction, parsing full chapter prose and high-resolution illustrations. Fixed EPUB Editor and Table of Contents chapter deletion buttons with responsive two-tap confirmation, preventing mobile WebView dialog suppression."
 }

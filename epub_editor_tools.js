@@ -377,6 +377,11 @@
         if (!container) return;
         container.innerHTML = '';
 
+        const subtitle = document.getElementById('toc-manager-subtitle');
+        if (subtitle && Array.isArray(tocManagerTempChapters)) {
+            subtitle.textContent = `Managing ${tocManagerTempChapters.length} chapters across the book`;
+        }
+
         const q = (filterQuery || '').toLowerCase().trim();
 
         if (tocManagerTempChapters.length === 0) {
@@ -506,11 +511,31 @@
             delBtn.style.padding = '5px 8px';
             delBtn.textContent = 'Delete';
             delBtn.title = 'Remove chapter';
-            delBtn.onclick = () => {
-                harvestTocManagerInputs();
-                if (confirm(`Remove "${ch.title || `Chapter ${idx + 1}`}" from Table of Contents?`)) {
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (delBtn.dataset.confirming === 'true') {
+                    clearTimeout(delBtn._confirmTimer);
+                    delBtn.dataset.confirming = 'false';
+                    delBtn.textContent = 'Delete';
+                    delBtn.style.background = '';
+                    harvestTocManagerInputs();
+                    const removedTitle = ch.title || `Chapter ${idx + 1}`;
                     tocManagerTempChapters.splice(idx, 1);
                     renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+                    if (typeof window.toast === 'function') {
+                        window.toast(`Removed "${removedTitle}" from Table of Contents`, 'info');
+                    }
+                } else {
+                    delBtn.dataset.confirming = 'true';
+                    delBtn.textContent = 'Confirm?';
+                    delBtn.style.background = 'rgba(239, 68, 68, 0.25)';
+                    delBtn.style.borderColor = '#ef4444';
+                    delBtn._confirmTimer = setTimeout(() => {
+                        delBtn.dataset.confirming = 'false';
+                        delBtn.textContent = 'Delete';
+                        delBtn.style.background = '';
+                        delBtn.style.borderColor = '';
+                    }, 3500);
                 }
             };
             row.appendChild(delBtn);
@@ -563,6 +588,8 @@
         if (newChapters.length > 0) {
             newChapters[0].level = 1;
             state.chapters = newChapters;
+        } else {
+            state.chapters = [];
         }
 
         document.getElementById('edit-toc-manager-modal')?.classList.add('hidden');

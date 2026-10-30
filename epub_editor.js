@@ -1193,11 +1193,30 @@
             delBtn.style.fontSize = '11px';
             delBtn.textContent = 'Delete';
             delBtn.title = 'Delete this chapter';
-            delBtn.onclick = () => {
-                if (confirm(`Delete "${ch.title}"?`)) {
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (delBtn.dataset.confirming === 'true') {
+                    clearTimeout(delBtn._confirmTimer);
+                    delBtn.dataset.confirming = 'false';
+                    delBtn.textContent = 'Delete';
+                    delBtn.style.background = '';
+                    const removedTitle = ch.title || `Chapter #${idx + 1}`;
                     state.chapters.splice(idx, 1);
                     renderChapterList();
                     updateStats();
+                    saveNovelToDatabase({ silent: true }).catch(err => console.warn('Auto-save error:', err));
+                    if (typeof window.toast === 'function') window.toast(`Deleted "${removedTitle}"`, 'info');
+                } else {
+                    delBtn.dataset.confirming = 'true';
+                    delBtn.textContent = 'Confirm?';
+                    delBtn.style.background = 'rgba(239, 68, 68, 0.3)';
+                    delBtn.style.borderColor = '#ef4444';
+                    delBtn._confirmTimer = setTimeout(() => {
+                        delBtn.dataset.confirming = 'false';
+                        delBtn.textContent = 'Delete';
+                        delBtn.style.background = '';
+                        delBtn.style.borderColor = '';
+                    }, 3500);
                 }
             };
             line2Right.appendChild(delBtn);
