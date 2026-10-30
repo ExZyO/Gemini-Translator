@@ -1,3 +1,9 @@
+/* Utility override: Ensure hidden elements remain hidden regardless of component display styles */
+.hidden,
+[hidden] {
+  display: none !important;
+}
+
 /* ═══════════════════════════════════════════════════════════
    GEMINI TRANSLATOR - CORE STYLES & THEME (v8.17.54)
    ═══════════════════════════════════════════════════════════ */
@@ -1734,6 +1740,11 @@ html.light .nav-item.active .nav-label, [data-theme="light"] .nav-item.active .n
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+.stu-modal-overlay.hidden,
+.stu-modal-overlay[hidden],
+.stu-modal-preview-bar.hidden {
+  display: none !important;
 }
 .stu-modal-sheet {
   border-radius: 24px;
