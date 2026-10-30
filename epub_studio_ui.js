@@ -167,17 +167,17 @@ const splitHtml = `<div id="epub-split-tab" class="stu-page-container" style="wi
 
                     <input type="text" id="chapter-search" placeholder="Search chapters…" class="stu-filter-input mb-3" style="width:100%;">
 
-                    <div id="chapter-list" class="custom-scrollbar stu-chapter-list" style="max-height:340px; font-family:'IBM Plex Mono',monospace; font-size:12px;">
+                    <div id="chapter-list" class="custom-scrollbar stu-chapter-list" style="max-height:420px; font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif; font-size:13px;">
                     </div>
 
                     <div id="estimated-size" class="hidden mt-3 text-xs font-semibold text-center" style="color:var(--slate);">
                         Estimated output: <span id="estimated-size-value" class="font-bold text-white">0</span> MB
                     </div>
 
-                    <div class="flex gap-3 flex-wrap mt-4">
-                        <button id="btn-export-custom" class="stu-btn-radiant-sky" style="flex:1; min-width:150px; height:48px;">Download Checked</button>
-                        <button id="btn-send-to-translator" class="stu-btn-radiant-emerald" style="flex:1; min-width:160px; height:48px;" title="Load selected chapters directly into the Translator text workbench">⇱ Translate Selected</button>
-                        <button id="btn-share-export" class="stu-chip-btn" style="flex:1; min-width:100px; height:48px;" title="Share via Web Share API">Share</button>
+                    <div class="flex gap-2.5 flex-wrap mt-4 pt-3 border-t border-white/[0.05]">
+                        <button id="btn-export-custom" class="stu-btn-radiant-sky" style="flex:1; min-width:140px; height:44px;">Download Checked</button>
+                        <button id="btn-send-to-translator" class="stu-btn-radiant-emerald" style="flex:1; min-width:150px; height:44px;" title="Load selected chapters directly into the Translator text workbench">Translate Selected</button>
+                        <button id="btn-share-export" class="stu-chip-btn" style="flex:0 0 auto; min-width:80px; height:44px;" title="Share via Web Share API">Share</button>
                     </div>
 
                     <div id="split-stats-summary" class="mt-3.5 px-4 py-2.5 rounded-xl text-xs text-center font-medium" style="background:rgba(255,255,255,0.03); color:var(--slate); border:1px solid rgba(255,255,255,0.05);">

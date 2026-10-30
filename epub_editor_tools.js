@@ -283,22 +283,22 @@
 
         chaptersToDisplay.forEach((ch) => {
             const item = document.createElement('div');
-            item.className = 'py-1 px-2 rounded flex items-center gap-2 transition-colors';
+            item.className = 'py-2 px-3 rounded-xl flex items-center gap-2.5 transition-colors border-b border-white/[0.03]';
             if (ch.level === 2) {
-                item.style.paddingLeft = '24px';
-                item.style.background = 'rgba(99,102,241,0.06)';
+                item.style.paddingLeft = '28px';
+                item.style.background = 'rgba(99,102,241,0.05)';
                 item.innerHTML = `
-                    <span class="text-indigo-400 font-bold">↳</span>
-                    <span class="text-[11px] font-semibold text-indigo-300 truncate flex-1">${escapeXml(ch.title || 'Untitled')}</span>
-                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Sub</span>
+                    <span class="text-indigo-400 font-bold text-sm">↳</span>
+                    <span class="text-xs font-semibold text-indigo-200 truncate flex-1">${escapeXml(ch.title || 'Untitled')}</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 font-semibold border border-indigo-500/25">Sub-Chapter</span>
                 `;
             } else {
-                item.style.background = ch.isNew ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)';
+                item.style.background = ch.isNew ? 'rgba(56,189,248,0.1)' : 'rgba(255,255,255,0.02)';
                 item.style.fontWeight = '700';
                 item.innerHTML = `
-                    <span class="text-sky-400 font-bold">&bull;</span>
-                    <span class="text-xs text-slate-100 truncate flex-1">${escapeXml(ch.title || 'Untitled')}</span>
-                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">${ch.isNew ? 'New Volume Header' : 'Main'}</span>
+                    <span class="text-sky-400 font-bold text-sm">&bull;</span>
+                    <span class="text-xs text-slate-100 truncate flex-1 font-bold">${escapeXml(ch.title || 'Untitled')}</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 font-semibold border border-sky-500/25">${ch.isNew ? 'New Volume' : 'Volume Header'}</span>
                 `;
             }
             tree.appendChild(item);
@@ -430,22 +430,19 @@
             // Level toggle pill
             const lvlBtn = document.createElement('button');
             lvlBtn.type = 'button';
-            lvlBtn.className = 'stu-chip-btn ghost';
-            lvlBtn.style.padding = '0 10px';
-            lvlBtn.style.height = '32px';
-            lvlBtn.style.fontSize = '12px';
+            lvlBtn.className = 'stu-chip-btn ghost shrink-0 px-2 sm:px-2.5 h-7 sm:h-8 text-[11px] sm:text-xs';
             if (ch.level === 2) {
-                lvlBtn.textContent = '↰ Main';
+                lvlBtn.innerHTML = '<span class="sm:hidden">↰</span><span class="hidden sm:inline">↰ Main</span>';
                 lvlBtn.style.color = '#34d399';
                 lvlBtn.title = 'Switch to Normal Chapter (Level 1)';
             } else {
                 if (idx === 0) {
-                    lvlBtn.textContent = 'Normal';
+                    lvlBtn.innerHTML = '<span class="sm:hidden">—</span><span class="hidden sm:inline">Normal</span>';
                     lvlBtn.style.color = 'var(--slate)';
                     lvlBtn.title = 'First chapter must remain a starting chapter';
                     lvlBtn.disabled = true;
                 } else {
-                    lvlBtn.textContent = '↳ Sub';
+                    lvlBtn.innerHTML = '<span class="sm:hidden">↳</span><span class="hidden sm:inline">↳ Sub</span>';
                     lvlBtn.style.color = '#818cf8';
                     lvlBtn.title = `Nest as Sub-Chapter under Chapter #${idx}`;
                 }
@@ -461,7 +458,7 @@
             // Up / Down arrows
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
-            upBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none';
+            upBtn.className = 'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none shrink-0';
             upBtn.textContent = '▲';
             upBtn.title = 'Move up';
             upBtn.disabled = idx === 0;
@@ -478,7 +475,7 @@
 
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
-            downBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none';
+            downBtn.className = 'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none shrink-0';
             downBtn.textContent = '▼';
             downBtn.title = 'Move down';
             downBtn.disabled = idx >= tocManagerTempChapters.length - 1;
@@ -496,11 +493,8 @@
             // Delete button with two-tap confirm
             const delBtn = document.createElement('button');
             delBtn.type = 'button';
-            delBtn.className = 'stu-chip-btn danger';
-            delBtn.style.padding = '0 10px';
-            delBtn.style.height = '32px';
-            delBtn.style.fontSize = '12px';
-            delBtn.textContent = 'Delete';
+            delBtn.className = 'stu-chip-btn danger shrink-0 px-2 sm:px-3 h-7 sm:h-8 text-[11px] sm:text-xs';
+            delBtn.innerHTML = '<span class="sm:hidden">✕</span><span class="hidden sm:inline">Delete</span>';
             delBtn.title = 'Remove chapter from Table of Contents';
             delBtn.onclick = (e) => {
                 e.stopPropagation();
@@ -788,23 +782,23 @@
             filtered.forEach((item, idx) => {
                 const isCover = state.coverUrl && (state.coverUrl === item.url);
                 const card = document.createElement('div');
-                card.className = 'flex flex-col rounded-xl overflow-hidden border border-slate-800 bg-[#0c0e15] transition-all hover:border-indigo-500/60 shadow-lg group';
+                card.className = 'flex flex-col rounded-2xl overflow-hidden bg-[#0c101a] border border-white/[0.06] hover:border-sky-500/50 transition-all shadow-xl group';
                 card.innerHTML = `
-                    <div class="relative flex items-center justify-center bg-[#050608] cursor-pointer overflow-hidden p-2"
+                    <div class="relative flex items-center justify-center bg-[#07090e] cursor-pointer overflow-hidden p-2"
                          style="aspect-ratio: 2/3; min-height: 200px;" title="Tap to inspect full screen">
-                        <img src="${item.url}" class="w-full h-full object-contain rounded transition-transform duration-200 group-hover:scale-105" alt="${escapeXml(item.name)}" />
-                        ${isCover ? '<span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-black shadow">CURRENT COVER</span>' : ''}
+                        <img src="${item.url}" class="w-full h-full object-contain rounded-xl transition-transform duration-200 group-hover:scale-105" alt="${escapeXml(item.name)}" />
+                        ${isCover ? '<span class="absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-black shadow-lg">CURRENT COVER</span>' : ''}
                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span class="px-2.5 py-1 rounded bg-indigo-600/90 text-white text-xs font-semibold shadow">View Fullscreen</span>
+                            <span class="px-3 py-1.5 rounded-full bg-sky-500 text-white text-xs font-semibold shadow-lg">View Fullscreen</span>
                         </div>
                     </div>
-                    <div class="p-2.5 flex flex-col gap-1.5 border-t border-slate-800/80 bg-[#0f111a]">
-                        <span class="text-[11px] font-mono truncate text-slate-200 font-medium" title="${escapeXml(item.name)}">${escapeXml(item.name)}</span>
-                        <div class="flex items-center gap-1 pt-1 flex-wrap">
-                            <button type="button" class="chip-act shrink-0 text-[10px] set-cover-btn" style="color:#fbbf24;" title="Set as Book Cover">Set as Cover</button>
-                            <button type="button" class="chip-act shrink-0 text-[10px] view-btn" title="View Fullscreen">View</button>
-                            <button type="button" class="chip-act shrink-0 text-[10px] dl-btn" title="Download image file">Save</button>
-                            <button type="button" class="chip-act danger shrink-0 text-[10px] del-btn" title="Remove from book">Delete</button>
+                    <div class="p-3 flex flex-col gap-2 border-t border-white/[0.04] bg-[#0c101a]">
+                        <span class="text-xs font-semibold truncate text-slate-100" title="${escapeXml(item.name)}">${escapeXml(item.name)}</span>
+                        <div class="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                            <button type="button" class="stu-chip-btn ghost shrink-0 text-[11px] set-cover-btn" style="color:#fbbf24; height:28px; padding:0 8px;" title="Set as Book Cover">Set Cover</button>
+                            <button type="button" class="stu-chip-btn ghost shrink-0 text-[11px] view-btn" style="height:28px; padding:0 8px;" title="View Fullscreen">View</button>
+                            <button type="button" class="stu-chip-btn ghost shrink-0 text-[11px] dl-btn" style="height:28px; padding:0 8px;" title="Download image file">Save</button>
+                            <button type="button" class="stu-chip-btn danger shrink-0 text-[11px] del-btn" style="height:28px; padding:0 8px;" title="Remove from book">Delete</button>
                         </div>
                     </div>
                 `;

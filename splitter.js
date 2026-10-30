@@ -662,10 +662,10 @@ async function processSplitFile(file) {
                 <input type="checkbox" id="chk-${chap.idref}" value="${chap.idref}" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer chap-checkbox accent-indigo-600 shrink-0" checked>
                 <label for="chk-${chap.idref}" class="flex-1 cursor-pointer min-w-0 flex items-center justify-between gap-2">
                     <div class="truncate">
-                        <span class="font-bold text-slate-800 dark:text-slate-200">#${chap.displayIndex}</span>
-                        <span class="chap-name text-slate-600 dark:text-slate-400 ml-1 break-all whitespace-normal font-medium" data-idref="${chap.idref}" title="Double-click to rename, click to preview">${chap.customName || chap.originalName}</span>
+                        <span class="font-bold text-slate-100">#${chap.displayIndex}</span>
+                        <span class="chap-name text-slate-200 hover:text-sky-400 ml-1.5 break-all whitespace-normal font-medium transition-colors" data-idref="${chap.idref}" title="Double-click to rename, click to preview">${chap.customName || chap.originalName}</span>
                     </div>
-                    <span class="text-[10px] text-slate-400 font-medium shrink-0">${sizeStr}${wcStr ? ' · ' + wcStr : ''}</span>
+                    <span class="text-xs text-slate-400 font-mono font-medium shrink-0">${sizeStr}${wcStr ? ' · ' + wcStr : ''}</span>
                 </label>
             `;
             // Click chapter name to preview

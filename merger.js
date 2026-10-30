@@ -319,12 +319,12 @@ function renderMergeList() {
         const infoParts = [sizeLabel, chapLabel, wordLabel].filter(Boolean).join(' · ');
 
         div.innerHTML = `
-            <div class="flex items-start gap-2.5 min-w-0 flex-1 cursor-move select-none p-1">
-                <span class="text-xs font-bold text-fuchsia-600 dark:text-fuchsia-400 mt-2">${idx + 1}.</span>
-                <div class="flex flex-col min-w-0 flex-1">
-                    <span class="font-semibold text-xs break-words whitespace-normal leading-tight pr-1 text-slate-800 dark:text-slate-200 max-h-10 overflow-hidden text-ellipsis">${f.name}</span>
-                    <span class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">${infoParts}</span>
-                    <input type="text" class="book-label-input mt-1 w-full bg-transparent border-none text-xs font-bold text-white focus:outline-none hover:bg-white/[0.04] px-1 py-0.5 rounded transition-colors" value="${f.customLabel}" placeholder="e.g. Volume 1">
+            <div class="flex items-start gap-3 min-w-0 flex-1 cursor-move select-none py-1">
+                <span class="text-xs font-bold font-mono text-fuchsia-400 mt-0.5 shrink-0 px-2 py-0.5 rounded-full bg-fuchsia-500/10">#${idx + 1}</span>
+                <div class="flex flex-col min-w-0 flex-1 gap-1">
+                    <div class="font-semibold text-sm text-slate-100 break-words leading-snug" title="${f.name}">${f.name}</div>
+                    <div class="flex items-center gap-2 text-xs font-mono text-sky-400/90 font-medium">${infoParts}</div>
+                    <input type="text" class="book-label-input mt-1 w-full bg-white/[0.04] border border-white/[0.08] text-xs font-semibold text-white focus:outline-none focus:border-indigo-500 px-2.5 py-1.5 rounded-lg transition-colors" value="${f.customLabel}" placeholder="e.g. Volume ${idx + 1}">
                 </div>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">

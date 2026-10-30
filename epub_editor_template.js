@@ -604,7 +604,7 @@
                 </div>
 
                 <!-- Tree Preview -->
-                <div id="hierarchy-modal-tree" class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 space-y-2 font-mono text-xs" style="max-height:50vh;">
+                <div id="hierarchy-modal-tree" class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 space-y-2 text-xs" style="max-height:50vh; font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;">
                     <!-- Populated dynamically -->
                 </div>
 

@@ -177,8 +177,8 @@
             onClick: () => handleSelectSubTab('mrexpt'),
             title: 'Fix "Not the same book" import errors and align Moon+ Reader bookmarks (.mrexpt)'
           },
-            ic('Bookmark', 15, 'shrink-0'),
-            h('span', null, 'Bookmarks')
+            ic('Bookmark', 14, 'shrink-0'),
+            h('span', { className: 'truncate' }, 'Bookmarks')
           )
         )
       ),

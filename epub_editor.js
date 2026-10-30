@@ -882,14 +882,14 @@
             }
 
             const card = document.createElement('div');
-            card.className = `stu-chapter-row flex items-center justify-between gap-3 ${
+            card.className = `stu-chapter-row flex items-center justify-between gap-2.5 min-w-0 overflow-hidden ${
                 isSub ? 'pl-6 sm:pl-10' : ''
             }`;
             card.onclick = () => openChapterModal(idx);
 
             // Left: Index, Chevron, Title & Subtitle Stack
             const rowLeft = document.createElement('div');
-            rowLeft.className = 'flex items-center gap-3 min-w-0 flex-1';
+            rowLeft.className = 'flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden';
 
             // Collapse Chevron if parent
             if (hasChildren) {
@@ -941,15 +941,15 @@
 
             // Title & Metrics Stack
             const textStack = document.createElement('div');
-            textStack.className = 'flex flex-col min-w-0 flex-1';
+            textStack.className = 'flex flex-col min-w-0 flex-1 overflow-hidden';
 
             const titleSpan = document.createElement('span');
-            titleSpan.className = 'font-bold text-sm sm:text-base truncate text-slate-100 hover:text-sky-400 transition-colors';
+            titleSpan.className = 'font-bold text-sm sm:text-base truncate max-w-full block text-slate-100 hover:text-sky-400 transition-colors';
             titleSpan.textContent = ch.title;
             textStack.appendChild(titleSpan);
 
             const metaSpan = document.createElement('span');
-            metaSpan.className = 'text-xs text-slate-500 font-mono mt-0.5';
+            metaSpan.className = 'text-xs text-slate-400 font-mono mt-0.5 truncate max-w-full block';
             const imgCount = (ch.images || []).length;
             metaSpan.textContent = `${(ch.words || 0).toLocaleString()} words${imgCount > 0 ? ` · ${imgCount} img` : ''}${isSub ? ' · Sub-Chapter' : ''}`;
             textStack.appendChild(metaSpan);
@@ -957,14 +957,14 @@
             rowLeft.appendChild(textStack);
             card.appendChild(rowLeft);
 
-            // Right: Reorder & Action Pills
+            // Right: Reorder & Action Pills (Compact on mobile)
             const rowRight = document.createElement('div');
-            rowRight.className = 'flex items-center gap-1.5 shrink-0';
+            rowRight.className = 'flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto';
 
             // Up arrow
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
-            upBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none';
+            upBtn.className = 'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none shrink-0';
             upBtn.textContent = '▲';
             upBtn.title = 'Move up';
             upBtn.disabled = idx === 0;
@@ -978,7 +978,7 @@
             // Down arrow
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
-            downBtn.className = 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none';
+            downBtn.className = 'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none shrink-0';
             downBtn.textContent = '▼';
             downBtn.title = 'Move down';
             downBtn.disabled = idx >= state.chapters.length - 1;
@@ -992,11 +992,8 @@
             // Rename button
             const renameBtn = document.createElement('button');
             renameBtn.type = 'button';
-            renameBtn.className = 'stu-chip-btn ghost';
-            renameBtn.style.padding = '0 10px';
-            renameBtn.style.height = '32px';
-            renameBtn.style.fontSize = '12px';
-            renameBtn.textContent = 'Rename';
+            renameBtn.className = 'stu-chip-btn ghost shrink-0 px-2 sm:px-2.5 h-7 sm:h-8 text-[11px] sm:text-xs';
+            renameBtn.innerHTML = '<span class="sm:hidden">✏</span><span class="hidden sm:inline">Rename</span>';
             renameBtn.title = 'Rename chapter';
             renameBtn.onclick = (e) => {
                 e.stopPropagation();
@@ -1007,12 +1004,9 @@
             // Level / Nesting toggle button
             const lvlBtn = document.createElement('button');
             lvlBtn.type = 'button';
-            lvlBtn.className = 'stu-chip-btn ghost';
-            lvlBtn.style.padding = '0 10px';
-            lvlBtn.style.height = '32px';
-            lvlBtn.style.fontSize = '12px';
+            lvlBtn.className = 'stu-chip-btn ghost shrink-0 px-2 sm:px-2.5 h-7 sm:h-8 text-[11px] sm:text-xs';
             if (isSub) {
-                lvlBtn.textContent = '↰ Main';
+                lvlBtn.innerHTML = '<span class="sm:hidden">↰</span><span class="hidden sm:inline">↰ Main</span>';
                 lvlBtn.style.color = '#34d399';
                 lvlBtn.title = 'Restore to normal chapter';
                 lvlBtn.onclick = (e) => {
@@ -1023,7 +1017,7 @@
                     saveNovelToDatabase({ silent: true }).catch(err => console.warn('Auto-save error:', err));
                 };
             } else {
-                lvlBtn.textContent = '↳ Sub';
+                lvlBtn.innerHTML = '<span class="sm:hidden">↳</span><span class="hidden sm:inline">↳ Sub</span>';
                 lvlBtn.style.color = '#818cf8';
                 lvlBtn.title = `Nest under Chapter #${idx}`;
                 lvlBtn.disabled = idx === 0;
@@ -1040,18 +1034,15 @@
             // Delete button with two-tap confirm
             const delBtn = document.createElement('button');
             delBtn.type = 'button';
-            delBtn.className = 'stu-chip-btn danger';
-            delBtn.style.padding = '0 12px';
-            delBtn.style.height = '32px';
-            delBtn.style.fontSize = '12px';
-            delBtn.textContent = 'Delete';
+            delBtn.className = 'stu-chip-btn danger shrink-0 px-2 sm:px-3 h-7 sm:h-8 text-[11px] sm:text-xs';
+            delBtn.innerHTML = '<span class="sm:hidden">✕</span><span class="hidden sm:inline">Delete</span>';
             delBtn.title = 'Delete this chapter';
             delBtn.onclick = (e) => {
                 e.stopPropagation();
                 if (delBtn.dataset.confirming === 'true') {
                     clearTimeout(delBtn._confirmTimer);
                     delBtn.dataset.confirming = 'false';
-                    delBtn.textContent = 'Delete';
+                    delBtn.innerHTML = '<span class="sm:hidden">✕</span><span class="hidden sm:inline">Delete</span>';
                     delBtn.style.background = '';
                     const removedTitle = ch.title || `Chapter #${idx + 1}`;
                     state.chapters.splice(idx, 1);
@@ -1061,15 +1052,15 @@
                     if (typeof window.toast === 'function') window.toast(`Deleted "${removedTitle}"`, 'info');
                 } else {
                     delBtn.dataset.confirming = 'true';
-                    delBtn.textContent = 'Confirm?';
-                    delBtn.style.background = 'rgba(239, 68, 68, 0.3)';
-                    delBtn.style.borderColor = '#ef4444';
+                    delBtn.innerHTML = '<span class="text-[10px] font-bold">Sure?</span>';
+                    delBtn.style.background = '#dc2626';
+                    delBtn.style.color = '#ffffff';
                     delBtn._confirmTimer = setTimeout(() => {
                         delBtn.dataset.confirming = 'false';
-                        delBtn.textContent = 'Delete';
+                        delBtn.innerHTML = '<span class="sm:hidden">✕</span><span class="hidden sm:inline">Delete</span>';
                         delBtn.style.background = '';
-                        delBtn.style.borderColor = '';
-                    }, 3500);
+                        delBtn.style.color = '';
+                    }, 3000);
                 }
             };
             rowRight.appendChild(delBtn);
