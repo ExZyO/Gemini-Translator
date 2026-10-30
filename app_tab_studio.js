@@ -102,37 +102,38 @@
 
     return h(React.Fragment, null,
       // Apple-style Header
-      h('div', { className: 'apple-page-header', style: { marginBottom: 14 } },
-        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 } },
+      h('div', { className: 'apple-page-header', style: { marginBottom: 16 } },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 } },
           h('div', null,
-            h('h1', { style: { fontSize: 24, fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em', margin: '0 0 2px' } }, 'Studio'),
-            h('p', { style: { fontSize: 13, color: '#94A3B8', margin: 0 } }, 'WYSIWYG editor, volume splitter, book merger & Moon+ Reader bookmark studio')
+            h('h1', { style: { fontSize: 26, fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.025em', margin: '0 0 3px' } }, 'Studio'),
+            h('p', { style: { fontSize: 13.5, color: '#94A3B8', margin: 0, fontWeight: 500 } }, 'WYSIWYG editor, volume splitter, book merger & Moon+ Reader bookmark studio')
           ),
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
+            className: 'stu-chip-btn ghost',
             style: {
-              padding: '6px 12px',
-              borderRadius: 999,
-              fontSize: 11.5,
+              height: 38,
+              padding: '0 14px',
+              fontSize: 12,
               fontWeight: 600,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 4,
+              gap: 6,
               cursor: 'pointer',
               color: '#f87171',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderColor: 'rgba(239, 68, 68, 0.3)',
+              background: 'rgba(239, 68, 68, 0.06)',
               whiteSpace: 'nowrap'
             },
             onClick: handleResetStudio,
             title: 'Reset active studio tool and close open files'
           },
-            ic('RotateCcw', 12, 'mr-1 text-red-400'),
+            ic('RotateCcw', 13, 'mr-1 text-red-400'),
             'Reset Studio'
           )
         )
       ),
-      h('div', { style: { marginBottom: 12 } },
+      h('div', { style: { marginBottom: 16 } },
         h('div', {
           className: 'studio-pill-bar',
           style: {
@@ -149,7 +150,7 @@
             onClick: () => handleSelectSubTab('edit'),
             title: 'WYSIWYG and chapter prose editor'
           },
-            ic('Edit', 14, 'shrink-0'),
+            ic('Edit', 15, 'shrink-0'),
             h('span', null, 'Editor')
           ),
           h('button', {
@@ -158,7 +159,7 @@
             onClick: () => handleSelectSubTab('split'),
             title: 'Split continuous web novels into volumes'
           },
-            ic('Scissors', 14, 'shrink-0'),
+            ic('Scissors', 15, 'shrink-0'),
             h('span', null, 'Split')
           ),
           h('button', {
@@ -167,7 +168,7 @@
             onClick: () => handleSelectSubTab('merge'),
             title: 'Merge multiple EPUB volumes into one consolidated book'
           },
-            ic('BookOpen', 14, 'shrink-0'),
+            ic('BookOpen', 15, 'shrink-0'),
             h('span', null, 'Merge')
           ),
           h('button', {
@@ -176,7 +177,7 @@
             onClick: () => handleSelectSubTab('mrexpt'),
             title: 'Fix "Not the same book" import errors and align Moon+ Reader bookmarks (.mrexpt)'
           },
-            ic('Bookmark', 14, 'shrink-0'),
+            ic('Bookmark', 15, 'shrink-0'),
             h('span', null, 'Bookmarks')
           )
         )
@@ -184,7 +185,7 @@
       studioSubTab === 'mrexpt'
         ? h(MrexptStudioPanel, { toast, confirmAction })
         : h('div', {
-            className: 'studio-host studio-canvas',
+            className: 'studio-host',
             dangerouslySetInnerHTML: {
               __html: currentHtml
             }
@@ -343,96 +344,95 @@
     ];
 
     return h('div', {
+      className: 'stu-page-container',
       style: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 16,
-        maxWidth: 720,
+        gap: 20,
+        maxWidth: 740,
         margin: '0 auto',
-        padding: '8px 4px calc(120px + env(safe-area-inset-bottom, 24px))'
+        padding: '4px 4px calc(120px + env(safe-area-inset-bottom, 24px))'
       }
     },
       // Header Banner
       h('div', {
+        className: 'stu-hero-card',
         style: {
-          background: '#161b22',
-          border: '1px solid #30363d',
-          borderRadius: 14,
-          padding: '16px 18px',
+          padding: '20px 24px',
           display: 'flex',
-          gap: 14,
-          alignItems: 'flex-start'
+          gap: 16,
+          alignItems: 'center',
+          marginBottom: 0
         }
       },
         h('div', {
           style: {
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: '#1f6feb',
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            background: 'linear-gradient(135deg, #0284c7, #0ea5e9)',
+            boxShadow: '0 4px 16px rgba(14, 165, 233, 0.35)',
             color: '#fff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0
           }
-        }, ic('Bookmark', 22)),
+        }, ic('Bookmark', 24)),
         h('div', { style: { flex: 1, minWidth: 0 } },
-          h('div', { style: { fontSize: 16, fontWeight: 700, color: 'var(--paper)', marginBottom: 4 } }, 'Moon+ Reader (.mrexpt) Studio'),
-          h('div', { style: { fontSize: 12.5, color: 'var(--slate)', lineHeight: 1.5 } },
-            'Moon+ Reader Pro refuses to import bookmarks if the phone file path or internal database ID does not match. This studio aligns your master backup to your phone book so it imports cleanly with 100% success.'
+          h('div', { style: { fontSize: 17, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em', marginBottom: 4 } }, 'Moon+ Reader (.mrexpt) Studio'),
+          h('div', { style: { fontSize: 13, color: '#94a3b8', lineHeight: 1.5, fontWeight: 500 } },
+            'Moon+ Reader Pro requires matching phone storage paths and internal database IDs. This studio aligns your master bookmarks to your phone edition so they import cleanly with 100% success.'
           )
         )
       ),
 
       // Master Backup File Card
       h('div', {
+        className: 'stu-card',
         style: {
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid var(--hairline)',
-          borderRadius: 16,
-          padding: '18px 20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 12
+          gap: 14
         }
       },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-          h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
-            ic('FileText', 16, 'text-sky-400'),
+          h('div', { style: { fontSize: 15, fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 8 } },
+            ic('FileText', 18, 'text-sky-400'),
             'Master Bookmark Backup (.mrexpt)'
           ),
           masterFile && h('button', {
             type: 'button',
-            style: { background: 'transparent', border: 'none', color: 'var(--slate)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' },
+            className: 'stu-chip-btn ghost text-xs',
+            style: { color: 'var(--slate)', cursor: 'pointer' },
             onClick: () => { setMasterFile(null); setIsDone(false); setMergeStats(null); }
           }, 'Change File')
         ),
 
-        !masterFile ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-          h('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
+        !masterFile ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+          h('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
             h('label', {
-              className: 'mini-btn',
+              className: 'stu-btn-glass',
               style: {
                 flex: 1,
-                minWidth: 200,
+                minWidth: 220,
                 background: 'rgba(56, 189, 248, 0.08)',
-                border: '1px dashed rgba(56, 189, 248, 0.35)',
-                color: 'var(--paper)',
-                padding: '14px 18px',
-                borderRadius: 12,
-                fontSize: 13,
+                border: '1.5px dashed rgba(56, 189, 248, 0.35)',
+                color: '#f8fafc',
+                padding: '16px 20px',
+                borderRadius: 14,
+                fontSize: 13.5,
                 fontWeight: 600,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
+                gap: 10,
                 textAlign: 'center',
-                minHeight: 48
+                minHeight: 52
               }
             },
-              [ic('Folder', 16), ' Select Master Backup File (.mrexpt)'],
+              [ic('Folder', 18), ' Select Master Backup File (.mrexpt)'],
               h('input', {
                 type: 'file',
                 accept: '*/*',
@@ -448,48 +448,40 @@
             ),
             h('button', {
               type: 'button',
-              className: 'mini-btn',
+              className: 'stu-chip-btn',
               style: {
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid var(--hairline)',
-                color: 'var(--paper)',
-                padding: '12px 16px',
-                borderRadius: 12,
+                padding: '0 20px',
+                borderRadius: 14,
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 6,
-                minHeight: 48
+                gap: 8,
+                minHeight: 52
               },
               onClick: () => setShowPaste(prev => !prev)
-            }, showPaste ? [ic('X', 14), ' Hide Paste Box'] : [ic('Clipboard', 14), ' Or Paste Text'])
+            }, showPaste ? [ic('X', 15), ' Hide Paste Box'] : [ic('Clipboard', 15), ' Or Paste Text'])
           ),
 
           showPaste && h('div', {
             style: {
               display: 'flex',
               flexDirection: 'column',
-              gap: 8,
+              gap: 10,
               background: 'rgba(0,0,0,0.3)',
-              padding: 12,
-              borderRadius: 10,
-              border: '1px solid var(--hairline)'
+              padding: 16,
+              borderRadius: 14,
+              border: '1px solid rgba(255,255,255,0.08)'
             }
           },
             h('textarea', {
               rows: 4,
+              className: 'stu-textarea',
               style: {
-                width: '100%',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--paper)',
-                fontSize: 12,
                 fontFamily: 'monospace',
-                resize: 'vertical',
-                outline: 'none'
+                fontSize: 12.5
               },
               placeholder: 'Paste the contents of your .mrexpt backup file here (starting with indent:false / trim:false / #)...',
               value: pastedText,
@@ -497,42 +489,36 @@
             }),
             h('button', {
               type: 'button',
-              className: 'mini-btn',
+              className: 'stu-btn-radiant-sky',
               style: {
-                background: '#1f6feb',
-                color: '#fff',
-                fontWeight: 600,
-                padding: '8px 16px',
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer',
+                padding: '8px 20px',
                 alignSelf: 'flex-start'
               },
               disabled: !pastedText.trim(),
               onClick: () => handleProcessMaster(pastedText.trim(), 'pasted_backup.mrexpt')
-            }, [ic('Zap', 13), ' Parse Pasted Text'])
+            }, [ic('Zap', 14), ' Parse Pasted Text'])
           )
         ) : h('div', {
           style: {
             background: 'rgba(255, 255, 255, 0.02)',
-            borderRadius: 12,
-            padding: '12px 14px',
+            borderRadius: 14,
+            padding: '14px 16px',
             display: 'flex',
             flexDirection: 'column',
             gap: 8,
-            border: '1px solid var(--hairline)'
+            border: '1px solid rgba(255, 255, 255, 0.06)'
           }
         },
-          h('div', { style: { fontSize: 13, fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: 6 } },
-            ic('Check', 14), `Found ${masterFile.info?.entryCount || 0} bookmarks & highlights`
+          h('div', { style: { fontSize: 13.5, fontWeight: 700, color: '#34d399', display: 'flex', alignItems: 'center', gap: 6 } },
+            ic('Check', 16), `Found ${masterFile.info?.entryCount || 0} bookmarks & highlights`
           ),
-          masterFile.info?.oldTitle && h('div', { style: { fontSize: 12, color: 'var(--slate)' } },
+          masterFile.info?.oldTitle && h('div', { style: { fontSize: 12.5, color: 'var(--slate)' } },
             'Recorded Title: ', h('span', { style: { color: 'var(--paper)', fontWeight: 600 } }, masterFile.info.oldTitle)
           ),
-          masterFile.info?.oldFilePath && h('div', { style: { fontSize: 11.5, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+          masterFile.info?.oldFilePath && h('div', { style: { fontSize: 12, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
             'Recorded Path: ', h('span', { style: { color: 'var(--paper)', fontFamily: 'monospace' } }, masterFile.info.oldFilePath)
           ),
-          masterFile.info?.bookId && h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } },
+          masterFile.info?.bookId && h('div', { style: { fontSize: 12, color: 'var(--slate)' } },
             'Moon+ Reader Book ID in file: ', h('span', { style: { color: '#38bdf8', fontWeight: 700, fontFamily: 'monospace' } }, masterFile.info.bookId)
           )
         )
@@ -540,35 +526,33 @@
 
       // Alignment & Matching Mode Card
       masterFile && h('div', {
+        className: 'stu-card',
         style: {
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid var(--hairline)',
-          borderRadius: 16,
-          padding: '18px 20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 12
+          gap: 14
         }
       },
-        h('div', { style: { fontSize: 14, fontWeight: 700, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
-          ic('Zap', 16, 'text-emerald-400'),
+        h('div', { style: { fontSize: 15, fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 8 } },
+          ic('Zap', 18, 'text-emerald-400'),
           'Match to Target Phone Book'
         ),
 
         // Sub-mode tabs
-        h('div', { style: { display: 'flex', gap: 6, background: '#161b22', padding: 3, borderRadius: 8, border: '1px solid #30363d' } },
+        h('div', { style: { display: 'flex', gap: 6, background: 'rgba(0,0,0,0.25)', padding: 4, borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)' } },
           h('button', {
             type: 'button',
             style: {
               flex: 1,
-              padding: '8px 12px',
-              borderRadius: 6,
-              fontSize: 12,
+              padding: '10px 14px',
+              borderRadius: 8,
+              fontSize: 12.5,
               fontWeight: 600,
               cursor: 'pointer',
-              border: alignMode !== 'direct' ? '1px solid #30363d' : '1px solid transparent',
-              background: alignMode !== 'direct' ? '#21262d' : 'transparent',
-              color: alignMode !== 'direct' ? '#f8fafc' : '#94a3b8'
+              border: alignMode !== 'direct' ? '1px solid rgba(255,255,255,0.1)' : '1px solid transparent',
+              background: alignMode !== 'direct' ? 'rgba(255,255,255,0.1)' : 'transparent',
+              color: alignMode !== 'direct' ? '#f8fafc' : '#94a3b8',
+              transition: 'all 0.15s ease'
             },
             onClick: () => setAlignMode('passport')
           }, 'Option A: Phone Export / 1-Bookmark Stamp (Recommended)'),
@@ -576,41 +560,43 @@
             type: 'button',
             style: {
               flex: 1,
-              padding: '8px 12px',
-              borderRadius: 6,
-              fontSize: 12,
+              padding: '10px 14px',
+              borderRadius: 8,
+              fontSize: 12.5,
               fontWeight: 600,
               cursor: 'pointer',
-              border: alignMode === 'direct' ? '1px solid #30363d' : '1px solid transparent',
-              background: alignMode === 'direct' ? '#21262d' : 'transparent',
-              color: alignMode === 'direct' ? '#f8fafc' : '#94a3b8'
+              border: alignMode === 'direct' ? '1px solid rgba(255,255,255,0.1)' : '1px solid transparent',
+              background: alignMode === 'direct' ? 'rgba(255,255,255,0.1)' : 'transparent',
+              color: alignMode === 'direct' ? '#f8fafc' : '#94a3b8',
+              transition: 'all 0.15s ease'
             },
             onClick: () => setAlignMode('direct')
           }, 'Option B: Clean Book (0 Bookmarks on Device)')
         ),
 
-        alignMode !== 'direct' ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-          h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.5 } },
+        alignMode !== 'direct' ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+          h('div', { style: { fontSize: 12.5, color: 'var(--slate)', lineHeight: 1.5 } },
             'Open your book in Moon+ Reader on your phone. If it has bookmarks, export them. If it has 0 bookmarks, create 1 temporary highlight on any word, tap Bookmarks → Export. Drop that export file below to instantly capture your phone credentials:'
           ),
           h('label', {
-            className: 'mini-btn',
+            className: 'stu-btn-glass',
             style: {
               background: 'rgba(56, 189, 248, 0.08)',
-              border: '1px dashed rgba(56, 189, 248, 0.35)',
-              color: 'var(--paper)',
-              padding: '12px 16px',
-              borderRadius: 10,
-              fontSize: 12.5,
+              border: '1.5px dashed rgba(56, 189, 248, 0.35)',
+              color: '#f8fafc',
+              padding: '14px 18px',
+              borderRadius: 14,
+              fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 8
+              gap: 8,
+              minHeight: 50
             }
           },
-            [ic('FileText', 14), sampleFile ? `Phone File: ${sampleFile.fileName}` : 'Pick Phone Export File (.mrexpt or .epub)'],
+            [ic('FileText', 16), sampleFile ? `Phone File: ${sampleFile.fileName}` : 'Pick Phone Export File (.mrexpt or .epub)'],
             h('input', {
               type: 'file',
               accept: '*/*',
@@ -629,7 +615,8 @@
             })
           ),
           sampleFile && h('label', {
-            style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--paper)', cursor: 'pointer', marginTop: 2 }
+            className: 'stu-check-label',
+            style: { marginTop: 2 }
           },
             h('input', {
               type: 'checkbox',
@@ -638,28 +625,29 @@
             }),
             h('span', null, 'Discard dummy test highlight (keeps your book completely clean if you only created 1 test bookmark)')
           )
-        ) : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-          h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.5 } },
+        ) : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+          h('div', { style: { fontSize: 12.5, color: 'var(--slate)', lineHeight: 1.5 } },
             'Your ebook has 0 bookmarks on your phone. Drop the .epub file below to detect the exact title and pick your Android storage folder:'
           ),
           h('label', {
-            className: 'mini-btn',
+            className: 'stu-btn-glass',
             style: {
-              background: 'rgba(16, 185, 129, 0.12)',
-              border: '1px dashed #10b981',
-              color: 'var(--paper)',
-              padding: '10px 14px',
-              borderRadius: 10,
-              fontSize: 12.5,
+              background: 'rgba(16, 185, 129, 0.1)',
+              border: '1.5px dashed #10b981',
+              color: '#f8fafc',
+              padding: '14px 18px',
+              borderRadius: 14,
+              fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 8
+              gap: 8,
+              minHeight: 50
             }
           },
-            [ic('BookOpen', 14), targetTitle ? `Selected EPUB: ${targetTitle}` : 'Drop Target .epub File Here'],
+            [ic('BookOpen', 16), targetTitle ? `Selected EPUB: ${targetTitle}` : 'Drop Target .epub File Here'],
             h('input', {
               type: 'file',
               accept: '.epub',
@@ -670,21 +658,22 @@
               }
             })
           ),
-          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+          h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
             folderPresets.map(preset => {
               const fullP = preset.path + (targetTitle || 'Book.epub');
               const isSel = targetPath.startsWith(preset.path);
               return h('button', {
                 key: preset.label,
                 type: 'button',
+                className: 'stu-chip-btn',
                 style: {
-                  background: isSel ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                  border: isSel ? '1px solid #38bdf8' : '1px solid var(--hairline)',
+                  background: isSel ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                  borderColor: isSel ? '#38bdf8' : 'rgba(255, 255, 255, 0.08)',
                   color: isSel ? '#38bdf8' : 'var(--slate)',
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: 600,
-                  padding: '5px 10px',
-                  borderRadius: 6,
+                  padding: '6px 12px',
+                  borderRadius: 8,
                   cursor: 'pointer'
                 },
                 onClick: () => {
@@ -700,17 +689,17 @@
           style: {
             background: 'rgba(245, 158, 11, 0.1)',
             border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: 10,
-            padding: '10px 14px',
-            fontSize: 12,
-            color: '#f59e0b',
+            borderRadius: 14,
+            padding: '12px 16px',
+            fontSize: 12.5,
+            color: '#fbbf24',
             lineHeight: 1.5,
             display: 'flex',
-            gap: 8,
+            gap: 10,
             alignItems: 'flex-start'
           }
         },
-          ic('AlertTriangle', 15, 'shrink-0 mt-0.5'),
+          ic('AlertTriangle', 16, 'shrink-0 mt-0.5'),
           h('div', null,
             h('strong', null, `Both files currently have identical Book ID (${masterFile.info?.bookId}). `),
             'If your Phone Export was copied from your PC, Moon+ Reader on your phone will reject it because your phone database assigns a different ID. Make sure this file was exported directly from Moon+ Reader on your phone (Menu → Bookmarks → Export).'
@@ -721,43 +710,43 @@
         h('div', {
           style: {
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: 10,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: 12,
             marginTop: 4
           }
         },
           h('div', {
             style: {
               background: 'rgba(255,255,255,0.02)',
-              border: '1px solid var(--hairline)',
-              borderRadius: 10,
-              padding: '10px 12px',
-              fontSize: 11.5,
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 14,
+              padding: '12px 16px',
+              fontSize: 12,
               display: 'flex',
               flexDirection: 'column',
-              gap: 4
+              gap: 5
             }
           },
-            h('div', { style: { fontWeight: 600, color: 'var(--slate)', fontSize: 11 } }, 'Master Backup File:'),
+            h('div', { style: { fontWeight: 700, color: 'var(--slate)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Master Backup File:'),
             h('div', { style: { color: 'var(--paper)', fontWeight: 600 } }, masterFile.fileName),
-            h('div', { style: { color: 'var(--slate)' } }, `ID: ${masterFile.info?.bookId || 'Unknown'}`),
+            h('div', { style: { color: 'var(--slate)', fontFamily: 'monospace' } }, `ID: ${masterFile.info?.bookId || 'Unknown'}`),
             h('div', { style: { color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `Path: ${masterFile.info?.oldFilePath || 'None'}`)
           ),
           h('div', {
             style: {
-              background: 'rgba(16, 185, 129, 0.05)',
+              background: 'rgba(16, 185, 129, 0.06)',
               border: '1px solid rgba(16, 185, 129, 0.25)',
-              borderRadius: 10,
-              padding: '10px 12px',
-              fontSize: 11.5,
+              borderRadius: 14,
+              padding: '12px 16px',
+              fontSize: 12,
               display: 'flex',
               flexDirection: 'column',
-              gap: 4
+              gap: 5
             }
           },
-            h('div', { style: { fontWeight: 600, color: '#10b981', fontSize: 11 } }, 'Target Phone Book:'),
+            h('div', { style: { fontWeight: 700, color: '#34d399', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Target Phone Book:'),
             h('div', { style: { color: 'var(--paper)', fontWeight: 600 } }, targetTitle || 'Book.epub'),
-            h('div', { style: { color: 'var(--slate)' } }, `ID: ${targetBookId || 'Pending'}`),
+            h('div', { style: { color: 'var(--slate)', fontFamily: 'monospace' } }, `ID: ${targetBookId || 'Pending'}`),
             h('div', { style: { color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `Path: ${targetPath}`)
           )
         ),
@@ -767,17 +756,17 @@
           style: {
             background: 'rgba(56, 189, 248, 0.06)',
             border: '1px solid rgba(56, 189, 248, 0.2)',
-            borderRadius: 10,
-            padding: '10px 14px',
-            fontSize: 12,
+            borderRadius: 14,
+            padding: '12px 16px',
+            fontSize: 12.5,
             color: 'var(--slate)',
             lineHeight: 1.5,
             display: 'flex',
-            gap: 8,
+            gap: 10,
             alignItems: 'flex-start'
           }
         },
-          ic('Info', 15, 'shrink-0 mt-0.5 text-sky-400'),
+          ic('Info', 16, 'shrink-0 mt-0.5 text-sky-400'),
           h('div', null,
             h('strong', { style: { color: 'var(--paper)' } }, 'How to check your book\'s exact path in Moon+ Reader: '),
             'Open your book on your phone → tap the center of the screen → tap the ',
@@ -789,33 +778,33 @@
         ),
 
         // Target Metadata Inputs
-        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 } },
-          h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--slate)' } }, 'Target Moon+ Reader Book ID:'),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 } },
+          h('label', { className: 'stu-field-label' }, 'Target Moon+ Reader Book ID:'),
           h('input', {
             type: 'text',
-            className: 'mini-input',
-            style: { height: 38, borderRadius: 8, fontSize: 13, fontFamily: 'monospace' },
+            className: 'stu-text-input',
+            style: { height: 42, fontFamily: 'monospace' },
             value: targetBookId,
             onChange: (e) => setTargetBookId(e.target.value)
           }),
           h('span', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Auto-matched from phone export, or keep original if replacing file on device.')
         ),
-        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
-          h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--slate)' } }, 'Target Book Title:'),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+          h('label', { className: 'stu-field-label' }, 'Target Book Title:'),
           h('input', {
             type: 'text',
-            className: 'mini-input',
-            style: { height: 38, borderRadius: 8, fontSize: 13 },
+            className: 'stu-text-input',
+            style: { height: 42 },
             value: targetTitle,
             onChange: (e) => setTargetTitle(e.target.value)
           })
         ),
-        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
-          h('label', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--slate)' } }, 'Target Full Device File Path:'),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+          h('label', { className: 'stu-field-label' }, 'Target Full Device File Path:'),
           h('input', {
             type: 'text',
-            className: 'mini-input',
-            style: { height: 38, borderRadius: 8, fontSize: 13 },
+            className: 'stu-text-input',
+            style: { height: 42 },
             value: targetPath,
             onChange: (e) => setTargetPath(e.target.value)
           })
@@ -824,46 +813,35 @@
         // Download Action Button
         h('button', {
           type: 'button',
-          className: 'mini-btn',
+          className: 'stu-btn-radiant-emerald w-full',
           style: {
-            background: '#238636',
-            color: '#fff',
-            fontWeight: 700,
-            fontSize: 14,
-            padding: '12px 20px',
-            borderRadius: 10,
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            cursor: 'pointer',
-            marginTop: 6,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            minHeight: 48,
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
+            height: 52,
+            fontSize: 15,
+            fontWeight: 800,
+            marginTop: 8
           },
           onClick: handleDownloadFixed
-        }, [ic('Download', 16), ' Download Compatible .mrexpt File']),
+        }, [ic('Download', 18), ' Download Compatible .mrexpt File']),
 
         isDone && h('div', {
           style: {
-            padding: '12px 16px',
-            borderRadius: 12,
+            padding: '16px 18px',
+            borderRadius: 14,
             background: 'rgba(16, 185, 129, 0.12)',
             border: '1px solid rgba(16, 185, 129, 0.3)',
-            color: '#10b981',
-            fontSize: 12.5,
+            color: '#34d399',
+            fontSize: 13,
             lineHeight: 1.5,
             display: 'flex',
             flexDirection: 'column',
             gap: 6
           }
         },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13 } },
-            ic('Check', 16, 'shrink-0'),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: 14 } },
+            ic('Check', 18, 'shrink-0'),
             'Ready to import into Moon+ Reader Pro!'
           ),
-          mergeStats && h('div', { style: { fontSize: 12, color: 'var(--paper)', opacity: 0.9 } },
+          mergeStats && h('div', { style: { fontSize: 12.5, color: 'var(--paper)', opacity: 0.95 } },
             `Aligned ${mergeStats.totalEntries} bookmarks & highlights` +
             (mergeStats.notesMergedCount > 0 ? `, merged ${mergeStats.notesMergedCount} personal notes` : '') +
             (mergeStats.dummyDiscardedCount > 0 ? `, discarded ${mergeStats.dummyDiscardedCount} dummy test bookmark` : '')
