@@ -14,6 +14,7 @@
   }
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+  const getH = () => (typeof React !== 'undefined' ? React.createElement : window.React?.createElement);
   const h = (typeof React !== 'undefined' && React.createElement) ? React.createElement : (window.React ? window.React.createElement : null);
   const useState = (typeof React !== 'undefined' && React.useState) ? React.useState : (window.React ? window.React.useState : null);
   const useCallback = (typeof React !== 'undefined' && React.useCallback) ? React.useCallback : (window.React ? window.React.useCallback : null);
