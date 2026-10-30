@@ -265,11 +265,18 @@
             const authorEl = getFirstXmlTag(opfDoc, 'creator');
             const langEl = getFirstXmlTag(opfDoc, 'language');
             const descEl = getFirstXmlTag(opfDoc, 'description');
+            const dateEl = getFirstXmlTag(opfDoc, 'date');
+            let publishedDate = dateEl ? (dateEl.textContent || '').trim() : '';
+            if (!publishedDate) {
+              const modifiedMeta = opfDoc.querySelector('metadata > meta[property="dcterms:modified"]');
+              if (modifiedMeta) publishedDate = (modifiedMeta.textContent || modifiedMeta.getAttribute('content') || '').trim();
+            }
 
             state.title = (titleEl ? titleEl.textContent : (file.name ? file.name.replace(/\.epub$/i, '') : 'Untitled')).trim();
             state.author = (authorEl ? authorEl.textContent : 'Unknown Author').trim();
             state.lang = (langEl ? langEl.textContent : 'en').trim();
             state.description = (descEl ? descEl.textContent : '').trim();
+            state.publishedDate = publishedDate;
             state.series = '';
             state.imageRepository.clear();
             state.chapters = [];
@@ -720,6 +727,11 @@
 
                         const descEl = opfDoc.querySelector('metadata > description, metadata > dc\\:description') || opfDoc.getElementsByTagName('dc:description')[0];
                         if (descEl) descEl.textContent = state.description;
+
+                        if (state.publishedDate) {
+                            const dateEl = opfDoc.querySelector('metadata > date, metadata > dc\\:date') || opfDoc.getElementsByTagName('dc:date')[0];
+                            if (dateEl) dateEl.textContent = state.publishedDate;
+                        }
 
                         const manifestEl = opfDoc.querySelector('manifest');
                         const spineEl = opfDoc.querySelector('spine');

@@ -312,6 +312,7 @@
         state.lang = record.targetLang || 'en';
         state.description = record.summary || record.description || '';
         state.coverUrl = record.cover || '';
+        state.publishedDate = record.publishedDate || '';
         state.imageRepository.clear();
         state.chapters = [];
         state.originalZip = null;
@@ -1740,6 +1741,7 @@ ${bodyHtml}
             targetLang: state.lang,
             summary: state.description,
             cover: state.coverUrl,
+            publishedDate: state.publishedDate || (existing && existing.publishedDate) || '',
             timestamp: Date.now(),
             totalWords,
             wordCount: totalWords,
@@ -1762,6 +1764,7 @@ ${bodyHtml}
                 author: state.author,
                 summary: state.description,
                 cover: state.coverUrl,
+                publishedDate: state.publishedDate || (existing && existing.publishedDate) || '',
                 chapterCount: state.chapters.length,
                 totalChapterCount: state.chapters.length,
                 totalWords,

@@ -55,8 +55,12 @@
         }
         if (!novelRec && readerNovelTitle) {
           try {
-            const all = await window.GeminiNovelDB.getAllNovels();
-            novelRec = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+            if (typeof window.GeminiNovelDB.getNovelByTitle === 'function') {
+              novelRec = await window.GeminiNovelDB.getNovelByTitle(readerNovelTitle);
+            } else {
+              const all = await window.GeminiNovelDB.getAllNovels();
+              novelRec = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+            }
           } catch (_) {}
         }
       }
@@ -237,8 +241,12 @@
               full = await window.GeminiNovelDB.getNovel(currentNovelId);
             }
             if (!full && readerNovelTitle) {
-              const all = await window.GeminiNovelDB.getAllNovels();
-              full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+              if (typeof window.GeminiNovelDB.getNovelByTitle === 'function') {
+                full = await window.GeminiNovelDB.getNovelByTitle(readerNovelTitle);
+              } else {
+                const all = await window.GeminiNovelDB.getAllNovels();
+                full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+              }
             }
             if (!full) full = novelRec;
             if (full) {
@@ -480,8 +488,12 @@
               full = await window.GeminiNovelDB.getNovel(currentNovelId);
             }
             if (!full && readerNovelTitle) {
-              const all = await window.GeminiNovelDB.getAllNovels();
-              full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+              if (typeof window.GeminiNovelDB.getNovelByTitle === 'function') {
+                full = await window.GeminiNovelDB.getNovelByTitle(readerNovelTitle);
+              } else {
+                const all = await window.GeminiNovelDB.getAllNovels();
+                full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+              }
             }
             if (!full) full = novelRec;
             if (full) {
@@ -668,8 +680,12 @@
             full = await window.GeminiNovelDB.getNovel(currentNovelId);
           }
           if (!full && readerNovelTitle) {
-            const all = await window.GeminiNovelDB.getAllNovels();
-            full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+            if (typeof window.GeminiNovelDB.getNovelByTitle === 'function') {
+              full = await window.GeminiNovelDB.getNovelByTitle(readerNovelTitle);
+            } else {
+              const all = await window.GeminiNovelDB.getAllNovels();
+              full = (all || []).find(n => n && (n.title === readerNovelTitle || n.id === currentNovelId || String(n.id) === String(currentNovelId)));
+            }
           }
           if (!full) full = novelRec;
           if (full) {

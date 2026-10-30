@@ -58,6 +58,197 @@
   window.getReadingProgress = getReadingProgress;
   window.saveReadingProgress = saveReadingProgress;
 
+  // ── Calibre CSS & Script Cleaning (Chimanew standard) ──
+  function sanitizeCalibreRawText(raw) {
+    if (!raw || typeof raw !== 'string') return '';
+    let s = raw.replace(/<script\b[^>]*?(?:\/>|>[\s\S]*?<\/script\s*>)/gi, '');
+    s = s.replace(/style=["']([^"']*)["']/gi, (match, styleContent) => {
+      let cleaned = styleContent
+        .replace(/text-indent\s*:\s*-[^;]+/gi, 'text-indent: 0')
+        .replace(/(?:^|[;{])\s*line-height\s*:\s*[^;]+;?/gi, '');
+      return `style="${cleaned}"`;
+    });
+    return s;
+  }
+
+  // ── Chapter Model LRU Cache & Parser (Chimanew prefetchAround parity) ──
+  const _parsedChapterCache = new Map();
+  const MAX_PARSED_CACHE_SIZE = 8;
+
+  function parseChapterModel(chapter) {
+    if (!chapter) return [new Map(), []];
+    let raw = chapter.text || chapter.content || '';
+    if (!raw) return [new Map(), []];
+    const cacheKey = (chapter.id ? String(chapter.id) : '') + '_' + (chapter.title || '') + '_' + raw.length + '_' + (chapter._isPronounSwapped ? 's' : 'o');
+    if (_parsedChapterCache.has(cacheKey)) {
+      return _parsedChapterCache.get(cacheKey);
+    }
+
+    raw = sanitizeCalibreRawText(raw);
+    const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
+    if (typeof stripFn === 'function' && chapter.title) {
+      raw = stripFn(raw, chapter.title, chapter.originalTitle);
+    }
+
+    const map = new Map();
+    let mainText = raw;
+
+    const fnHeaderMatch = raw.match(/(?:---\s*FOOTNOTES\s*---|===+\s*FOOTNOTES\s*===+)[\s\S]*$/i);
+    if (fnHeaderMatch) {
+      const fnBlock = fnHeaderMatch[0];
+      mainText = raw.slice(0, fnHeaderMatch.index).trim();
+      const defRegex = /\[([¹²³⁴⁵⁶⁷⁸⁹⁰]+|\d+)(?:\s*(?:Note|note)?\s*[:：]|\s+Note[:：]?)\s*([\s\S]*?)(?=(?:\[[¹²³⁴⁵⁶⁷⁸⁹⁰\d]+|$))/gi;
+      let m;
+      while ((m = defRegex.exec(fnBlock)) !== null) {
+        const num = m[1].trim();
+        const note = m[2].replace(/\n+/g, ' ').trim();
+        if (num && note) map.set(num, note);
+      }
+    }
+
+    const trailingDefRegex = /(?:^|\n)\[([¹²³⁴⁵⁶⁷⁸⁹⁰]+|\d+)\s+(?:Note|note)[:：]\s*([^\n]+)\]/gi;
+    let tm;
+    while ((tm = trailingDefRegex.exec(mainText)) !== null) {
+      map.set(tm[1].trim(), tm[2].trim());
+    }
+    mainText = mainText.replace(trailingDefRegex, '').trim();
+
+    const lines = mainText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const elems = [];
+    let elIdx = 0;
+    let hasEncounteredParagraph = false;
+    const chTitle = chapter.title || '';
+    const origTitle = chapter.originalTitle || '';
+    const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
+
+    for (let li = 0; li < lines.length; li++) {
+      let rawLine = lines[li];
+      if (typeof isAiRefusal === 'function' ? isAiRefusal(rawLine) : (typeof window !== 'undefined' && window.isAiRefusal ? window.isAiRefusal(rawLine) : false)) {
+        continue;
+      }
+      const centerImgWrap = rawLine.match(/^(?:\[(?:center|right)\]|<center>|<p\s+class="(?:text-center|text-right)">)\s*(!\[.*?\]\([^\)]+\)|<img\b[^>]*>)\s*(?:\[\/(?:center|right)\]|<\/center>|<\/p>)?$/i);
+      if (centerImgWrap) {
+        rawLine = centerImgWrap[1].trim();
+      }
+
+      const mdImg = rawLine.match(/^!\[(.*?)\]\(([^\)]+)\)\s*$/i);
+      if (mdImg) {
+        elems.push({ type: 'image', alt: mdImg[1] || 'Illustration', src: mdImg[2].trim(), id: `p_${elIdx++}` });
+        continue;
+      }
+      const htmlImg = rawLine.match(/^<img\s+[^>]*src=["']([^"']+)["'][^>]*>\s*$/i);
+      if (htmlImg) {
+        const altM = rawLine.match(/alt=["']([^"']+)["']/i);
+        elems.push({ type: 'image', alt: altM ? altM[1] : 'Illustration', src: htmlImg[1].trim(), id: `p_${elIdx++}` });
+        continue;
+      }
+      if (/!\[.*?\]\([^\)]+\)/i.test(rawLine)) {
+        const parts = rawLine.split(/(!\[.*?\]\([^\)]+\))/gi);
+        for (const part of parts) {
+          const pTrim = part.trim();
+          if (!pTrim) continue;
+          const subMd = pTrim.match(/^!\[(.*?)\]\(([^\)]+)\)$/i);
+          if (subMd) {
+            elems.push({ type: 'image', alt: subMd[1] || 'Illustration', src: subMd[2].trim(), id: `p_${elIdx++}` });
+          } else {
+            elems.push({ type: 'text', content: pTrim, id: `p_${elIdx++}` });
+          }
+        }
+        hasEncounteredParagraph = true;
+        continue;
+      }
+
+      const centerM = rawLine.match(/^(?:\[center\]|<center>|<p\s+class="text-center">)([\s\S]*?)(?:\[\/center\]|<\/center>|<\/p>)?$/i)
+                   || rawLine.match(/^([\s\S]*?)\[\/center\]$/i);
+      if (centerM) {
+        const inner = (centerM[1] || '').replace(/\[\/?center\]/gi, '').trim();
+        if (!hasEncounteredParagraph && typeof checkTitleEcho === 'function') {
+          if (checkTitleEcho(inner, chTitle, origTitle)) {
+            continue;
+          }
+        }
+        if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:\u2726[\s\u00A0]*){2,}|(?:\u2605[\s\u00A0]*){2,}|(?:\u2606[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
+          elems.push({ type: 'divider', id: `p_${elIdx++}` });
+        } else {
+          elems.push({ type: 'center', content: inner, id: `p_${elIdx++}` });
+          hasEncounteredParagraph = true;
+        }
+        continue;
+      }
+
+      const rightM = rawLine.match(/^(?:\[right\]|<p\s+class="text-right">)([\s\S]*?)(?:\[\/right\]|<\/p>)?$/i)
+                  || rawLine.match(/^([\s\S]*?)\[\/right\]$/i);
+      if (rightM) {
+        const inner = (rightM[1] || '').replace(/\[\/?right\]/gi, '').trim();
+        if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:\u2726[\s\u00A0]*){2,}|(?:\u2605[\s\u00A0]*){2,}|(?:\u2606[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
+          elems.push({ type: 'divider', id: `p_${elIdx++}` });
+        } else {
+          elems.push({ type: 'right', content: inner, id: `p_${elIdx++}` });
+          hasEncounteredParagraph = true;
+        }
+        continue;
+      }
+
+      if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:\u2726[\s\u00A0]*){2,}|(?:\u2605[\s\u00A0]*){2,}|(?:\u2606[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(rawLine) || rawLine === '---' || rawLine === '***' || rawLine === '___' || rawLine === '===') {
+        elems.push({ type: 'divider', id: `p_${elIdx++}` });
+        continue;
+      }
+
+      if (rawLine.startsWith('|') && rawLine.endsWith('|')) {
+        const tableLines = [rawLine];
+        while (li + 1 < lines.length && lines[li + 1].startsWith('|') && lines[li + 1].endsWith('|')) {
+          li++;
+          tableLines.push(lines[li]);
+        }
+        const rows = tableLines.filter(l => !/^[\|\s\-:]+$/.test(l));
+        if (rows.length > 0) {
+          elems.push({ type: 'table', rows, id: `p_${elIdx++}` });
+          hasEncounteredParagraph = true;
+          continue;
+        }
+      }
+
+      if (rawLine.startsWith('> **Author\'s Note:**') || rawLine.startsWith('> Author\'s Note:')) {
+        const noteLines = [rawLine.replace(/^>\s*/, '')];
+        while (li + 1 < lines.length && lines[li + 1].startsWith('>')) {
+          li++;
+          noteLines.push(lines[li].replace(/^>\s*/, ''));
+        }
+        elems.push({ type: 'author-note', content: noteLines.join('\n'), id: `p_${elIdx++}` });
+        hasEncounteredParagraph = true;
+        continue;
+      }
+
+      if (rawLine.startsWith('>')) {
+        const bqLines = [rawLine.replace(/^>\s*/, '')];
+        while (li + 1 < lines.length && lines[li + 1].startsWith('>') && !lines[li + 1].startsWith('> **Author\'s Note:')) {
+          li++;
+          bqLines.push(lines[li].replace(/^>\s*/, ''));
+        }
+        elems.push({ type: 'blockquote', content: bqLines.join('\n'), id: `p_${elIdx++}` });
+        hasEncounteredParagraph = true;
+        continue;
+      }
+
+      if (!hasEncounteredParagraph && typeof checkTitleEcho === 'function') {
+        if (checkTitleEcho(rawLine, chTitle, origTitle)) {
+          continue;
+        }
+      }
+
+      elems.push({ type: 'text', content: rawLine, id: `p_${elIdx++}` });
+      hasEncounteredParagraph = true;
+    }
+
+    const parsedResult = [map, elems];
+    if (_parsedChapterCache.size >= MAX_PARSED_CACHE_SIZE) {
+      const firstKey = _parsedChapterCache.keys().next().value;
+      _parsedChapterCache.delete(firstKey);
+    }
+    _parsedChapterCache.set(cacheKey, parsedResult);
+    return parsedResult;
+  }
+
   const MoonReaderModal = ({
     open,
     onClose,
@@ -210,9 +401,10 @@
       }
     }, [activeIdx, activeNovelKey, open]);
 
-    // Debounced Scroll Persistence & Auto-Scroll Subpixel Accumulator
+    // Debounced Scroll Persistence & Auto-Scroll Subpixel Accumulator (Chimanew 2.5s persistence pulse)
     const [chapterScrollPct, setChapterScrollPct] = useState(() => initialSavedProgress?.pct || 0);
     const saveScrollTimeoutRef = useRef(null);
+    const lastScrollSaveTimeRef = useRef(0);
     const scrollAccumulatorRef = useRef(0);
     const handleScroll = useCallback((e) => {
       const el = e.currentTarget;
@@ -222,10 +414,17 @@
       const scrollHeight = el.scrollHeight - el.clientHeight;
       const pct = scrollHeight > 0 ? (top / scrollHeight) * 100 : 0;
       setChapterScrollPct(Math.round(pct * 10) / 10);
-      if (saveScrollTimeoutRef.current) clearTimeout(saveScrollTimeoutRef.current);
-      saveScrollTimeoutRef.current = setTimeout(() => {
+      const now = Date.now();
+      if (!lastScrollSaveTimeRef.current || now - lastScrollSaveTimeRef.current > 2500) {
+        lastScrollSaveTimeRef.current = now;
         saveReadingProgress(activeNovelKey, activeIdx, top, pct);
-      }, 200);
+      } else {
+        if (saveScrollTimeoutRef.current) clearTimeout(saveScrollTimeoutRef.current);
+        saveScrollTimeoutRef.current = setTimeout(() => {
+          lastScrollSaveTimeRef.current = Date.now();
+          saveReadingProgress(activeNovelKey, activeIdx, top, pct);
+        }, 800);
+      }
     }, [activeNovelKey, activeIdx]);
 
     // Moon+ Reader Vertical Scroll Pull-to-Next & Prev Chapter Gestures
@@ -945,180 +1144,33 @@
       }
     }, [isTranslatingCurrentChapter, onTranslateChapter, activeIdx, currentChapter, chapters, safeChapters, onChaptersChange]);
 
-    // ── Footnotes Extraction & Caching (§5.10) ──
+    // ── Footnotes Extraction & Caching (§5.10 + Chimanew prefetchAround) ──
     const [activeFootnote, setActiveFootnote] = useState(null);
     const [footnotesMap, chapterElements] = useMemo(() => {
-      let raw = currentChapter?.text || currentChapter?.content || '';
-      const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
-      if (typeof stripFn === 'function' && currentChapter?.title) {
-        raw = stripFn(raw, currentChapter.title, currentChapter.originalTitle);
-      }
-
-      const map = new Map();
-      let mainText = raw;
-
-      // Detect --- FOOTNOTES --- section at the bottom
-      const fnHeaderMatch = raw.match(/(?:---\s*FOOTNOTES\s*---|===+\s*FOOTNOTES\s*===+)[\s\S]*$/i);
-      if (fnHeaderMatch) {
-        const fnBlock = fnHeaderMatch[0];
-        mainText = raw.slice(0, fnHeaderMatch.index).trim();
-        const defRegex = /\[([¹²³⁴⁵⁶⁷⁸⁹⁰]+|\d+)(?:\s*(?:Note|note)?\s*[:：]|\s+Note[:：]?)\s*([\s\S]*?)(?=(?:\[[¹²³⁴⁵⁶⁷⁸⁹⁰\d]+|$))/gi;
-        let m;
-        while ((m = defRegex.exec(fnBlock)) !== null) {
-          const num = m[1].trim();
-          const note = m[2].replace(/\n+/g, ' ').trim();
-          if (num && note) map.set(num, note);
-        }
-      }
-
-      // Also detect standalone trailing footnote lines
-      const trailingDefRegex = /(?:^|\n)\[([¹²³⁴⁵⁶⁷⁸⁹⁰]+|\d+)\s+(?:Note|note)[:：]\s*([^\n]+)\]/gi;
-      let tm;
-      while ((tm = trailingDefRegex.exec(mainText)) !== null) {
-        map.set(tm[1].trim(), tm[2].trim());
-      }
-      mainText = mainText.replace(trailingDefRegex, '').trim();
-
-      const lines = mainText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      const elems = [];
-      let elIdx = 0;
-      let hasEncounteredParagraph = false;
-      const chTitle = currentChapter?.title || '';
-      const origTitle = currentChapter?.originalTitle || '';
-      const checkTitleEcho = (typeof window !== 'undefined' && window.isTitleEcho) ? window.isTitleEcho : null;
-
-      for (let li = 0; li < lines.length; li++) {
-        let rawLine = lines[li];
-        if (typeof isAiRefusal === 'function' ? isAiRefusal(rawLine) : (typeof window !== 'undefined' && window.isAiRefusal ? window.isAiRefusal(rawLine) : false)) {
-          continue; // Strip AI refusal / copyright disclaimer from reader display
-        }
-        // Strip [center], [right], or <center> wrappers around images
-        const centerImgWrap = rawLine.match(/^(?:\[(?:center|right)\]|<center>|<p\s+class="(?:text-center|text-right)">)\s*(!\[.*?\]\([^\)]+\)|<img\b[^>]*>)\s*(?:\[\/(?:center|right)\]|<\/center>|<\/p>)?$/i);
-        if (centerImgWrap) {
-          rawLine = centerImgWrap[1].trim();
-        }
-
-        // 1. Standalone markdown image: ![alt](url)
-        const mdImg = rawLine.match(/^!\[(.*?)\]\(([^\)]+)\)\s*$/i);
-        if (mdImg) {
-          elems.push({ type: 'image', alt: mdImg[1] || 'Illustration', src: mdImg[2].trim(), id: `p_${elIdx++}` });
-          continue;
-        }
-        // 2. Standalone HTML img tag: <img ... src="..." ...>
-        const htmlImg = rawLine.match(/^<img\s+[^>]*src=["']([^"']+)["'][^>]*>\s*$/i);
-        if (htmlImg) {
-          const altM = rawLine.match(/alt=["']([^"']+)["']/i);
-          elems.push({ type: 'image', alt: altM ? altM[1] : 'Illustration', src: htmlImg[1].trim(), id: `p_${elIdx++}` });
-          continue;
-        }
-        // 3. Embedded markdown image mixed with text
-        if (/!\[.*?\]\([^\)]+\)/i.test(rawLine)) {
-          const parts = rawLine.split(/(!\[.*?\]\([^\)]+\))/gi);
-          for (const part of parts) {
-            const pTrim = part.trim();
-            if (!pTrim) continue;
-            const subMd = pTrim.match(/^!\[(.*?)\]\(([^\)]+)\)$/i);
-            if (subMd) {
-              elems.push({ type: 'image', alt: subMd[1] || 'Illustration', src: subMd[2].trim(), id: `p_${elIdx++}` });
-            } else {
-              elems.push({ type: 'text', content: pTrim, id: `p_${elIdx++}` });
-            }
-          }
-          hasEncounteredParagraph = true;
-          continue;
-        }
-
-        // 4. Centered text: [center]...[/center] or <center>...</center>
-        const centerM = rawLine.match(/^(?:\[center\]|<center>|<p\s+class="text-center">)([\s\S]*?)(?:\[\/center\]|<\/center>|<\/p>)?$/i)
-                     || rawLine.match(/^([\s\S]*?)\[\/center\]$/i);
-        if (centerM) {
-          const inner = (centerM[1] || '').replace(/\[\/?center\]/gi, '').trim();
-          if (!hasEncounteredParagraph && typeof checkTitleEcho === 'function') {
-            if (checkTitleEcho(inner, chTitle, origTitle)) {
-              continue; // Suppress duplicate centered title subheading!
-            }
-          }
-          if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:\u2726[\s\u00A0]*){2,}|(?:\u2605[\s\u00A0]*){2,}|(?:\u2606[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
-            elems.push({ type: 'divider', id: `p_${elIdx++}` });
-          } else {
-            elems.push({ type: 'center', content: inner, id: `p_${elIdx++}` });
-            hasEncounteredParagraph = true;
-          }
-          continue;
-        }
-
-        // 5. Right-aligned text: [right]...[/right]
-        const rightM = rawLine.match(/^(?:\[right\]|<p\s+class="text-right">)([\s\S]*?)(?:\[\/right\]|<\/p>)?$/i)
-                    || rawLine.match(/^([\s\S]*?)\[\/right\]$/i);
-        if (rightM) {
-          const inner = (rightM[1] || '').replace(/\[\/?right\]/gi, '').trim();
-          if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:\u2726[\s\u00A0]*){2,}|(?:\u2605[\s\u00A0]*){2,}|(?:\u2606[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(inner) || inner === '---' || inner === '***' || inner === '___' || inner === '===') {
-            elems.push({ type: 'divider', id: `p_${elIdx++}` });
-          } else {
-            elems.push({ type: 'right', content: inner, id: `p_${elIdx++}` });
-            hasEncounteredParagraph = true;
-          }
-          continue;
-        }
-
-        // 6. Scene break divider: ---, ***, ___, diamond/star dividers, etc.
-        if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,}|(?:=[\s\u00A0]*){3,}|={3,}|(?:~[\s\u00A0]*){3,}|~{3,}|(?:\.[\s\u00A0]*){3,}|\u2026{2,}|\u2014{2,}|(?:–[\s\u00A0]*){2,}|(?:#[\s\u00A0]*){3,}|(?:◆[\s\u00A0]*){2,}|(?:◇[\s\u00A0]*){2,}|(?:\u2726[\s\u00A0]*){2,}|(?:\u2605[\s\u00A0]*){2,}|(?:\u2606[\s\u00A0]*){2,}|(?:•[\s\u00A0]*){3,}|(?:·[\s\u00A0]*){3,})$/.test(rawLine) || rawLine === '---' || rawLine === '***' || rawLine === '___' || rawLine === '===') {
-          elems.push({ type: 'divider', id: `p_${elIdx++}` });
-          continue;
-        }
-
-        // 7. Markdown tables: | col | col |
-        if (rawLine.startsWith('|') && rawLine.endsWith('|')) {
-          const tableLines = [rawLine];
-          while (li + 1 < lines.length && lines[li + 1].startsWith('|') && lines[li + 1].endsWith('|')) {
-            li++;
-            tableLines.push(lines[li]);
-          }
-          const rows = tableLines.filter(l => !/^[\|\s\-:]+$/.test(l));
-          if (rows.length > 0) {
-            elems.push({ type: 'table', rows, id: `p_${elIdx++}` });
-            hasEncounteredParagraph = true;
-            continue;
-          }
-        }
-
-        // 8. Author's Note blockquote: > **Author's Note:** or > Author's Note:
-        if (rawLine.startsWith('> **Author\'s Note:**') || rawLine.startsWith('> Author\'s Note:')) {
-          const noteLines = [rawLine.replace(/^>\s*/, '')];
-          while (li + 1 < lines.length && lines[li + 1].startsWith('>')) {
-            li++;
-            noteLines.push(lines[li].replace(/^>\s*/, ''));
-          }
-          elems.push({ type: 'author-note', content: noteLines.join('\n'), id: `p_${elIdx++}` });
-          hasEncounteredParagraph = true;
-          continue;
-        }
-
-        // 9. Standard blockquote: > text
-        if (rawLine.startsWith('>')) {
-          const bqLines = [rawLine.replace(/^>\s*/, '')];
-          while (li + 1 < lines.length && lines[li + 1].startsWith('>') && !lines[li + 1].startsWith('> **Author\'s Note:')) {
-            li++;
-            bqLines.push(lines[li].replace(/^>\s*/, ''));
-          }
-          elems.push({ type: 'blockquote', content: bqLines.join('\n'), id: `p_${elIdx++}` });
-          hasEncounteredParagraph = true;
-          continue;
-        }
-
-        // Standalone paragraph line: check for title echo before first narrative paragraph!
-        if (!hasEncounteredParagraph && typeof checkTitleEcho === 'function') {
-          if (checkTitleEcho(rawLine, chTitle, origTitle)) {
-            continue; // Suppress duplicate plain-text title paragraph!
-          }
-        }
-
-        elems.push({ type: 'text', content: rawLine, id: `p_${elIdx++}` });
-        hasEncounteredParagraph = true;
-      }
-
-      return [map, elems];
+      return parseChapterModel(currentChapter);
     }, [currentChapter, renderTick]);
+
+    // Chimanew prefetchAround: Pre-parse adjacent chapters in background
+    useEffect(() => {
+      if (!safeChapters || safeChapters.length === 0) return;
+      const prefetch = () => {
+        [activeIdx + 1, activeIdx - 1].forEach(targetIdx => {
+          if (targetIdx >= 0 && targetIdx < safeChapters.length) {
+            const chap = safeChapters[targetIdx];
+            if (chap && (chap.text || chap.content)) {
+              parseChapterModel(chap);
+            }
+          }
+        });
+      };
+      if (typeof window !== 'undefined' && window.requestIdleCallback) {
+        const handle = window.requestIdleCallback(prefetch, { timeout: 1500 });
+        return () => window.cancelIdleCallback(handle);
+      } else {
+        const timer = setTimeout(prefetch, 250);
+        return () => clearTimeout(timer);
+      }
+    }, [activeIdx, safeChapters]);
 
     // ── Native Paginated Book Flip Engine ──
     const paginatedViewportRef = useRef(null);
@@ -2131,6 +2183,7 @@
             src: (typeof window !== 'undefined' && window.getSafeImageFallbackUrl) ? window.getSafeImageFallbackUrl(displaySrc) : displaySrc,
             alt: el.alt,
             loading: 'lazy',
+            decoding: 'async',
             referrerPolicy: 'no-referrer',
             onError: (e) => {
               if (!e.target.dataset.highResTried) {
@@ -2399,121 +2452,20 @@
       }),
 
       // ── MORE ACTIONS POPUP MENU (...) ──
-      hudVisible && showMoreMenu && h(React.Fragment, null,
-        h('div', {
-          style: {
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9998,
-            background: 'transparent'
-          },
-          onPointerDown: (e) => {
-            e.stopPropagation();
-            setShowMoreMenu(false);
-          },
-          onTouchStart: (e) => {
-            e.stopPropagation();
-            setShowMoreMenu(false);
-          },
-          onClick: (e) => {
-            e.stopPropagation();
-            setShowMoreMenu(false);
-          }
-        }),
-        h('div', {
-          className: 'reader-v2-more-menu',
-          style: {
-            zIndex: 9999,
-            ...(ttsActive ? {
-              top: 'auto',
-              bottom: 'calc(94px + env(safe-area-inset-bottom, 0px))',
-              right: 'max(16px, calc((100vw - 520px) / 2 + 16px))'
-            } : {})
-          },
-          onClick: (e) => e.stopPropagation()
-        },
-        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); setShowSearch(s => !s); } }, ic('Search', 15), h('span', null, 'Find in Chapter')),
-        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); setAutoScroll(s => !s); } }, ic('Zap', 15), h('span', null, autoScroll ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')),
-        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); setShowVoiceModal(true); } }, ic('Volume2', 15), h('span', null, 'Voice & Offline Engine Settings')),
-        h('div', { className: 'reader-more-divider' }),
-        h('button', { type: 'button', className: 'reader-more-item', style: { color: 'var(--r-accent)', fontWeight: 700 }, onClick: () => { setShowMoreMenu(false); const targetChap = (chapters && chapters[activeIdx]) || (safeChapters && safeChapters[activeIdx]) || currentChapter; setSuiteModalChap(targetChap || { idx: activeIdx, title: `Chapter ${activeIdx + 1}` }); } }, ic('Sparkles', 15), h('span', null, 'Chapter Translation Suite & Settings…')),
-        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); handleTranslateActiveChapter(); } }, ic('Sparkles', 15), h('span', null, isTranslatingCurrentChapter ? 'Translating Chapter…' : 'Quick Translate Chapter')),
-        h('button', { type: 'button', className: 'reader-more-item', style: { color: '#c084fc' }, onClick: () => { setShowMoreMenu(false); handleHealActiveChapterLines(); } }, ic('Sparkles', 15), h('span', null, 'Quick Heal Chapter Lines')),
-        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); handleTranslateActiveChapterTitleOnly(); } }, ic('Type', 15), h('span', null, 'Translate Chapter Title Only')),
-        (isTranslatingCurrentChapter || isTranslatingTitles || isHealingAll) && h('button', { type: 'button', className: 'reader-more-item', style: { color: 'var(--r-accent)', fontWeight: 600 }, onClick: () => { setShowMoreMenu(false); setLiveStreamText(streamBufferRef.current || ''); setIsLiveDashboardOpen(true); } }, ic('Activity', 15), h('span', null, 'Open Live Translation Dashboard')),
-        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); if (typeof onExportEpub === 'function') { onExportEpub(chapters); } else if (typeof window !== 'undefined' && window.ExportEngine?.Controller?.export) { window.ExportEngine.Controller.export('epub', { chaptersToExport: chapters }, { toast: (m, t) => window.toast?.(m, t) }); } } }, ic('Download', 15), h('span', null, 'Save / Export EPUB')),
-        h('div', { className: 'reader-more-divider' }),
-        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); if (typeof onOpenHealthAudit === 'function') onOpenHealthAudit(); else if (typeof window !== 'undefined' && typeof window.openNovelHealthAudit === 'function') window.openNovelHealthAudit(); } }, ic('Activity', 15), h('span', null, 'Novel Health & QA Audit')),
-        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); if (typeof onOpenDiff === 'function') onOpenDiff(activeIdx); else if (typeof window !== 'undefined' && typeof window.openDiffInspector === 'function') window.openDiffInspector(activeIdx); } }, ic('GitCompare', 15), h('span', null, 'Translation Diffs & Revisions')),
-        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); if (typeof onClose === 'function') onClose(); if (window.loadEpubForEditing) window.loadEpubForEditing({ id: novelId, chapters }); if (typeof window.setActiveAppTab === 'function') window.setActiveAppTab('studio', 'edit'); } }, ic('Edit', 15), h('span', null, 'Edit in Ebook Studio')),
-        h('button', { type: 'button', className: 'reader-more-item', onClick: () => { setShowMoreMenu(false); handleShareDeepLink(); } }, ic('Link', 15), h('span', null, 'Share Chapter Deep Link'))
-      )
-    ),
+      h(window.ReaderMoreMenu || 'div', {
+        hudVisible, showMoreMenu, setShowMoreMenu, ttsActive, setShowSearch, autoScroll, setAutoScroll,
+        setShowVoiceModal, chapters, safeChapters, activeIdx, currentChapter, setSuiteModalChap,
+        handleTranslateActiveChapter, isTranslatingCurrentChapter, handleHealActiveChapterLines,
+        handleTranslateActiveChapterTitleOnly, isTranslatingTitles, isHealingAll, setLiveStreamText,
+        streamBufferRef, setIsLiveDashboardOpen, onExportEpub, onOpenHealthAudit, onOpenDiff,
+        onClose, novelId, handleShareDeepLink
+      }),
 
       // ── FLOATING IN-CHAPTER SEARCH BAR ──
-      showSearch && h('div', {
-        className: 'reader-v2-search-bar',
-        onClick: (e) => e.stopPropagation()
-      },
-        ic('Search', 15, 'opacity-70'),
-        h('input', {
-          type: 'text',
-          className: 'reader-search-input',
-          placeholder: 'Search chapter text…',
-          value: searchQuery,
-          autoFocus: true,
-          onChange: (e) => {
-            setSearchQuery(e.target.value);
-            setActiveMatchIndex(0);
-          },
-          onKeyDown: (e) => {
-            if (e.key === 'Enter') {
-              if (e.shiftKey) {
-                handlePrevSearchMatch();
-              } else {
-                handleNextSearchMatch();
-              }
-            } else if (e.key === 'Escape') {
-              setShowSearch(false);
-            }
-          }
-        }),
-        h('span', {
-          style: {
-            fontSize: 12,
-            fontWeight: 600,
-            color: searchMatches.length > 0 ? 'var(--r-accent)' : 'var(--r-muted)',
-            whiteSpace: 'nowrap',
-            padding: '2px 6px'
-          }
-        }, searchQuery.trim() ? (searchMatches.length > 0 ? `${activeMatchIndex + 1} of ${searchMatches.length}` : '0 found') : ''),
-        h('button', {
-          type: 'button',
-          className: 'reader-search-nav-btn',
-          disabled: searchMatches.length === 0,
-          onClick: handlePrevSearchMatch,
-          'aria-label': 'Previous search match',
-          title: 'Previous match (Shift+Enter)'
-        }, ic('ChevronUp', 14)),
-        h('button', {
-          type: 'button',
-          className: 'reader-search-nav-btn',
-          disabled: searchMatches.length === 0,
-          onClick: handleNextSearchMatch,
-          'aria-label': 'Next search match',
-          title: 'Next match (Enter)'
-        }, ic('ChevronDown', 14)),
-        h('button', {
-          type: 'button',
-          className: 'reader-search-nav-btn close',
-          onClick: () => {
-            setShowSearch(false);
-            setSearchQuery('');
-          },
-          'aria-label': 'Close search',
-          title: 'Close search'
-        }, ic('X', 14))
-      ),
+      h(window.ReaderSearchBar || 'div', {
+        showSearch, setShowSearch, searchQuery, setSearchQuery, searchMatches,
+        activeMatchIndex, setActiveMatchIndex, handlePrevSearchMatch, handleNextSearchMatch
+      }),
 
       // ── READING CANVAS CONTAINER ──
       viewMode === 'paginated'
@@ -2929,58 +2881,10 @@
       }),
 
       // ── LIGHTBOX ILLUSTRATION MODAL ──
-      lightboxImg && h('div', {
-        className: 'reader-v2-lightbox',
-        onClick: () => setLightboxImg(null)
-      },
-        h('img', {
-          src: lightboxImg,
-          alt: 'High Resolution Illustration',
-          onError: (e) => {
-            if (!e.target.dataset.highResTried) {
-              e.target.dataset.highResTried = '1';
-              const highRes = (typeof window !== 'undefined' && window.getHighResIllustration) ? window.getHighResIllustration(lightboxImg) : null;
-              if (highRes && e.target.src !== highRes) {
-                e.target.src = highRes;
-                return;
-              }
-            }
-            const thMatch = (lightboxImg || '').match(/[#?]th=([A-Za-z0-9_-]+)/i);
-            if (thMatch && !e.target.dataset.thumbhashLoaded) {
-              e.target.dataset.thumbhashLoaded = '1';
-              try {
-                const dataUrlFn = (typeof window !== 'undefined' && window.thumbHashToDataUrl) ? window.thumbHashToDataUrl : (typeof thumbHashToDataUrl === 'function' ? thumbHashToDataUrl : null);
-                if (dataUrlFn) {
-                  const dataUrl = dataUrlFn(thMatch[1]);
-                  if (dataUrl) e.target.src = dataUrl;
-                }
-              } catch (_) {}
-            }
-          }
-        })
-      ),
+      h(window.ReaderLightboxModal || 'div', { lightboxImg, setLightboxImg }),
 
       // ── FLOATING CULTURAL FOOTNOTE CARD (§5.10) ──
-      activeFootnote && h('div', {
-        className: 'reader-footnote-card',
-        onClick: (e) => e.stopPropagation()
-      },
-        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: 'var(--r-accent)' } },
-            ic('Bookmark', 15),
-            h('span', null, `Cultural Context Note [${activeFootnote.num}]`)
-          ),
-          h('button', {
-            type: 'button',
-            className: 'reader-search-nav-btn close',
-            style: { width: 28, height: 28, minWidth: 28, minHeight: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-            onClick: () => setActiveFootnote(null),
-            'aria-label': 'Close cultural context note',
-            title: 'Close cultural context note'
-          }, ic('X', 14))
-        ),
-        h('div', { style: { fontSize: 13.5, lineHeight: 1.55, color: 'var(--r-text)' } }, activeFootnote.text)
-      )
+      h(window.ReaderFootnoteCard || 'div', { activeFootnote, setActiveFootnote })
     );
   };
 

@@ -62,9 +62,9 @@
         kv: 'key'
       });
 
-      console.log('⚡ [db_engine] Dexie.js 3.2.4 database instances initialized successfully.');
+      console.log('[db_engine] Dexie.js 3.2.4 database instances initialized successfully.');
     } catch (err) {
-      console.warn('⚠️ [db_engine] Dexie initialization warning:', err);
+      console.warn('[db_engine] Dexie initialization warning:', err);
     }
   }
 
@@ -236,6 +236,96 @@
       } catch (e) {
         console.warn('[db_engine] Native getAllNovels failed:', e);
         return [];
+      }
+    },
+
+    async getAllNovelsSummary() {
+      const mapSummary = (n) => ({
+        id: n.id,
+        title: n.title,
+        author: n.author,
+        summary: n.summary || '',
+        coverUrl: n.coverUrl || '',
+        cover: n.cover || '',
+        totalChapters: Array.isArray(n.chapters) ? n.chapters.length : (n.totalChapters || 0),
+        chapterCount: n.chapterCount || (Array.isArray(n.chapters) ? n.chapters.length : (n.rawChapters ? n.rawChapters.length : 0)),
+        totalChapterCount: n.totalChapterCount || (n.chapterList ? n.chapterList.length : (n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0))),
+        volumeCount: n.volumeCount || 0,
+        currentChapter: n.currentChapter || 0,
+        readingProgress: n.readingProgress || 0,
+        isIncomplete: !!n.isIncomplete,
+        isTranslated: !!n.isTranslated || (n.title || '').includes('(Translated)'),
+        inSavedSpace: !!n.inSavedSpace,
+        wordCount: n.wordCount || 0,
+        timestamp: n.timestamp || n.updatedAt || 0,
+        updatedAt: n.updatedAt || n.timestamp || 0,
+        isEpub: !!n.isEpub,
+        tags: n.tags || [],
+        folder: n.folder || '',
+        folderTreeUri: n.folderTreeUri || '',
+        folderPath: n.folderPath || '',
+        sourceUrl: n.sourceUrl || n.url || '',
+        sources: n.sources || [],
+        status: n.status || '',
+        source: n.source || '',
+        publishedDate: n.publishedDate || '',
+        chapterList: n.chapterList || []
+      });
+
+      try {
+        if (novelDB) {
+          const all = await novelDB.novels.toArray();
+          return (all || []).map(mapSummary);
+        }
+      } catch (err) {
+        console.warn('[db_engine] Dexie getAllNovelsSummary fallback to native:', err);
+      }
+      try {
+        const db = await getNativeDB();
+        if (!db) return [];
+        return new Promise((resolve) => {
+          const tx = db.transaction('novels', 'readonly');
+          const store = tx.objectStore('novels');
+          const summaries = [];
+          const req = store.openCursor();
+          req.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+              const n = cursor.value;
+              if (n) {
+                summaries.push(mapSummary(n));
+              }
+              cursor.continue();
+            } else {
+              resolve(summaries);
+            }
+          };
+          req.onerror = () => resolve([]);
+        });
+      } catch (e) {
+        console.warn('[db_engine] Native getAllNovelsSummary failed:', e);
+        return [];
+      }
+    },
+
+    async getNovelByTitle(title) {
+      if (!title || typeof title !== 'string') return null;
+      const cleanTarget = title.trim().toLowerCase();
+      try {
+        if (novelDB) {
+          const exact = await novelDB.novels.where('title').equalsIgnoreCase(title.trim()).first();
+          if (exact) return exact;
+          const all = await novelDB.novels.toArray();
+          return (all || []).find(n => n && (n.title || '').trim().toLowerCase() === cleanTarget) || null;
+        }
+      } catch (err) {
+        console.warn('[db_engine] Dexie getNovelByTitle fallback:', err);
+      }
+      try {
+        const all = await this.getAllNovels();
+        return (all || []).find(n => n && (n.title || '').trim().toLowerCase() === cleanTarget) || null;
+      } catch (_) {
+        return null;
       }
     },
 
@@ -414,6 +504,29 @@
         });
       } catch (e) {
         return [];
+      }
+    },
+
+    async getTrashCount() {
+      try {
+        if (novelDB && novelDB.trash) {
+          return await novelDB.trash.count();
+        }
+      } catch (err) {
+        console.warn('[db_engine] Dexie getTrashCount fallback to native:', err);
+      }
+      try {
+        const db = await getNativeDB();
+        if (!db || !db.objectStoreNames.contains('trash')) return 0;
+        return new Promise((resolve) => {
+          const tx = db.transaction('trash', 'readonly');
+          const store = tx.objectStore('trash');
+          const req = store.count();
+          req.onsuccess = () => resolve(req.result || 0);
+          req.onerror = () => resolve(0);
+        });
+      } catch (e) {
+        return 0;
       }
     },
 
@@ -652,7 +765,11 @@
 
     async getActiveTranslationSession() {
       try {
-        if (novelDB) {
+        if (novelDB && novelDB.active_translations) {
+          try {
+            const latest = await novelDB.active_translations.orderBy('timestamp').reverse().first();
+            if (latest) return latest;
+          } catch (_) {}
           const all = await novelDB.active_translations.toArray();
           if (all.length === 0) return null;
           all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -1000,14 +1117,14 @@
         try {
           const isPersisted = await navigator.storage.persisted();
           if (isPersisted) {
-            console.log('🛡️ [db_engine] Storage is already persistent (eviction-proof).');
+            console.log('[db_engine] Storage is already persistent (eviction-proof).');
             return true;
           }
           const granted = await navigator.storage.persist();
-          console.log(`🛡️ [db_engine] Persistent storage request result: ${granted ? 'GRANTED' : 'DENIED'}`);
+          console.log(`[db_engine] Persistent storage request result: ${granted ? 'GRANTED' : 'DENIED'}`);
           return granted;
         } catch (e) {
-          console.warn('⚠️ [db_engine] Could not request persistent storage:', e);
+          console.warn('[db_engine] Could not request persistent storage:', e);
           return false;
         }
       }

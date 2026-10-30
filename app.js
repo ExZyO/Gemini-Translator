@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.14';
+    let VERSION = '8.22.15';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -331,18 +331,29 @@
       const [collapsedVolumes, setCollapsedVolumes] = useState({});
       const [trashList, setTrashList] = useState([]);
       const [trashCount, setTrashCount] = useState(0);
+      const trashCountDebounceRef = useRef(null);
 
-      const loadTrashCount = useCallback(async () => {
-        if (window.GeminiNovelDB) {
+      const loadTrashCount = useCallback(async (fetchFullList = false) => {
+        if (!window.GeminiNovelDB) return;
+        if (trashCountDebounceRef.current) clearTimeout(trashCountDebounceRef.current);
+        trashCountDebounceRef.current = setTimeout(async () => {
           try {
-            const list = await window.GeminiNovelDB.getTrashNovels();
-            setTrashList(list || []);
-            setTrashCount((list || []).length);
+            if (fetchFullList) {
+              const list = await window.GeminiNovelDB.getTrashNovels();
+              setTrashList(list || []);
+              setTrashCount((list || []).length);
+            } else if (typeof window.GeminiNovelDB.getTrashCount === 'function') {
+              const count = await window.GeminiNovelDB.getTrashCount();
+              setTrashCount(count || 0);
+            } else {
+              const list = await window.GeminiNovelDB.getTrashNovels();
+              setTrashList(list || []);
+              setTrashCount((list || []).length);
+            }
           } catch (e) {
-            setTrashList([]);
             setTrashCount(0);
           }
-        }
+        }, 150);
       }, []);
 
       const getNovelFolderOptions = (novel) => window.MoonReaderEngine ? window.MoonReaderEngine.getNovelFolderOptions(novel) : {};
@@ -2492,6 +2503,11 @@
       const [libCollapsed, setLibCollapsed] = useState({ books: false, history: false });
       const [libQuery, setLibQuery] = useState('');
       const [libTab, setLibTab] = useState('all');
+      useEffect(() => {
+        if (libTab === 'trash') {
+          loadTrashCount(true);
+        }
+      }, [libTab, loadTrashCount]);
       const libMetrics = useMemo(() => {
         if (window.LibraryEngine?.computeLibraryMetrics) {
           return window.LibraryEngine.computeLibraryMetrics({

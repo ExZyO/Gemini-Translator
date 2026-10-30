@@ -381,6 +381,8 @@
               src: latestReadingBook.book.cover,
               alt: '',
               className: 'shelf-hero-cover',
+              loading: 'lazy',
+              decoding: 'async',
               referrerPolicy: 'no-referrer',
               onError: (e) => { e.target.style.display = 'none'; }
             }) : h('div', {
@@ -501,6 +503,8 @@
                   src: item.cover,
                   alt: item.title || 'Cover',
                   className: 'shelf-book-cover-img',
+                  loading: 'lazy',
+                  decoding: 'async',
                   referrerPolicy: 'no-referrer',
                   onError: (e) => {
                     e.target.style.display = 'none';
@@ -901,6 +905,8 @@
                               b.cover ? h('img', {
                                 src: b.cover,
                                 alt: 'Cover',
+                                loading: 'lazy',
+                                decoding: 'async',
                                 referrerPolicy: 'no-referrer',
                                 onError: (e) => {
                                   e.target.style.display = 'none';
@@ -1051,6 +1057,8 @@
                             item.cover ? h('img', {
                               src: item.cover,
                               alt: 'Cover',
+                              loading: 'lazy',
+                              decoding: 'async',
                               referrerPolicy: 'no-referrer',
                               onError: (e) => {
                                 e.target.style.display = 'none';

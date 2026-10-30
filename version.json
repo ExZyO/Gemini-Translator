@@ -1,9 +1,9 @@
 {
-  "version": "8.22.14",
-  "versionCode": 8525,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.14/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.14/GeminiTranslator.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.14",
-  "releaseDate": "2026-10-28",
-  "releaseNotes": "v8.22.14: Codebase modularity refactoring and memory optimization. Decomposed oversized monoliths into dedicated modules (epub_hash_registry, reader_modal_translation_suite, reader_modal_dashboard, app_modal_extensions, app_modal_download_success, translation_chapter_runner), centralized string and regex utilities, and added automatic LRU cache memory eviction for novel covers and illustrations."
+  "version": "8.22.15",
+  "versionCode": 8526,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.15/GeminiTranslator.apk",
+  "downloadUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.15/GeminiTranslator.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.15",
+  "releaseDate": "2026-10-30",
+  "releaseNotes": "v8.22.15: Database query throttling and background pre-decoding optimizations inspired by Chimanew architecture. Added lightweight bookshelf summary projections (getAllNovelsSummary) and indexed title lookups to eliminate full chapter text heap thrashing, background pre-parsing of adjacent chapters (prefetchAround) via idle callbacks with an LRU cache, async off-thread image decoding and lazy loading across bookshelf covers and illustrations, Calibre CSS sanitization, and OPF publication date extraction."
 }

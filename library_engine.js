@@ -72,13 +72,20 @@
         } catch(e) {}
       }
 
-      // 3. Check across all IndexedDB records
+      // 3. Check across IndexedDB records
       if (!sourceUrl && window.GeminiNovelDB) {
         try {
-          const all = await window.GeminiNovelDB.getAllNovels();
-          const dbMatch = (all || []).find(n => n && cleanT(n.title) === itemClean && (n.sourceUrl || n.url));
-          if (dbMatch) {
-            sourceUrl = dbMatch.sourceUrl || dbMatch.url;
+          if (typeof window.GeminiNovelDB.getNovelByTitle === 'function') {
+            const dbMatch = await window.GeminiNovelDB.getNovelByTitle(itemClean);
+            if (dbMatch && (dbMatch.sourceUrl || dbMatch.url)) {
+              sourceUrl = dbMatch.sourceUrl || dbMatch.url;
+            }
+          } else {
+            const all = await window.GeminiNovelDB.getAllNovels();
+            const dbMatch = (all || []).find(n => n && cleanT(n.title) === itemClean && (n.sourceUrl || n.url));
+            if (dbMatch) {
+              sourceUrl = dbMatch.sourceUrl || dbMatch.url;
+            }
           }
         } catch(e) {}
       }
@@ -248,7 +255,7 @@
       }
 
       if (typeof callbacks.toast === 'function') {
-        callbacks.toast(`Renamed novel to "${trimmed}"! Future chapter updates will use this name. ✨`, 'success');
+        callbacks.toast(`Renamed novel to "${trimmed}"! Future chapter updates will use this name.`, 'success');
       }
 
       if (typeof callbacks.onSuccess === 'function') {
@@ -731,12 +738,21 @@
           }
         } catch(e) {}
       }
-      // 2. Try IndexedDB by matching title or id across all stored records
-      if (window.GeminiNovelDB && meta.title) {
+      // 2. Try IndexedDB by matching title or id
+      if (window.GeminiNovelDB && (meta.id || meta.title)) {
         try {
-          const all = await window.GeminiNovelDB.getAllNovels();
-          const targetClean = normalizeTitleKey(meta.title);
-          const match = (all || []).find(n => n.id === meta.id || n.title === meta.title || (n.title && normalizeTitleKey(n.title) === targetClean));
+          let match = null;
+          if (meta.id) {
+            match = await window.GeminiNovelDB.getNovel(meta.id);
+          }
+          if (!match && meta.title && typeof window.GeminiNovelDB.getNovelByTitle === 'function') {
+            match = await window.GeminiNovelDB.getNovelByTitle(meta.title);
+          }
+          if (!match && meta.title) {
+            const all = await window.GeminiNovelDB.getAllNovels();
+            const targetClean = normalizeTitleKey(meta.title);
+            match = (all || []).find(n => n.id === meta.id || n.title === meta.title || (n.title && normalizeTitleKey(n.title) === targetClean));
+          }
           if (match && (match.rawChapters?.length > 0 || match.chapters?.length > 0 || match.translatedChapters?.length > 0 || match.epubBlob)) {
             return normalizeRecord(match);
           }
@@ -1779,7 +1795,7 @@
       }
 
       if (typeof callbacks.toast === 'function') {
-        callbacks.toast(updatesFound > 0 ? `Updates found for ${updatesFound} novel(s)! Check badges in Library.` : 'All novels are up to date! ✨', 'success');
+        callbacks.toast(updatesFound > 0 ? `Updates found for ${updatesFound} novel(s)! Check badges in Library.` : 'All novels are up to date!', 'success');
       }
 
       return updatesFound;
@@ -1876,7 +1892,9 @@
         const seenTitles = new Set();
 
         if (window.GeminiNovelDB) {
-          const dbNovels = await window.GeminiNovelDB.getAllNovels();
+          const dbNovels = typeof window.GeminiNovelDB.getAllNovelsSummary === 'function'
+            ? await window.GeminiNovelDB.getAllNovelsSummary()
+            : await window.GeminiNovelDB.getAllNovels();
           if (dbNovels && dbNovels.length > 0) {
             dbNovels.reverse().forEach(n => {
               const item = {
