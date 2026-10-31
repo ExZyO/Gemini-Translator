@@ -1738,10 +1738,9 @@
       React.useEffect(() => {
         const updateScreens = () => {
           if (viewMode === 'paginated') {
-            setScreenMetrics({
-              currentScreen: Math.max(1, (currentPage || 0) + 1),
-              totalScreens: Math.max(1, totalPages || 1)
-            });
+            const nextCur = Math.max(1, (currentPage || 0) + 1);
+            const nextTot = Math.max(1, totalPages || 1);
+            setScreenMetrics(prev => (prev.currentScreen === nextCur && prev.totalScreens === nextTot) ? prev : { currentScreen: nextCur, totalScreens: nextTot });
             return;
           }
           const el = document.getElementById('gemini-reader-scroll-area');
@@ -1750,11 +1749,11 @@
             const sh = el.scrollHeight || vh;
             const tot = Math.max(1, Math.ceil(sh / vh));
             const cur = Math.min(tot, Math.max(1, Math.floor(((el.scrollTop || 0) + 16) / vh) + 1));
-            setScreenMetrics({ currentScreen: cur, totalScreens: tot });
+            setScreenMetrics(prev => (prev.currentScreen === cur && prev.totalScreens === tot) ? prev : { currentScreen: cur, totalScreens: tot });
           } else {
             const tot = Math.max(1, Math.round(((currentChapter?.text?.length || 2000) / 1200)));
             const cur = Math.min(tot, Math.max(1, Math.round(tot * ((chapterScrollPct || 0) / 100))));
-            setScreenMetrics({ currentScreen: cur, totalScreens: tot });
+            setScreenMetrics(prev => (prev.currentScreen === cur && prev.totalScreens === tot) ? prev : { currentScreen: cur, totalScreens: tot });
           }
         };
 
@@ -1768,7 +1767,7 @@
             window.removeEventListener('resize', updateScreens);
           };
         }
-      }, [chapterIndex, chapterScrollPct, currentPage, totalPages, viewMode, currentChapter]);
+      }, [chapterIndex, currentPage, totalPages, viewMode, currentChapter]);
 
       // Memoize chapter words and book total words for instant estimation
       const { currentChapterWords, totalBookWords, wordsReadSoFar } = React.useMemo(() => {

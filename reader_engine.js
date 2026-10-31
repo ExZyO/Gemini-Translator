@@ -435,14 +435,17 @@
     const saveScrollTimeoutRef = useRef(null);
     const lastScrollSaveTimeRef = useRef(0);
     const scrollAccumulatorRef = useRef(0);
+    const scrollRafRef = useRef(null);
+    const lastScrollPctRef = useRef(initialSavedProgress?.pct || 0);
+
     const handleScroll = useCallback((e) => {
       const el = e.currentTarget;
       if (!el) return;
-      scrollAccumulatorRef.current = el.scrollTop || 0;
       const top = el.scrollTop || 0;
+      scrollAccumulatorRef.current = top;
       const scrollHeight = el.scrollHeight - el.clientHeight;
       const pct = scrollHeight > 0 ? (top / scrollHeight) * 100 : 0;
-      setChapterScrollPct(Math.round(pct * 10) / 10);
+
       const now = Date.now();
       if (!lastScrollSaveTimeRef.current || now - lastScrollSaveTimeRef.current > 2500) {
         lastScrollSaveTimeRef.current = now;
@@ -454,7 +457,32 @@
           saveReadingProgress(activeNovelKey, activeIdx, top, pct);
         }, 800);
       }
-    }, [activeNovelKey, activeIdx]);
+
+      // RAF-throttled scroll state update: prevents 60-120fps React thrashing during active finger swipes
+      if (!scrollRafRef.current) {
+        scrollRafRef.current = requestAnimationFrame(() => {
+          scrollRafRef.current = null;
+          const rounded = Math.round(pct);
+          if (Math.abs(rounded - lastScrollPctRef.current) >= 1) {
+            lastScrollPctRef.current = rounded;
+            setChapterScrollPct(rounded);
+          }
+        });
+      }
+    }, [activeNovelKey, activeIdx, saveReadingProgress]);
+
+    useEffect(() => {
+      return () => {
+        if (scrollRafRef.current) {
+          cancelAnimationFrame(scrollRafRef.current);
+          scrollRafRef.current = null;
+        }
+        if (saveScrollTimeoutRef.current) {
+          clearTimeout(saveScrollTimeoutRef.current);
+          saveScrollTimeoutRef.current = null;
+        }
+      };
+    }, []);
 
     // Moon+ Reader Vertical Scroll Pull-to-Next & Prev Chapter Gestures
     const scrollGestures = useMemo(() => {
@@ -2512,6 +2540,35 @@
       });
     }, [bookmarks, activeIdx, chapterScrollPct, viewMode, totalPages, currentPage]);
 
+    // Memoized Chapter Prose & Typography: immune to scroll events, preventing 5fps re-rendering & DOM unloads
+    const memoizedScrollChapterContent = useMemo(() => {
+      if (!currentChapter) return null;
+      const rawT = (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(currentChapter.title) : (currentChapter.title || '');
+      const match = rawT.match(/^(?:chapter|ch|c)?\s*(\d+(?:\.\d+)?)\s*[:：\-_.]\s*(.*)$/i);
+      const numPart = match ? `Chapter ${match[1]}:` : `Chapter ${activeIdx + 1}:`;
+      const namePart = match ? match[2].trim() : rawT.replace(/^(?:chapter|ch|c)?\s*\d+\s*/i, '').trim();
+      let mCounter = { count: 0 };
+
+      return h('div', { className: `reader-v2-content-box ${widthClass} ${paragraphIndent ? 'reader-v2-indent' : ''}`, style: { textAlign: justify ? 'justify' : 'left' } },
+        h('div', { className: 'moon-chapter-header' },
+          currentChapter.arc && h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--r-accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 } }, currentChapter.arc),
+          h('div', { className: 'moon-chapter-header-number' }, numPart),
+          namePart && h('div', { className: 'moon-chapter-header-title' }, namePart)
+        ),
+        chapterElements.map((el, pIdx) => renderParagraphNode(el, pIdx, false, mCounter))
+      );
+    }, [
+      currentChapter,
+      activeIdx,
+      chapterElements,
+      widthClass,
+      paragraphIndent,
+      justify,
+      renderTick,
+      searchMatches,
+      activeMatchIndex
+    ]);
+
     // ── 5. Render Reader Shell ──
     const themeClass = `reader-v2-theme-${theme || 'dark'}`;
     const fontClass = `reader-v2-font-${font || 'serif'}`;
@@ -2661,27 +2718,8 @@
             }
           },
 
-            h('div', { className: `reader-v2-content-box ${widthClass} ${paragraphIndent ? 'reader-v2-indent' : ''}`, style: { textAlign: justify ? 'justify' : 'left' } },
-          // Moon+ Reader Centered Bold Chapter Header (Screenshot 1)
-          (() => {
-            const rawT = (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(currentChapter.title) : (currentChapter.title || '');
-            const match = rawT.match(/^(?:chapter|ch|c)?\s*(\d+(?:\.\d+)?)\s*[:：\-_.]\s*(.*)$/i);
-            const numPart = match ? `Chapter ${match[1]}:` : `Chapter ${activeIdx + 1}:`;
-            const namePart = match ? match[2].trim() : rawT.replace(/^(?:chapter|ch|c)?\s*\d+\s*/i, '').trim();
-            return h('div', { className: 'moon-chapter-header' },
-              currentChapter.arc && h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--r-accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 } }, currentChapter.arc),
-              h('div', { className: 'moon-chapter-header-number' }, numPart),
-              namePart && h('div', { className: 'moon-chapter-header-title' }, namePart)
-            );
-          })(),
-
-          // Chapter Paragraphs & Illustrations with Footnotes & Search
-          (() => {
-            let mCounter = { count: 0 };
-            return chapterElements.map((el, pIdx) => renderParagraphNode(el, pIdx, false, mCounter));
-          })()
-        )
-      ),
+            memoizedScrollChapterContent
+          ),
 
       // ── MOON+ READER MINIMAL STATUS BAR (Active during immersive reading) ──
       h(window.MoonReaderEngine?.StatusBar || 'div', {

@@ -1,10 +1,10 @@
 {
-  "version": "8.22.30",
-  "versionCode": 8541,
+  "version": "8.22.31",
+  "versionCode": 8542,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.18/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.30/app-release.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.31/app-release.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.17",
   "releaseDate": "2026-10-31",
-  "releaseNotes": "v8.22.30: Full Bookshelf optimization: metadata-only Dexie streaming, lightweight cover pipeline, 60fps CSS containment scrolling, memoized shelf cards, and parallel update checks.",
+  "releaseNotes": "v8.22.31: Fix reader scroll stability: hide right-edge scrollbar line, throttle scroll updates via requestAnimationFrame, memoize chapter DOM tree, and eliminate 5fps scrolling lag.",
   "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.20"
 }
