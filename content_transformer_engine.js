@@ -30,6 +30,43 @@
   // STAGE 1: INGESTION HYGIENE (Storage & Translation Safe)
   // ───────────────────────────────────────────────────────────────────────────
 
+  // Anti-bot, Cloudflare challenge, and network error signatures that must NEVER be written to an ebook
+  const ERROR_PAGE_PATTERNS = [
+    /error\s*1015/i,
+    /error\s*429\b/i,
+    /rate\s*limit/i,
+    /too\s*many\s*requests/i,
+    /challenges\.cloudflare\.com/i,
+    /cf-browser-verification/i,
+    /cf-turnstile-wrapper/i,
+    /attention\s*required!\s*\|\s*cloudflare/i,
+    /<title>\s*just\s*a\s*moment\.\.\.\s*<\/title>/i,
+    /checking\s*(?:your\s*browser|if\s*the\s*site\s*connection\s*is\s*secure)/i,
+    /403\s*forbidden/i,
+    /401\s*unauthorized/i,
+    /502\s*bad\s*gateway/i,
+    /504\s*gateway\s*time-?out/i,
+    /503\s*service\s*temporarily\s*unavailable/i,
+    /all\s*proxies\s*exhausted/i,
+    /chapter\s*content\s*could\s*not\s*be\s*retrieved/i,
+    /failed\s*to\s*fetch\s*chapter/i,
+    /chapter\s*download\s*failed/i
+  ];
+
+  /**
+   * Check whether raw downloaded text is an error page, rate-limit page, or Cloudflare challenge
+   * rather than actual story prose.
+   * @param {string} text
+   * @returns {boolean}
+   */
+  function isErrorOrBlockContent(text) {
+    if (!text || typeof text !== 'string') return false;
+    const trimmed = text.trim();
+    if (trimmed.length === 0) return true;
+    const sample = trimmed.length > 5000 ? trimmed.slice(0, 5000) : trimmed;
+    return ERROR_PAGE_PATTERNS.some(p => p.test(sample));
+  }
+
   // Zero-width characters, invisible control codes, and anti-scraper traps
   const ZERO_WIDTH_REGEX = /[\u200B\u200C\u200D\uFEFF\u00AD\u200E\u200F\u202A-\u202E\u2060-\u206F]/g;
 
@@ -213,7 +250,14 @@
    * @returns {string}
    */
   function formatForEpub(text, options = {}) {
-    if (!text || typeof text !== 'string') return text || '';
+    if (!text || typeof text !== 'string') {
+      return '<p class="chapter-unavailable"><em>[Chapter unavailable at time of compilation.]</em></p>';
+    }
+
+    // Absolute guard: Never write Cloudflare challenges, rate limit dumps, or error stack traces to an EPUB
+    if (isErrorOrBlockContent(text)) {
+      return '<p class="chapter-unavailable"><em>[Chapter content could not be retrieved from online source at time of compilation.]</em></p>';
+    }
 
     let cleaned = sanitizeForStorage(text);
     cleaned = parseRuby(cleaned);
@@ -238,6 +282,7 @@
   // ───────────────────────────────────────────────────────────────────────────
 
   return {
+    isErrorOrBlockContent,
     stripZeroWidthCharacters,
     stripAntiScraperTraps,
     normalizeExcessiveWhitespace,

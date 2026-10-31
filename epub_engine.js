@@ -109,6 +109,10 @@
 
     const formatChapterBodyToHtml = (bodyContent, options = {}) => {
       if (!bodyContent) return '';
+      const transformer = (typeof window !== 'undefined' && window.ContentTransformerEngine) ? window.ContentTransformerEngine : (typeof ContentTransformerEngine !== 'undefined' ? ContentTransformerEngine : null);
+      if (transformer && typeof transformer.isErrorOrBlockContent === 'function' && transformer.isErrorOrBlockContent(bodyContent)) {
+        return '<p class="chapter-unavailable"><em>[Chapter content could not be retrieved from online source at time of compilation.]</em></p>';
+      }
       const useSmartQuotes = options.useSmartQuotes !== false;
       const chTitle = options.chapterTitle || '';
 
@@ -646,7 +650,10 @@
       const exportChapters = (Array.isArray(chaptersList) ? chaptersList : []).map((ch, idx) => {
         const title = String(ch?.title || '').trim() || ('Chapter ' + (idx + 1));
         let content = cleanFn(String(ch?.text ?? ch?.content ?? ch?.body ?? ch?.html ?? '').replace(/\r\n?/g, '\n')).trim();
-        if (stripFn) {
+        const transformer = (typeof window !== 'undefined' && window.ContentTransformerEngine) ? window.ContentTransformerEngine : (typeof ContentTransformerEngine !== 'undefined' ? ContentTransformerEngine : null);
+        if (ch?.isPlaceholder || (transformer && typeof transformer.isErrorOrBlockContent === 'function' && transformer.isErrorOrBlockContent(content))) {
+          content = '<p class="chapter-unavailable"><em>[Chapter content unavailable from source at time of compilation.]</em></p>';
+        } else if (stripFn) {
           content = stripFn(content, title, ch?.originalTitle);
         }
         return {

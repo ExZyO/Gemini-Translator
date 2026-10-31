@@ -1351,13 +1351,16 @@
                         chData = await extractContentFn(item, currentIndex);
                         if (ctrl.isPaused || ctrl.isCancelled) break;
 
-                        // Validate content: reject Cloudflare Error 1015 rate-limit block pages
-                        if (chData && chData.text) {
-                            const sample = chData.text.slice(0, 350).toLowerCase();
-                            if (sample.includes('error 1015') || (sample.includes('rate limit') && sample.includes('cloudflare'))) {
+                        // Validate content: reject Cloudflare blocks, 429 rate limits, and error pages
+                        if (chData && (chData.text || chData.content)) {
+                            const fullContent = chData.text || chData.content || '';
+                            const blockCheck = detectBlockOrChallenge(fullContent);
+                            const transformer = (typeof window !== 'undefined' && window.ContentTransformerEngine) ? window.ContentTransformerEngine : (typeof ContentTransformerEngine !== 'undefined' ? ContentTransformerEngine : null);
+                            const isErrorContent = blockCheck.blocked || (transformer && transformer.isErrorOrBlockContent(fullContent));
+                            if (isErrorContent) {
                                 rateLimitDetected = true;
-                                speedCtrl.recordThrottle('cloudflare_1015', 1015);
-                                chData = null;
+                                speedCtrl.recordThrottle(blockCheck.label || 'block_or_error_page', 429);
+                                chData = null; // REJECT: Never save error or block text as chapter content
                             } else {
                                 speedCtrl.recordSuccess(Date.now() - reqStart);
                             }
@@ -1505,10 +1508,12 @@
                         const placeholder = {
                             idx: currentIndex,
                             title: item.title || `Chapter ${currentIndex + 1}`,
-                            text: `<p>[Chapter content could not be retrieved from remote source: ${item.url || 'Network error'}]</p>`,
-                            content: `<p>[Chapter content could not be retrieved from remote source: ${item.url || 'Network error'}]</p>`,
-                            words: 10,
-                            isPlaceholder: true
+                            url: item.url || '',
+                            text: '<p><em>[Chapter content unavailable from source at time of download.]</em></p>',
+                            content: '<p><em>[Chapter content unavailable from source at time of download.]</em></p>',
+                            words: 0,
+                            isPlaceholder: true,
+                            errorReason: 'download_failed'
                         };
                         chapters.push(placeholder);
                         completedIndices.add(currentIndex);
