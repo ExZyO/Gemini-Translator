@@ -274,8 +274,11 @@
 
       try {
         if (novelDB) {
-          const all = await novelDB.novels.toArray();
-          return (all || []).map(mapSummary);
+          const summaries = [];
+          await novelDB.novels.each(n => {
+            if (n) summaries.push(mapSummary(n));
+          });
+          return summaries;
         }
       } catch (err) {
         console.warn('[db_engine] Dexie getAllNovelsSummary fallback to native:', err);
@@ -485,9 +488,28 @@
     },
 
     async getTrashNovels() {
+      const mapTrashSummary = (n) => ({
+        id: n.id,
+        title: n.title,
+        author: n.author || 'Author',
+        summary: (n.summary || '').substring(0, 300),
+        coverUrl: n.coverUrl || '',
+        cover: n.cover || '',
+        totalChapters: Array.isArray(n.chapters) ? n.chapters.length : (n.totalChapters || 0),
+        chapterCount: n.chapterCount || (Array.isArray(n.chapters) ? n.chapters.length : (n.rawChapters ? n.rawChapters.length : 0)),
+        deletedAt: n.deletedAt || n.timestamp || Date.now(),
+        timestamp: n.timestamp || n.deletedAt || 0,
+        sourceUrl: n.sourceUrl || n.url || '',
+        isTranslated: !!n.isTranslated || (n.title || '').includes('(Translated)')
+      });
+
       try {
         if (novelDB) {
-          return await novelDB.trash.toArray();
+          const list = [];
+          await novelDB.trash.each(n => {
+            if (n) list.push(mapTrashSummary(n));
+          });
+          return list;
         }
       } catch (err) {
         console.warn('[db_engine] Dexie getTrashNovels fallback to native:', err);
@@ -498,8 +520,18 @@
         return new Promise((resolve) => {
           const tx = db.transaction('trash', 'readonly');
           const store = tx.objectStore('trash');
-          const req = store.getAll();
-          req.onsuccess = () => resolve(req.result || []);
+          const list = [];
+          const req = store.openCursor();
+          req.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+              const n = cursor.value;
+              if (n) list.push(mapTrashSummary(n));
+              cursor.continue();
+            } else {
+              resolve(list);
+            }
+          };
           req.onerror = () => resolve([]);
         });
       } catch (e) {

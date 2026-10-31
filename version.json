@@ -1,10 +1,10 @@
 {
-  "version": "8.22.29",
-  "versionCode": 8540,
+  "version": "8.22.30",
+  "versionCode": 8541,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.18/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.29/app-release.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.30/app-release.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.17",
   "releaseDate": "2026-10-31",
-  "releaseNotes": "v8.22.29: Borderless reader canvas, Moon+ Reader generous 100x120px corner bookmark tap zone, silent toggling, and pure white dog-ear bookmark fold.",
+  "releaseNotes": "v8.22.30: Full Bookshelf optimization: metadata-only Dexie streaming, lightweight cover pipeline, 60fps CSS containment scrolling, memoized shelf cards, and parallel update checks.",
   "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.20"
 }

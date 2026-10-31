@@ -2150,6 +2150,9 @@ input, textarea, [contenteditable="true"] {
     grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
     gap: 22px;
   }
+  .shelf-book-item {
+    contain-intrinsic-size: 132px 210px;
+  }
 }
 .shelf-book-item {
   display: flex;
@@ -2162,6 +2165,9 @@ input, textarea, [contenteditable="true"] {
   -ms-user-select: none !important;
   user-select: none !important;
   -webkit-touch-callout: none !important;
+  content-visibility: auto;
+  contain-intrinsic-size: 110px 180px;
+  contain: layout style;
 }
 .shelf-book-item * {
   -webkit-user-select: none !important;

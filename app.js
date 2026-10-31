@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.29';
+    let VERSION = '8.22.30';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -328,6 +328,7 @@
       const [downloadingUpdates, setDownloadingUpdates] = useState({});
       const [novelUpdateBadges, setNovelUpdateBadges] = useState({});
       const [isBatchChecking, setIsBatchChecking] = useState(false);
+      const batchUpdateAbortRef = useRef(null);
       const [collapsedVolumes, setCollapsedVolumes] = useState({});
       const [trashList, setTrashList] = useState([]);
       const [trashCount, setTrashCount] = useState(0);
@@ -380,7 +381,21 @@
       const handleCheckNovelUpdate = (item) => window.LibraryEngine?.Controller?.checkUpdate(item, novelUpdateBadges, { setCheckingUpdates, setNovelUpdateBadges, toast });
       const handleDownloadNewChapters = (item) => window.LibraryEngine?.Controller?.downloadUpdates(item, { novelUpdateBadges, getEpubOptions, exportCleanLnoriEpub, setEpubPackagingModal, setNovelUpdateBadges, setWebImportHistory, setActiveCrawlSession, setDownloadingUpdates, toast });
       const handleUpdateTranslateAndMakeEpub = (item) => window.LibraryEngine?.Controller?.stageUpdateTranslation(item, { novelUpdateBadges, loadFullNovel, saveNovelToHistory, setEpubPackagingModal, setNovelUpdateBadges, setInputText, setChapters, setTranslatedChapters, setAssembledText, setActiveNovelRecord, setFileName, activeSessionRef, setActiveSession, setSavedTranslationSession, setIsTranslationPaused, setActiveTab, setDownloadingUpdates, toast });
-      const handleCheckAllUpdates = () => window.LibraryEngine?.Controller?.checkAllUpdates(webImportHistory, { loadFullNovel, setIsBatchChecking, setCheckingUpdates, setNovelUpdateBadges, toast });
+      const handleCheckAllUpdates = () => {
+        if (batchUpdateAbortRef.current) {
+          try { batchUpdateAbortRef.current.abort(); } catch (_) {}
+        }
+        const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        batchUpdateAbortRef.current = ac;
+        return window.LibraryEngine?.Controller?.checkAllUpdates(webImportHistory, {
+          loadFullNovel,
+          setIsBatchChecking,
+          setCheckingUpdates,
+          setNovelUpdateBadges,
+          abortSignal: ac?.signal,
+          toast
+        });
+      };
       const loadFullNovel = (meta) => window.LibraryEngine?.Controller?.loadFullNovel(meta, webImportData);
       const loadNovelFromHistory = (meta) => window.LibraryEngine?.Controller?.loadNovelToImporter(meta, loadFullNovel, setWebImportData, toast);
       const deleteNovelFromHistory = (id) => window.LibraryEngine?.Controller?.moveToTrash(id, { setWebImportHistory, loadTrashCount, toast });

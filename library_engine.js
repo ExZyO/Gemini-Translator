@@ -687,7 +687,11 @@
       let updatedList = [];
       try {
         const storedMeta = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
-        updatedList = [metaRecord, ...storedMeta.filter(n => n.id !== metaRecord.id && (!metaRecord.title || (n.title || '').trim().toLowerCase() !== metaRecord.title.trim().toLowerCase()))].slice(0, 50);
+        const safeMeta = { ...metaRecord };
+        if (safeMeta.cover && safeMeta.cover.startsWith('data:image/') && safeMeta.cover.length > 25000) {
+          safeMeta.cover = '';
+        }
+        updatedList = [safeMeta, ...storedMeta.filter(n => n.id !== safeMeta.id && (!safeMeta.title || (n.title || '').trim().toLowerCase() !== safeMeta.title.trim().toLowerCase()))].slice(0, 50);
         localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updatedList));
       } catch (e) {}
 
@@ -1734,7 +1738,7 @@
     },
 
     /**
-     * Checks all web novels with remote HTTP URLs for new chapters in batches
+     * Checks all web novels with remote HTTP URLs for new chapters in parallel batches
      */
     async checkAllUpdates(webImportHistory, callbacks = {}) {
       const webNovels = (webImportHistory || []).filter(b => b && b.sourceUrl && b.sourceUrl.startsWith('http'));
@@ -1754,17 +1758,33 @@
 
       let updatesFound = 0;
       const importer = window.WebNovelImporter;
+      const signal = callbacks.abortSignal || callbacks.signal;
 
-      try {
-        for (let i = 0; i < webNovels.length; i++) {
+      // Bounded concurrency pool (2 parallel lanes to balance speed and avoid 429 rate limits)
+      const CONCURRENCY = Math.min(2, webNovels.length);
+      let nextIndex = 0;
+
+      const worker = async () => {
+        while (nextIndex < webNovels.length) {
+          if (signal?.aborted) break;
+          const i = nextIndex++;
           const b = webNovels[i];
+          if (!b) break;
+
           if (typeof callbacks.onNovelCheckingStart === 'function') {
             callbacks.onNovelCheckingStart(b.id);
           }
           try {
-            const loadFn = callbacks.loadFullNovel || this.loadFullNovel.bind(this);
-            const full = await loadFn(b);
-            const targetB = full ? { ...b, ...full } : b;
+            if (signal?.aborted) break;
+            // Only load full novel if chapterCount or sourceUrl is missing
+            let targetB = b;
+            if ((targetB.chapterCount === undefined && !targetB.rawChapters?.length) || !targetB.sourceUrl) {
+              const loadFn = callbacks.loadFullNovel || this.loadFullNovel.bind(this);
+              const full = await loadFn(b);
+              if (full) targetB = { ...b, ...full };
+            }
+
+            if (signal?.aborted) break;
             const res = await importer?.checkNovelUpdates(targetB);
             if (res && res.hasUpdates) {
               updatesFound++;
@@ -1784,14 +1804,26 @@
               callbacks.onNovelCheckingEnd(b.id);
             }
           }
-          if (i < webNovels.length - 1) {
-            await new Promise(r => setTimeout(r, callbacks.delayMs || 1000));
+
+          if (nextIndex < webNovels.length && !signal?.aborted) {
+            await new Promise(r => setTimeout(r, callbacks.delayMs || 250));
           }
         }
+      };
+
+      try {
+        await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
       } finally {
         if (typeof callbacks.onBatchEnd === 'function') {
           callbacks.onBatchEnd();
         }
+      }
+
+      if (signal?.aborted) {
+        if (typeof callbacks.toast === 'function') {
+          callbacks.toast('Update check stopped.', 'info');
+        }
+        return updatesFound;
       }
 
       if (typeof callbacks.toast === 'function') {
@@ -1957,18 +1989,24 @@
 
         if (combined.length > 0) {
           try {
-            const syncMeta = combined.map(item => ({
-              id: item.id,
-              title: item.title,
-              author: item.author || '',
-              cover: item.cover || '',
-              chapterCount: item.chapterCount || (item.chapters ? item.chapters.length : 0),
-              sourceUrl: item.sourceUrl || item.url || '',
-              inSavedSpace: !!item.inSavedSpace,
-              folderPath: item.folderPath || '',
-              folderTreeUri: item.folderTreeUri || '',
-              timestamp: item.timestamp || Date.now()
-            }));
+            const syncMeta = combined.map(item => {
+              let coverStr = item.cover || '';
+              if (coverStr.startsWith('data:image/') && coverStr.length > 25000) {
+                coverStr = '';
+              }
+              return {
+                id: item.id,
+                title: item.title,
+                author: item.author || '',
+                cover: coverStr,
+                chapterCount: item.chapterCount || (item.chapters ? item.chapters.length : 0),
+                sourceUrl: item.sourceUrl || item.url || '',
+                inSavedSpace: !!item.inSavedSpace,
+                folderPath: item.folderPath || '',
+                folderTreeUri: item.folderTreeUri || '',
+                timestamp: item.timestamp || Date.now()
+              };
+            });
             localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(syncMeta));
           } catch(e) {}
 
@@ -2529,11 +2567,12 @@
         }
       },
 
-      async checkAllUpdates(history, { loadFullNovel, setIsBatchChecking, setCheckingUpdates, setNovelUpdateBadges, toast } = {}) {
+      async checkAllUpdates(history, { loadFullNovel, setIsBatchChecking, setCheckingUpdates, setNovelUpdateBadges, abortSignal, toast } = {}) {
         if (!LibraryEngine.checkAllUpdates) return;
         await LibraryEngine.checkAllUpdates(history, {
           toast,
           loadFullNovel,
+          abortSignal,
           onBatchStart: () => { if (typeof setIsBatchChecking === 'function') setIsBatchChecking(true); },
           onBatchEnd: () => { if (typeof setIsBatchChecking === 'function') setIsBatchChecking(false); },
           onNovelCheckingStart: (novelId) => {

@@ -8,6 +8,184 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  function ShelfBookCard(props) {
+    const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
+    const ic = window.ic || function() { return null; };
+    const {
+      item,
+      isSelected,
+      isSelectMode,
+      savedProg,
+      updateBadge,
+      onCardTouchStart,
+      onCardTouchMove,
+      onCardTouchEnd,
+      onCardClick,
+      onContextMenu,
+      onDownloadNewChapters,
+      onUpdateTranslateAndMakeEpub
+    } = props;
+
+    const resumeCh = (savedProg && typeof savedProg.chapterIdx === 'number') ? (savedProg.chapterIdx + 1) : null;
+    const pct = savedProg?.pct;
+    const unit = updateBadge?.isVolumeBased ? 'Vol' : 'Ch';
+    const newCount = updateBadge ? (updateBadge.newCount ?? updateBadge.count ?? 0) : 0;
+
+    return h('div', {
+      key: item.id || item.title,
+      className: `shelf-book-item ${isSelected ? 'shelf-selected' : ''}`,
+      style: { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' },
+      onMouseDown: (e) => onCardTouchStart(item, e),
+      onMouseUp: () => onCardTouchEnd(item),
+      onMouseLeave: () => onCardTouchEnd(item),
+      onTouchStart: (e) => onCardTouchStart(item, e),
+      onTouchMove: (e) => onCardTouchMove(item, e),
+      onTouchEnd: () => onCardTouchEnd(item),
+      onClick: (e) => onCardClick(item, e),
+      onContextMenu: (e) => onContextMenu(item, e)
+    },
+      h('div', { className: 'shelf-book-cover-wrap' },
+        isSelectMode && h('div', {
+          style: {
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            zIndex: 10,
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            background: isSelected ? 'var(--iris)' : 'rgba(0, 0, 0, 0.65)',
+            border: isSelected ? '2px solid #fff' : '2px solid rgba(255, 255, 255, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.5)'
+          }
+        }, isSelected ? ic(window.Check || 'Check', 13) : null),
+        item.cover ? h('img', {
+          src: item.cover,
+          alt: item.title || 'Cover',
+          className: 'shelf-book-cover-img',
+          loading: 'lazy',
+          decoding: 'async',
+          referrerPolicy: 'no-referrer',
+          onError: (e) => {
+            e.target.style.display = 'none';
+            if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+          }
+        }) : null,
+        h('div', {
+          style: {
+            display: item.cover ? 'none' : 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            height: '100%',
+            background: '#1A1D30',
+            color: 'var(--iris)'
+          }
+        }, ic(window.BookOpen || 'BookOpen', 28)),
+        h('div', { className: 'shelf-book-spine' }),
+        (pct > 0 || resumeCh) && h('div', { className: 'shelf-book-progress-badge' },
+          pct > 0 ? `${pct}%` : `Ch.${resumeCh}`
+        ),
+        newCount > 0 && h('div', {
+          style: {
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            background: '#2563eb',
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: 700,
+            padding: '2px 6px',
+            borderRadius: 4,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+            zIndex: 5
+          }
+        }, `+${newCount} ${unit}`)
+      ),
+      h('div', { className: 'shelf-book-title', title: item.title }, item.title || 'Untitled Book'),
+      h('div', { className: 'shelf-book-author' }, item.author || `${item.chapterCount || 0} chapters`),
+      newCount > 0 && h('div', {
+        style: {
+          display: 'flex',
+          gap: 4,
+          marginTop: 6,
+          width: '100%'
+        },
+        onClick: (e) => e.stopPropagation()
+      },
+        h('button', {
+          type: 'button',
+          className: 'mini-btn primary',
+          title: 'Download new chapters',
+          style: {
+            flex: 1,
+            padding: '4px 6px',
+            fontSize: 10.5,
+            fontWeight: 700,
+            background: '#2563eb',
+            color: '#ffffff',
+            borderRadius: 6,
+            border: 'none',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 3
+          },
+          onClick: (e) => {
+            e.stopPropagation();
+            if (typeof onDownloadNewChapters === 'function') {
+              onDownloadNewChapters(item);
+            }
+          }
+        }, ic(window.Download || 'Download', 11), `Download (${newCount})`),
+        h('button', {
+          type: 'button',
+          className: 'mini-btn ghost',
+          title: 'Translate new chapters & export EPUB',
+          style: {
+            flex: 1,
+            padding: '4px 6px',
+            fontSize: 10.5,
+            fontWeight: 700,
+            background: 'rgba(56, 189, 248, 0.12)',
+            color: '#38bdf8',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: 6,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 3
+          },
+          onClick: (e) => {
+            e.stopPropagation();
+            if (typeof onUpdateTranslateAndMakeEpub === 'function') {
+              onUpdateTranslateAndMakeEpub(item);
+            }
+          }
+        }, ic(window.Globe || 'Globe', 11), 'Translate')
+      )
+    );
+  }
+
+  const MemoizedShelfBookCard = (typeof React !== 'undefined' && React.memo)
+    ? React.memo(ShelfBookCard, (prev, next) => {
+        return (
+          prev.item === next.item &&
+          prev.isSelected === next.isSelected &&
+          prev.isSelectMode === next.isSelectMode &&
+          prev.savedProg?.pct === next.savedProg?.pct &&
+          prev.savedProg?.chapterIdx === next.savedProg?.chapterIdx &&
+          prev.updateBadge === next.updateBadge
+        );
+      })
+    : ShelfBookCard;
+
   function TabLibrary(props) {
     const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
     const toast = window.toast || function() {};
@@ -180,6 +358,32 @@
     const touchStartPos = (typeof React !== 'undefined' && React.useRef) ? React.useRef({}) : { current: {} };
     const lastLongPressTimeRef = (typeof React !== 'undefined' && React.useRef) ? React.useRef(0) : { current: 0 };
     const isTouchInteractionRef = (typeof React !== 'undefined' && React.useRef) ? React.useRef(false) : { current: false };
+
+    // Unmount cleanup: cancel any active long-press timers to prevent memory leaks and state updates on unmounted tab
+    if (typeof React !== 'undefined' && React.useEffect) {
+      React.useEffect(() => {
+        return () => {
+          if (timerRefs.current) {
+            Object.keys(timerRefs.current).forEach(id => {
+              if (timerRefs.current[id]) {
+                clearTimeout(timerRefs.current[id]);
+                timerRefs.current[id] = null;
+              }
+            });
+            timerRefs.current = {};
+          }
+        };
+      }, []);
+    }
+
+    const handleCardContextMenu = (item, e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const timeSinceLongPress = Date.now() - (lastLongPressTimeRef.current || 0);
+      if (timeSinceLongPress >= 850 && !isSelectMode) {
+        setActiveBookMenuNovel(item);
+      }
+    };
 
     const handleCardTouchStart = (item, e) => {
       const isTouch = Boolean(e.touches || e.changedTouches || e.type === 'touchstart');
@@ -453,160 +657,24 @@
         h('div', { className: 'shelf-grid' },
           displayedBooks.map((item, idx) => {
             const savedProg = window.getReadingProgress ? window.getReadingProgress(item.id || item.title) : null;
-            const resumeCh = (savedProg && typeof savedProg.chapterIdx === 'number') ? (savedProg.chapterIdx + 1) : null;
-            const pct = savedProg?.pct;
             const updateBadge = (novelUpdateBadges && (novelUpdateBadges[item.id] || novelUpdateBadges[item.title])) || null;
-            const unit = updateBadge?.isVolumeBased ? 'Vol' : 'Ch';
-            const newCount = updateBadge ? (updateBadge.newCount ?? updateBadge.count ?? 0) : 0;
             const isSelected = selectedBookIds.includes(item.id) || selectedBookIds.includes(item.title);
 
-            return h('div', {
+            return h(MemoizedShelfBookCard, {
               key: item.id || idx,
-              className: `shelf-book-item ${isSelected ? 'shelf-selected' : ''}`,
-              style: { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' },
-              onMouseDown: (e) => handleCardTouchStart(item, e),
-              onMouseUp: () => handleCardTouchEnd(item),
-              onMouseLeave: () => handleCardTouchEnd(item),
-              onTouchStart: (e) => handleCardTouchStart(item, e),
-              onTouchMove: (e) => handleCardTouchMove(item, e),
-              onTouchEnd: () => handleCardTouchEnd(item),
-              onClick: (e) => handleCardClick(item, e),
-              onContextMenu: (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const timeSinceLongPress = Date.now() - (lastLongPressTimeRef.current || 0);
-                if (timeSinceLongPress >= 850 && !isSelectMode) {
-                  setActiveBookMenuNovel(item);
-                }
-              }
-            },
-              h('div', { className: 'shelf-book-cover-wrap' },
-                isSelectMode && h('div', {
-                  style: {
-                    position: 'absolute',
-                    top: 8,
-                    left: 8,
-                    zIndex: 10,
-                    width: 22,
-                    height: 22,
-                    borderRadius: '50%',
-                    background: isSelected ? 'var(--iris)' : 'rgba(0, 0, 0, 0.65)',
-                    border: isSelected ? '2px solid #fff' : '2px solid rgba(255, 255, 255, 0.75)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.5)'
-                  }
-                }, isSelected ? ic(Check, 13) : null),
-                item.cover ? h('img', {
-                  src: item.cover,
-                  alt: item.title || 'Cover',
-                  className: 'shelf-book-cover-img',
-                  loading: 'lazy',
-                  decoding: 'async',
-                  referrerPolicy: 'no-referrer',
-                  onError: (e) => {
-                    e.target.style.display = 'none';
-                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                  }
-                }) : null,
-                h('div', {
-                  style: {
-                    display: item.cover ? 'none' : 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '100%',
-                    height: '100%',
-                    background: '#1A1D30',
-                    color: 'var(--iris)'
-                  }
-                }, ic(BookOpen, 28)),
-                h('div', { className: 'shelf-book-spine' }),
-                (pct > 0 || resumeCh) && h('div', { className: 'shelf-book-progress-badge' },
-                  pct > 0 ? `${pct}%` : `Ch.${resumeCh}`
-                ),
-                newCount > 0 && h('div', {
-                  style: {
-                    position: 'absolute',
-                    top: 6,
-                    right: 6,
-                    background: '#2563eb',
-                    color: '#FFFFFF',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: '2px 6px',
-                    borderRadius: 4,
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                    zIndex: 5
-                  }
-                }, `+${newCount} ${unit}`)
-              ),
-              h('div', { className: 'shelf-book-title', title: item.title }, item.title || 'Untitled Book'),
-              h('div', { className: 'shelf-book-author' }, item.author || `${item.chapterCount || 0} chapters`),
-              newCount > 0 && h('div', {
-                style: {
-                  display: 'flex',
-                  gap: 4,
-                  marginTop: 6,
-                  width: '100%'
-                },
-                onClick: (e) => e.stopPropagation()
-              },
-                h('button', {
-                  type: 'button',
-                  className: 'mini-btn primary',
-                  title: 'Download new chapters',
-                  style: {
-                    flex: 1,
-                    padding: '4px 6px',
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    background: '#2563eb',
-                    color: '#ffffff',
-                    borderRadius: 6,
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 3
-                  },
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    if (typeof handleDownloadNewChapters === 'function') {
-                      handleDownloadNewChapters(item);
-                    }
-                  }
-                }, ic(Download, 11), `Download (${newCount})`),
-                h('button', {
-                  type: 'button',
-                  className: 'mini-btn ghost',
-                  title: 'Translate new chapters & export EPUB',
-                  style: {
-                    flex: 1,
-                    padding: '4px 6px',
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    background: 'rgba(56, 189, 248, 0.12)',
-                    color: '#38bdf8',
-                    border: '1px solid rgba(56, 189, 248, 0.3)',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 3
-                  },
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    if (typeof handleUpdateTranslateAndMakeEpub === 'function') {
-                      handleUpdateTranslateAndMakeEpub(item);
-                    }
-                  }
-                }, ic(Globe, 11), 'Translate')
-              )
-            );
+              item,
+              isSelected,
+              isSelectMode,
+              savedProg,
+              updateBadge,
+              onCardTouchStart: handleCardTouchStart,
+              onCardTouchMove: handleCardTouchMove,
+              onCardTouchEnd: handleCardTouchEnd,
+              onCardClick: handleCardClick,
+              onContextMenu: handleCardContextMenu,
+              onDownloadNewChapters: handleDownloadNewChapters,
+              onUpdateTranslateAndMakeEpub: handleUpdateTranslateAndMakeEpub
+            });
           })
         )
       );
