@@ -167,21 +167,23 @@ const splitHtml = `<div id="epub-split-tab" class="stu-page-container" style="wi
 
                     <input type="text" id="chapter-search" placeholder="Search chapters…" class="stu-filter-input mb-3" style="width:100%;">
 
-                    <div id="chapter-list" class="custom-scrollbar stu-chapter-list" style="max-height:420px; font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif; font-size:13px;">
+                    <div id="chapter-list" class="custom-scrollbar stu-chapter-list" style="overflow-y:auto; overflow-x:hidden; max-height:50vh; min-height:140px; -webkit-overflow-scrolling:touch; font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif; font-size:13px; margin-bottom:14px;">
                     </div>
 
                     <div id="estimated-size" class="hidden mt-3 text-xs font-semibold text-center" style="color:var(--slate);">
                         Estimated output: <span id="estimated-size-value" class="font-bold text-white">0</span> MB
                     </div>
 
-                    <div class="flex gap-2.5 flex-wrap mt-4 pt-3 border-t border-white/[0.05]">
-                        <button id="btn-export-custom" class="stu-btn-radiant-sky" style="flex:1; min-width:140px; height:44px;">Download Checked</button>
-                        <button id="btn-send-to-translator" class="stu-btn-radiant-emerald" style="flex:1; min-width:150px; height:44px;" title="Load selected chapters directly into the Translator text workbench">Translate Selected</button>
-                        <button id="btn-share-export" class="stu-chip-btn" style="flex:0 0 auto; min-width:80px; height:44px;" title="Share via Web Share API">Share</button>
-                    </div>
+                    <div class="split-action-deck" style="position:relative; z-index:5; clear:both; margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.06);">
+                        <div class="flex gap-2.5 flex-wrap">
+                            <button id="btn-export-custom" class="stu-btn-radiant-sky" style="flex:1; min-width:140px; height:44px;">Download Checked</button>
+                            <button id="btn-send-to-translator" class="stu-btn-radiant-emerald" style="flex:1; min-width:150px; height:44px;" title="Load selected chapters directly into the Translator text workbench">Translate Selected</button>
+                            <button id="btn-share-export" class="stu-chip-btn" style="flex:0 0 auto; min-width:80px; height:44px;" title="Share via Web Share API">Share</button>
+                        </div>
 
-                    <div id="split-stats-summary" class="mt-3.5 px-4 py-2.5 rounded-xl text-xs text-center font-medium" style="background:rgba(255,255,255,0.03); color:var(--slate); border:1px solid rgba(255,255,255,0.05);">
-                        0 books · 0 ch · 0 words · 0.0 MB
+                        <div id="split-stats-summary" class="mt-3.5 px-4 py-2.5 rounded-xl text-xs text-center font-medium" style="background:rgba(255,255,255,0.03); color:var(--slate); border:1px solid rgba(255,255,255,0.05);">
+                            0 books · 0 ch · 0 words · 0.0 MB
+                        </div>
                     </div>
                 </div>
 

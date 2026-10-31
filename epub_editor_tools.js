@@ -362,7 +362,7 @@
         const rows = document.querySelectorAll('#toc-manager-rows > div');
         rows.forEach(r => {
             const idxStr = r.dataset.idx;
-            const inp = r.querySelector('input.tl-field');
+            const inp = r.querySelector('input');
             if (inp && idxStr !== undefined) {
                 const idx = parseInt(idxStr, 10);
                 if (!isNaN(idx) && tocManagerTempChapters && tocManagerTempChapters[idx]) {
@@ -370,6 +370,139 @@
                 }
             }
         });
+    }
+
+    function updateTocManagerRowMetadata(row, newIdx) {
+        if (!row) return;
+        row.dataset.idx = newIdx;
+        const ch = tocManagerTempChapters[newIdx];
+        if (!ch) return;
+
+        // Indentation and subtle styling for sub-chapter
+        if (ch.level === 2) {
+            row.classList.add('pl-6', 'sm:pl-10', 'bg-indigo-500/[0.02]');
+        } else {
+            row.classList.remove('pl-6', 'sm:pl-10', 'bg-indigo-500/[0.02]');
+        }
+
+        // Badge
+        const num = row.querySelector('.toc-idx-badge');
+        if (num) {
+            num.textContent = ch.level === 2 ? `↳ #${newIdx + 1}` : `#${newIdx + 1}`;
+            num.style.color = ch.level === 2 ? '#818cf8' : '#94a3b8';
+        }
+
+        // Input
+        const inp = row.querySelector('input');
+        if (inp) {
+            inp.dataset.idx = newIdx;
+            inp.placeholder = `Chapter ${newIdx + 1} Title`;
+        }
+
+        // Level button
+        const lvlBtn = row.querySelector('.toc-level-btn');
+        if (lvlBtn) {
+            if (ch.level === 2) {
+                lvlBtn.innerHTML = '<span>↰ Main</span>';
+                lvlBtn.style.color = '#34d399';
+                lvlBtn.title = 'Switch to Normal Chapter (Level 1)';
+                lvlBtn.disabled = false;
+            } else {
+                if (newIdx === 0) {
+                    lvlBtn.innerHTML = '<span>Main</span>';
+                    lvlBtn.style.color = 'var(--slate)';
+                    lvlBtn.title = 'First chapter must remain a starting chapter';
+                    lvlBtn.disabled = true;
+                } else {
+                    lvlBtn.innerHTML = '<span>↳ Sub</span>';
+                    lvlBtn.style.color = '#818cf8';
+                    lvlBtn.title = `Nest as Sub-Chapter under Chapter #${newIdx}`;
+                    lvlBtn.disabled = false;
+                }
+            }
+        }
+
+        // Up button
+        const upBtn = row.querySelector('.toc-up-btn');
+        if (upBtn) {
+            upBtn.disabled = newIdx === 0;
+        }
+
+        // Down button
+        const downBtn = row.querySelector('.toc-down-btn');
+        if (downBtn) {
+            downBtn.disabled = newIdx >= tocManagerTempChapters.length - 1;
+        }
+    }
+
+    function swapTocManagerRows(fromIdx, toIdx) {
+        if (!tocManagerTempChapters) return;
+        if (fromIdx < 0 || toIdx < 0 || fromIdx >= tocManagerTempChapters.length || toIdx >= tocManagerTempChapters.length) return;
+
+        // If search filter is active, fall back to full render
+        const searchVal = document.getElementById('toc-manager-search')?.value?.trim();
+        if (searchVal) {
+            harvestTocManagerInputs();
+            const temp = tocManagerTempChapters[fromIdx];
+            tocManagerTempChapters[fromIdx] = tocManagerTempChapters[toIdx];
+            tocManagerTempChapters[toIdx] = temp;
+            renderTocManagerRows(searchVal);
+            return;
+        }
+
+        const rowA = document.querySelector(`#toc-manager-rows > div[data-idx="${fromIdx}"]`);
+        const rowB = document.querySelector(`#toc-manager-rows > div[data-idx="${toIdx}"]`);
+
+        // Sync inputs from DOM
+        if (rowA) {
+            const inpA = rowA.querySelector('input');
+            if (inpA) tocManagerTempChapters[fromIdx].title = inpA.value;
+        }
+        if (rowB) {
+            const inpB = rowB.querySelector('input');
+            if (inpB) tocManagerTempChapters[toIdx].title = inpB.value;
+        }
+
+        // Swap in data array
+        const temp = tocManagerTempChapters[fromIdx];
+        tocManagerTempChapters[fromIdx] = tocManagerTempChapters[toIdx];
+        tocManagerTempChapters[toIdx] = temp;
+
+        if (rowA && rowB) {
+            if (fromIdx < toIdx) {
+                rowB.after(rowA);
+            } else {
+                rowB.before(rowA);
+            }
+
+            updateTocManagerRowMetadata(rowA, toIdx);
+            updateTocManagerRowMetadata(rowB, fromIdx);
+
+            // Re-evaluate boundary conditions for all rows (specifically index 0 and last)
+            const rows = document.querySelectorAll('#toc-manager-rows > div');
+            const total = tocManagerTempChapters.length;
+            rows.forEach(r => {
+                const idx = parseInt(r.dataset.idx, 10);
+                if (!isNaN(idx)) {
+                    const up = r.querySelector('.toc-up-btn');
+                    if (up) up.disabled = idx === 0;
+                    const down = r.querySelector('.toc-down-btn');
+                    if (down) down.disabled = idx >= total - 1;
+                    const lvl = r.querySelector('.toc-level-btn');
+                    if (lvl && idx === 0 && tocManagerTempChapters[0]?.level === 1) {
+                        lvl.disabled = true;
+                        lvl.style.color = 'var(--slate)';
+                    }
+                }
+            });
+
+            // Smoothly keep the moved item in view
+            try {
+                rowA.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } catch (e) {}
+        } else {
+            renderTocManagerRows();
+        }
     }
 
     function renderTocManagerRows(filterQuery = '') {
@@ -396,16 +529,16 @@
 
             const row = document.createElement('div');
             row.dataset.idx = idx;
-            row.className = `py-3 px-2 flex items-center justify-between gap-3 border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors ${
-                ch.level === 2 ? 'pl-8 sm:pl-12' : ''
+            row.className = `stu-toc-row py-3 px-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors ${
+                ch.level === 2 ? 'pl-6 sm:pl-10 bg-indigo-500/[0.02]' : ''
             }`;
 
-            // Left: Index badge & Title input
+            // Left / Top: Index badge & Title input
             const rowLeft = document.createElement('div');
-            rowLeft.className = 'flex items-center gap-3 min-w-0 flex-1';
+            rowLeft.className = 'flex items-center gap-2.5 min-w-0 flex-1 w-full';
 
             const num = document.createElement('span');
-            num.className = 'text-xs font-mono font-bold shrink-0 px-2 py-0.5 rounded-full select-none';
+            num.className = 'toc-idx-badge text-xs font-mono font-bold shrink-0 px-2.5 py-1 rounded-full select-none';
             num.style.color = ch.level === 2 ? '#818cf8' : '#94a3b8';
             num.style.background = 'rgba(255,255,255,0.06)';
             num.textContent = ch.level === 2 ? `↳ #${idx + 1}` : `#${idx + 1}`;
@@ -413,7 +546,7 @@
 
             const input = document.createElement('input');
             input.type = 'text';
-            input.className = 'bg-transparent border-none text-sm font-semibold text-white focus:outline-none flex-1 hover:bg-white/[0.04] px-2 py-1 rounded transition-colors';
+            input.className = 'toc-title-input bg-white/[0.03] border border-white/[0.06] hover:border-white/20 focus:border-sky-400 focus:bg-white/[0.06] text-sm font-semibold text-white focus:outline-none flex-1 min-w-0 px-3 py-1.5 rounded-lg transition-all';
             input.dataset.idx = idx;
             input.value = ch.title;
             input.placeholder = `Chapter ${idx + 1} Title`;
@@ -423,69 +556,65 @@
 
             row.appendChild(rowLeft);
 
-            // Right: Level Toggle, Reorder, Delete
+            // Right / Bottom: Controls cluster (Level, Up, Down, Delete)
             const rowRight = document.createElement('div');
-            rowRight.className = 'flex items-center gap-1.5 shrink-0';
+            rowRight.className = 'flex items-center justify-end gap-2 shrink-0 self-end sm:self-center';
 
             // Level toggle pill
             const lvlBtn = document.createElement('button');
             lvlBtn.type = 'button';
-            lvlBtn.className = 'stu-chip-btn ghost shrink-0 px-2 sm:px-2.5 h-7 sm:h-8 text-[11px] sm:text-xs';
+            lvlBtn.className = 'toc-level-btn stu-chip-btn ghost shrink-0 px-3 h-8 text-xs font-semibold';
             if (ch.level === 2) {
-                lvlBtn.innerHTML = '<span class="sm:hidden">↰</span><span class="hidden sm:inline">↰ Main</span>';
+                lvlBtn.innerHTML = '<span>↰ Main</span>';
                 lvlBtn.style.color = '#34d399';
                 lvlBtn.title = 'Switch to Normal Chapter (Level 1)';
             } else {
                 if (idx === 0) {
-                    lvlBtn.innerHTML = '<span class="sm:hidden">—</span><span class="hidden sm:inline">Normal</span>';
+                    lvlBtn.innerHTML = '<span>Main</span>';
                     lvlBtn.style.color = 'var(--slate)';
                     lvlBtn.title = 'First chapter must remain a starting chapter';
                     lvlBtn.disabled = true;
                 } else {
-                    lvlBtn.innerHTML = '<span class="sm:hidden">↳</span><span class="hidden sm:inline">↳ Sub</span>';
+                    lvlBtn.innerHTML = '<span>↳ Sub</span>';
                     lvlBtn.style.color = '#818cf8';
                     lvlBtn.title = `Nest as Sub-Chapter under Chapter #${idx}`;
                 }
             }
             lvlBtn.onclick = () => {
-                if (idx === 0 && ch.level === 1) return;
+                const curIdx = parseInt(row.dataset.idx, 10);
+                if (curIdx === 0 && ch.level === 1) return;
                 harvestTocManagerInputs();
                 ch.level = ch.level === 2 ? 1 : 2;
-                renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+                updateTocManagerRowMetadata(row, curIdx);
             };
             rowRight.appendChild(lvlBtn);
 
-            // Up / Down arrows
+            // Up arrow
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
-            upBtn.className = 'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none shrink-0';
+            upBtn.className = 'toc-up-btn w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/10 active:scale-95 disabled:opacity-20 disabled:pointer-events-none transition-all shrink-0';
             upBtn.textContent = '▲';
-            upBtn.title = 'Move up';
+            upBtn.title = 'Move chapter up';
             upBtn.disabled = idx === 0;
             upBtn.onclick = () => {
-                harvestTocManagerInputs();
-                if (idx > 0) {
-                    const temp = tocManagerTempChapters[idx];
-                    tocManagerTempChapters[idx] = tocManagerTempChapters[idx - 1];
-                    tocManagerTempChapters[idx - 1] = temp;
-                    renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+                const curIdx = parseInt(row.dataset.idx, 10);
+                if (curIdx > 0) {
+                    swapTocManagerRows(curIdx, curIdx - 1);
                 }
             };
             rowRight.appendChild(upBtn);
 
+            // Down arrow
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
-            downBtn.className = 'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none shrink-0';
+            downBtn.className = 'toc-down-btn w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/10 active:scale-95 disabled:opacity-20 disabled:pointer-events-none transition-all shrink-0';
             downBtn.textContent = '▼';
-            downBtn.title = 'Move down';
+            downBtn.title = 'Move chapter down';
             downBtn.disabled = idx >= tocManagerTempChapters.length - 1;
             downBtn.onclick = () => {
-                harvestTocManagerInputs();
-                if (idx < tocManagerTempChapters.length - 1) {
-                    const temp = tocManagerTempChapters[idx];
-                    tocManagerTempChapters[idx] = tocManagerTempChapters[idx + 1];
-                    tocManagerTempChapters[idx + 1] = temp;
-                    renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+                const curIdx = parseInt(row.dataset.idx, 10);
+                if (curIdx < tocManagerTempChapters.length - 1) {
+                    swapTocManagerRows(curIdx, curIdx + 1);
                 }
             };
             rowRight.appendChild(downBtn);
@@ -493,20 +622,35 @@
             // Delete button with two-tap confirm
             const delBtn = document.createElement('button');
             delBtn.type = 'button';
-            delBtn.className = 'stu-chip-btn danger shrink-0 px-2 sm:px-3 h-7 sm:h-8 text-[11px] sm:text-xs';
-            delBtn.innerHTML = '<span class="sm:hidden">✕</span><span class="hidden sm:inline">Delete</span>';
+            delBtn.className = 'toc-del-btn stu-chip-btn danger shrink-0 px-3 h-8 text-xs font-semibold';
+            delBtn.innerHTML = '<span>Delete</span>';
             delBtn.title = 'Remove chapter from Table of Contents';
             delBtn.onclick = (e) => {
                 e.stopPropagation();
+                const curIdx = parseInt(row.dataset.idx, 10);
                 if (delBtn.dataset.confirming === 'true') {
                     clearTimeout(delBtn._confirmTimer);
                     delBtn.dataset.confirming = 'false';
-                    delBtn.textContent = 'Delete';
-                    delBtn.style.background = '';
+                    const removedTitle = ch.title || `Chapter ${curIdx + 1}`;
                     harvestTocManagerInputs();
-                    const removedTitle = ch.title || `Chapter ${idx + 1}`;
-                    tocManagerTempChapters.splice(idx, 1);
-                    renderTocManagerRows(document.getElementById('toc-manager-search')?.value || '');
+                    tocManagerTempChapters.splice(curIdx, 1);
+                    row.remove();
+
+                    // Re-index remaining rows in DOM
+                    const rows = document.querySelectorAll('#toc-manager-rows > div');
+                    rows.forEach((r, i) => {
+                        updateTocManagerRowMetadata(r, i);
+                    });
+
+                    const subtitle = document.getElementById('toc-manager-subtitle');
+                    if (subtitle) {
+                        subtitle.textContent = `Managing ${tocManagerTempChapters.length} chapters across the book`;
+                    }
+
+                    if (tocManagerTempChapters.length === 0) {
+                        container.innerHTML = '<p class="text-xs italic text-center py-6" style="color:var(--slate);">No chapters remaining in TOC.</p>';
+                    }
+
                     if (typeof window.toast === 'function') {
                         window.toast(`Removed "${removedTitle}" from Table of Contents`, 'info');
                     }

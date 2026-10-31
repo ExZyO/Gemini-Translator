@@ -159,18 +159,23 @@
              onclick="if(event.target===this) (window.requestCloseChapterModal ? window.requestCloseChapterModal() : this.classList.add('hidden'));">
             <div class="stu-modal-sheet max-w-4xl h-full sm:h-[90dvh]">
                 <!-- Modal Top Header -->
-                <div class="stu-modal-header">
-                    <div class="flex items-center gap-3 flex-1 min-w-0 pr-4">
-                        <span id="edit-ch-modal-idx" class="stu-badge-idx">#1</span>
-                        <input type="text" id="edit-ch-modal-title" placeholder="Chapter Title" class="stu-modal-title-input">
-                        <!-- Level Switcher -->
-                        <select id="edit-ch-modal-level" class="stu-modal-select shrink-0">
+                <div class="stu-modal-header" style="display:flex; flex-direction:column; gap:8px; padding:12px 18px;">
+                    <div class="flex items-center justify-between gap-3 w-full">
+                        <div class="flex items-center gap-2.5 flex-1 min-w-0">
+                            <span id="edit-ch-modal-idx" class="stu-badge-idx shrink-0">#1</span>
+                            <input type="text" id="edit-ch-modal-title" placeholder="Chapter Title" class="stu-modal-title-input min-w-0 flex-1">
+                        </div>
+                        <button type="button" onclick="window.closeChapterModalDirect ? window.closeChapterModalDirect() : (window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden'))"
+                                class="stu-modal-close-btn shrink-0" title="Close" style="width:38px; height:38px; font-size:22px; line-height:1; display:flex; align-items:center; justify-content:center; border-radius:10px; z-index:10;">&times;</button>
+                    </div>
+                    <!-- Level Switcher Sub-Bar -->
+                    <div class="flex items-center gap-2.5 text-xs" style="color:var(--slate);">
+                        <span class="font-medium text-slate-300 shrink-0">Hierarchy Level:</span>
+                        <select id="edit-ch-modal-level" class="stu-modal-select" style="padding:4px 10px; font-size:12px; height:32px;">
                             <option value="1">Main Chapter (Level 1)</option>
-                            <option value="2">↳ Sub-Chapter (Level 2)</option>
+                            <option value="2">Sub-Chapter (Level 2)</option>
                         </select>
                     </div>
-                    <button type="button" onclick="window.closeChapterModalDirect ? window.closeChapterModalDirect() : (window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden'))"
-                            class="stu-modal-close-btn" title="Close">&times;</button>
                 </div>
 
                 <!-- Modal Sub-Toolbar (Prose Editor Mode) -->
@@ -622,7 +627,7 @@
         <!-- ═══ MODAL 10: FULL TABLE OF CONTENTS MANAGER MODAL ═══ -->
         <div id="edit-toc-manager-modal" class="hidden stu-modal-overlay"
              onclick="if(event.target===this) document.getElementById('edit-toc-manager-modal').classList.add('hidden');">
-            <div class="stu-modal-sheet max-w-2xl h-[88vh] sm:h-[88dvh] max-h-[88dvh]">
+            <div class="stu-modal-sheet max-w-4xl w-full h-[88vh] sm:h-[88dvh] max-h-[88dvh]">
                 <!-- Header -->
                 <div class="stu-modal-header">
                     <div>
@@ -646,7 +651,7 @@
                 </div>
 
                 <!-- Scrollable TOC List -->
-                <div id="toc-manager-rows" class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 space-y-2.5" style="min-height:0;">
+                <div id="toc-manager-rows" class="p-2 sm:p-4 overflow-y-auto custom-scrollbar flex-1" style="min-height:0;">
                     <!-- Dynamically populated rows with text inputs -->
                 </div>
 
