@@ -543,7 +543,7 @@
               return h(React.Fragment, null,
                 // Actionable Cloudflare & Crawler Interruption Guidance Card
                 webImportError && h('div', {
-                  className: 'card',
+                  className: 'stu-notice-banner',
                   style: {
                     background: webImportError.isCloudflare ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
                     borderColor: webImportError.isCloudflare ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)',
@@ -638,7 +638,7 @@
                 ),
                 // Incomplete Crawl Session Banner (only shown when returning to tab, suppressed when actively paused in card)
                 activeCrawlSession && !isFetchingPaused && !isFetchingUrl && h('div', {
-                  className: 'card',
+                  className: 'stu-notice-banner',
                   style: {
                     background: 'rgba(234, 179, 8, 0.08)',
                     borderColor: 'rgba(234, 179, 8, 0.3)',
@@ -1275,7 +1275,7 @@
 
                 // Lnori Detection Card & Direct 1-Click EPUB Button
                 isLnoriUrl && !isFetchingUrl && h('div', {
-                  className: 'card',
+                  className: 'stu-notice-banner',
                   style: {
                     background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.12))',
                     border: '1px solid rgba(99, 102, 241, 0.4)',
@@ -1326,7 +1326,7 @@
                   const existingChCount = existingRezero?.chapters?.length || existingRezero?.rawChapters?.length || 0;
 
                   return h('div', {
-                    className: 'card',
+                    className: 'stu-notice-banner',
                     style: {
                       background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.14), rgba(16, 185, 129, 0.12))',
                       border: '1px solid rgba(168, 85, 247, 0.45)',
@@ -1420,7 +1420,7 @@
 
                 // SwiftAudiobooks Detection Card (only for specific book URLs)
                 isSpecificSwiftAudioBook && !isFetchingUrl && h('div', {
-                  className: 'card',
+                  className: 'stu-notice-banner',
                   style: {
                     background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(236, 72, 153, 0.12))',
                     border: '1px solid rgba(99, 102, 241, 0.4)',
@@ -1463,7 +1463,7 @@
                 
                 // In-line Packaging Progress on Main Screen
                 epubPackagingModal && h('div', {
-                  className: 'card',
+                  className: 'stu-notice-banner',
                   style: {
                     background: 'rgba(99, 102, 241, 0.1)',
                     borderColor: 'rgba(99, 102, 241, 0.35)',
@@ -1846,14 +1846,13 @@
                       },
                         activeNovelView.stories.map((story, sIdx) => h('div', {
                           key: story.id || story.url || sIdx,
-                          className: 'card',
+                          className: 'stu-story-row',
                           style: {
                             display: 'flex',
                             gap: 12,
-                            padding: 10,
-                            background: 'var(--surface, rgba(255, 255, 255, 0.03))',
-                            borderRadius: 8,
-                            border: '1px solid var(--hairline)',
+                            padding: '12px 6px',
+                            background: 'transparent',
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
                             alignItems: 'center'
                           }
                         },
@@ -1971,14 +1970,13 @@
                       },
                         activeNovelView.lists.map((list, lIdx) => h('div', {
                           key: list.id || lIdx,
-                          className: 'card',
+                          className: 'stu-story-row',
                           style: {
                             display: 'flex',
                             gap: 12,
-                            padding: 12,
-                            background: 'var(--surface, rgba(255, 255, 255, 0.03))',
-                            borderRadius: 8,
-                            border: '1px solid var(--hairline)',
+                            padding: '12px 6px',
+                            background: 'transparent',
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
                             alignItems: 'center'
                           }
                         },
@@ -2319,7 +2317,7 @@
                     setCollapsedVolumes(next);
                   };
 
-                  return h('div', { className: 'card' },
+                  return h('div', { className: 'stu-chapter-ingestion-stage' },
                     h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: '8px' } },
                       h('span', null, isMultiVolume ? `Chapters (${chs.length} in ${distinctNamedVolumes.length || volumeGroups.length} Volumes)` : `Chapters (${chs.length})`),
                       h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },

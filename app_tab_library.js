@@ -332,7 +332,7 @@
 
     function renderBookshelfGrid() {
       if (displayedBooks.length === 0) {
-        return h('div', { className: 'card', style: { textAlign: 'center', padding: '48px 20px', borderRadius: 20 } },
+        return h('div', { className: 'stu-empty-state', style: { textAlign: 'center', padding: '48px 20px' } },
           h('div', { style: { width: 48, height: 48, borderRadius: 12, background: 'rgba(99, 102, 241, 0.12)', color: 'var(--iris)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' } },
             ic(BookOpen, 24)
           ),
@@ -863,7 +863,7 @@
                   }, 'Clear All')
                 ),
                 filteredAudiobooks.length === 0
-                  ? h('div', { className: 'card', style: { textAlign: 'center', padding: '44px 16px' } },
+                  ? h('div', { className: 'stu-empty-state', style: { textAlign: 'center', padding: '44px 16px' } },
                       h('div', { style: { display: 'flex', justifyContent: 'center', marginBottom: 10, color: 'var(--slate)' } }, ic('Headphones', 36)),
                       h('p', { style: { fontSize: 13.5, color: 'var(--paper)', fontWeight: 600 } }, libQuery ? 'No saved audiobooks match your search.' : 'Your Audiobook Library is empty.'),
                       h('p', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 6, maxWidth: 360, margin: '6px auto 0', lineHeight: 1.5 } },
@@ -1026,7 +1026,7 @@
                   )
                 ),
                 trashList.length === 0
-                  ? h('div', { className: 'card', style: { textAlign: 'center', padding: '44px 16px' } },
+                  ? h('div', { className: 'stu-empty-state', style: { textAlign: 'center', padding: '44px 16px' } },
                       h('div', { style: { display: 'flex', justifyContent: 'center', marginBottom: 10, color: 'var(--slate)' } }, ic('Trash2', 36)),
                       h('p', { style: { fontSize: 13.5, color: 'var(--paper)', fontWeight: 600 } }, 'Your Recycle Bin is empty.'),
                       h('p', { style: { fontSize: 12, color: 'var(--slate)', marginTop: 6, maxWidth: 380, margin: '6px auto 0', lineHeight: 1.5 } },

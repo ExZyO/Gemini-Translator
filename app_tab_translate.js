@@ -411,7 +411,7 @@
               ),
 
               translateDeckMode === 'text' && h(React.Fragment, null,
-                h('div', { className: 'pane deck-card translate-glass-card', onDragOver, onDragLeave, onDrop, style: isDragOver ? { borderColor: 'var(--iris-deep)' } : null },
+                h('div', { className: 'pane translate-glass-card', onDragOver, onDragLeave, onDrop, style: isDragOver ? { borderColor: 'var(--iris-deep)' } : null },
                   h('div', { className: 'pane-head' },
                     h('span', { className: 'lbl', style: { display: 'flex', alignItems: 'center', gap: 6 } },
                       ic('FileText', 14),
@@ -444,7 +444,7 @@
                   }, ic(ArrowRightLeft, 16))
                 ),
 
-                h('div', { className: 'pane deck-card translate-glass-card' },
+                h('div', { className: 'pane translate-glass-card' },
                   h('div', { className: 'pane-head' },
                     h('span', { className: 'lbl', style: { display: 'flex', alignItems: 'center', gap: 6, color: '#34d399' } },
                       ic('Sparkles', 14),
@@ -547,7 +547,7 @@
                       })
                     ),
 
-                (assembledText.trim() || (translatedChapters && translatedChapters.length > 0)) && h('div', { className: 'pane deck-card translate-glass-card' },
+                (assembledText.trim() || (translatedChapters && translatedChapters.length > 0)) && h('div', { className: 'pane translate-glass-card' },
                   h('div', { className: 'pane-head' },
                     h('span', { className: 'lbl', style: { display: 'flex', alignItems: 'center', gap: 6, color: '#34d399' } },
                       ic('Sparkles', 14),
@@ -588,7 +588,7 @@
               ),
 
               // ═══ GLOSSARY & BOOK PROFILES PANEL (TRANSLATE SCREEN) ═══
-              h('div', { className: 'card settings-grouped-card deck-card', style: { marginTop: 14, borderColor: glossaryTermCount > 0 ? 'rgba(99, 102, 241, 0.4)' : 'rgba(255, 255, 255, 0.08)' } },
+              h('div', { className: 'settings-grouped-card', style: { marginTop: 14, borderColor: glossaryTermCount > 0 ? 'rgba(99, 102, 241, 0.4)' : 'rgba(255, 255, 255, 0.08)' } },
                 h('div', { className: 'card-title', style: { marginBottom: glossaryCardOpen ? 12 : 0 } },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, ic('BookOpen', 16)),
@@ -703,7 +703,7 @@
                 )
               ),
 
-              isTranslating && h('div', { className: 'card settings-grouped-card deck-card', style: { borderColor: 'rgba(124,135,255,.45)' } },
+              isTranslating && h('div', { className: 'settings-grouped-card', style: { borderColor: 'rgba(124,135,255,.45)' } },
                 h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 } },
                   h('span', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--iris)' } }, progressLabel || 'Translating…'),
                   h('div', { style: { display: 'flex', gap: 10, alignItems: 'center' } },
@@ -725,7 +725,7 @@
                 const sessionTitle = session?.title || (fileName && fileName.trim()) || activeNovelRecord?.title || 'Novel Translation';
                 const deltaLabel = `Ch ${session?.deltaStart || (completedCount + 1)}–${session?.deltaEnd || totalCount}`;
                 return h('div', {
-                  className: 'card settings-grouped-card deck-card',
+                  className: 'settings-grouped-card',
                   style: {
                     background: isDelta
                       ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.10))'
@@ -825,7 +825,7 @@
                 };
 
                 return h('div', {
-                  className: 'card settings-grouped-card deck-card',
+                  className: 'settings-grouped-card',
                   style: {
                     background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(99, 102, 241, 0.12))',
                     borderColor: '#22c55e',
@@ -933,7 +933,7 @@
                 );
               })(),
 
-              lastUsageStats && !isTranslating && h('div', { className: 'card settings-grouped-card deck-card', style: { borderColor: 'var(--accent, #6366f1)' } },
+              lastUsageStats && !isTranslating && h('div', { className: 'settings-grouped-card', style: { borderColor: 'var(--accent, #6366f1)' } },
                 h('div', { className: 'card-title' },
                   h('span', { style: { fontWeight: 700 } }, 'Last Translation Summary'),
                   h('div', { style: { display: 'flex', gap: 6 } },
@@ -990,7 +990,7 @@
               ),
 
               // ═══ TRANSLATOR BOTTOM LOGS PANEL ═══
-              h('div', { className: 'card settings-grouped-card deck-card', style: { marginTop: 12, marginBottom: 12 } },
+              h('div', { className: 'settings-grouped-card', style: { marginTop: 12, marginBottom: 12 } },
                 h('div', { className: 'card-title', style: { marginBottom: showLiveLogs ? 8 : 0 } },
                   h('span', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
                     ic('FileText', 14),

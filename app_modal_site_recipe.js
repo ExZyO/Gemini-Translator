@@ -912,7 +912,7 @@
                 // Controls toolbar (Advanced patterns toggle)
                 h('div', {
                     key: 'toolbar',
-                    className: 'flex items-center justify-between p-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs'
+                    className: 'flex items-center justify-between py-2.5 border-b border-white/[0.05] text-xs'
                 }, [
                     h('span', { className: 'text-slate-300 font-medium' }, 'Advanced CSS Selectors'),
                     h('label', { className: 'flex items-center gap-2 cursor-pointer text-slate-400' }, [
@@ -929,7 +929,7 @@
                 // Card: Test Pages
                 h('div', {
                     key: 'card-urls',
-                    className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3.5'
+                    className: 'py-4 border-b border-white/[0.05] space-y-3.5'
                 }, [
                     h('div', { className: 'flex items-center justify-between' }, [
                         h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, [
@@ -1113,7 +1113,7 @@
                 // Card: Crawl Mode
                 h('div', {
                     key: 'card-mode',
-                    className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3'
+                    className: 'py-4 border-b border-white/[0.05] space-y-3'
                 }, [
                     h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, [
                         ic('Layers', 15),
@@ -1140,7 +1140,7 @@
                 // Card: Chapter Extraction Rules
                 h('div', {
                     key: 'card-chapter',
-                    className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3'
+                    className: 'py-4 border-b border-white/[0.05] space-y-3'
                 }, [
                     h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, [
                         ic('BookOpen', 15),
@@ -1212,7 +1212,7 @@
                 // Card: Cleanup & Pacing
                 h('div', {
                     key: 'card-network',
-                    className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3'
+                    className: 'py-4 border-b border-white/[0.05] space-y-3'
                 }, [
                     h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, [
                         ic('Sliders', 15),
@@ -1258,7 +1258,7 @@
                 // Card: Test Runner
                 h('div', {
                     key: 'card-test',
-                    className: 'p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3'
+                    className: 'py-4 border-b border-white/[0.05] space-y-3'
                 }, [
                     h('div', { className: 'flex items-center justify-between' }, [
                         h('h3', { className: 'text-sm font-semibold text-white flex items-center gap-2' }, [

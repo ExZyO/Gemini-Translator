@@ -283,14 +283,13 @@
                   )
                 ),
 
-                // Top Quick Status & Mihon-Style Toggles
+                // Top Quick Status & Mihon-Style Toggles (Unboxed)
                 h('div', {
-                  className: 'card settings-grouped-card',
+                  className: 'settings-grouped-card',
                   style: {
-                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%)',
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                    marginBottom: 16,
-                    padding: '14px 16px'
+                    marginBottom: 20,
+                    padding: '0 0 16px 0',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
                   }
                 },
                   h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
@@ -414,7 +413,7 @@
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, provider.toUpperCase())
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #4F46E5)' } }, ic('Brain', 18, 'text-white')),
@@ -830,7 +829,7 @@
                   h('span', { className: 'sec-title' }, 'API KEYS & ROTATION')
                 )
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 (() => {
                   const provKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
                   const uniqueCount = new Set(provKeys.map(k => k.key.trim())).size;
@@ -1046,7 +1045,7 @@
                 ),
                 h('span', { style: { fontSize: 10, color: healthAuditEnabled ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, healthAuditEnabled ? 'ACTIVE' : 'DISABLED')
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #06B6D4, #0891B2)' } }, ic('Shield', 18, 'text-white')),
@@ -1068,7 +1067,7 @@
                 ),
                 h('span', { style: { fontSize: 10, color: (translationMemoryEnabled || snapshotsEnabled) ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, (translationMemoryEnabled || snapshotsEnabled) ? 'ACTIVE' : 'DISABLED')
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #F59E0B, #D97706)' } }, ic('FileText', 18, 'text-white')),
@@ -1139,7 +1138,7 @@
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, amoledMode ? 'AMOLED' : 'DARK')
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' } }, ic('Palette', 18, 'text-white')),
@@ -1176,7 +1175,7 @@
                 ),
                 h('span', { style: { fontSize: 10, color: opdsRunning ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, opdsRunning ? 'ONLINE' : 'STOPPED')
               ),
-              h('div', { className: 'card settings-grouped-card', style: { border: opdsRunning ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--hairline)' } },
+              h('div', { className: 'settings-grouped-card', style: { border: opdsRunning ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--hairline)' } },
                 h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' } }, ic('BookOpen', 18, 'text-white')),
@@ -1243,7 +1242,7 @@
                   h('span', { className: 'sec-title' }, 'HARDWARE & DIAGNOSTICS')
                 )
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #14B8A6, #0D9488)' } }, ic('Zap', 18, 'text-white')),
@@ -1265,7 +1264,7 @@
               ),
 
               // ── LIVE AGENT TELEMETRY & DEBUGGING (METHOD 2) CARD ──
-              h('div', { className: 'card settings-grouped-card', style: { border: telemetryEnabled ? '1px solid rgba(99,102,241,0.35)' : '1px solid var(--hairline)' } },
+              h('div', { className: 'settings-grouped-card', style: { border: telemetryEnabled ? '1px solid rgba(99,102,241,0.35)' : '1px solid var(--hairline)' } },
                 h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #F43F5E, #E11D48)' } }, ic('Zap', 18, 'text-white')),
@@ -1340,7 +1339,7 @@
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, cloudProvider === 'gdrive' ? 'GOOGLE DRIVE' : 'NEXTCLOUD / NAS')
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 // Segmented Switcher
                 h('div', { style: { display: 'flex', border: '1px solid var(--hairline)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 } },
                   h('button', {
@@ -1612,7 +1611,7 @@
                   h('span', { className: 'sec-title' }, 'LOCAL ARCHIVE & STORAGE')
                 )
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #64748B, #475569)' } }, ic('Save', 18, 'text-white')),
@@ -1697,7 +1696,7 @@
                   }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RotateCcw', 12), 'Clear Session Cache'))
                 )
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #3B82F6, #2563EB)' } }, ic('Layers', 18, 'text-white')),
@@ -1723,7 +1722,7 @@
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, 'Moon+ Reader & SherpaTTS')
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #A855F7, #9333EA)' } }, ic('Volume2', 18, 'text-white')),
@@ -1772,7 +1771,7 @@
                 ),
                 h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, `v${appVersion}`)
               ),
-              h('div', { className: 'card settings-grouped-card' },
+              h('div', { className: 'settings-grouped-card' },
                 h('div', { className: 'card-title' },
                   h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                     h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #71717A, #52525B)' } }, ic('Info', 18, 'text-white')),
