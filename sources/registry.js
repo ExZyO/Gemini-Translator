@@ -176,7 +176,104 @@
     }
 
     /**
-     * Fetch the official catalog of 278 LNReader community plugins with localStorage caching
+     * Get list of all registered repository manifest URLs
+     * @returns {string[]}
+     */
+    getRepoUrls() {
+      const defaultRepo = 'https://raw.githubusercontent.com/lnreader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.json';
+      try {
+        if (typeof localStorage === 'undefined') return [defaultRepo];
+        const raw = localStorage.getItem('gemini_plugin_repos');
+        if (!raw) return [defaultRepo];
+        const list = JSON.parse(raw);
+        if (Array.isArray(list) && list.length > 0) return list;
+      } catch (_) {}
+      return [defaultRepo];
+    }
+
+    /**
+     * Add a custom repository manifest URL
+     * @param {string} url
+     */
+    addRepoUrl(url) {
+      if (!url || typeof url !== 'string') return false;
+      const cleanUrl = url.trim();
+      const current = this.getRepoUrls();
+      if (!current.includes(cleanUrl)) {
+        current.push(cleanUrl);
+        try { localStorage.setItem('gemini_plugin_repos', JSON.stringify(current)); } catch (_) {}
+        try { localStorage.removeItem('gemini_plugin_catalog_cache'); } catch (_) {}
+        return true;
+      }
+      return false;
+    }
+
+    /**
+     * Remove a custom repository manifest URL
+     * @param {string} url
+     */
+    removeRepoUrl(url) {
+      const cleanUrl = (url || '').trim();
+      const defaultRepo = 'https://raw.githubusercontent.com/lnreader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.json';
+      const current = this.getRepoUrls().filter(u => u !== cleanUrl);
+      const finalRepos = current.length > 0 ? current : [defaultRepo];
+      try { localStorage.setItem('gemini_plugin_repos', JSON.stringify(finalRepos)); } catch (_) {}
+      try { localStorage.removeItem('gemini_plugin_catalog_cache'); } catch (_) {}
+      return true;
+    }
+
+    /**
+     * Semver comparison helper (v1 > v2 => 1, v1 < v2 => -1, v1 == v2 => 0)
+     */
+    compareVersions(v1, v2) {
+      if (!v1 && !v2) return 0;
+      if (!v1) return -1;
+      if (!v2) return 1;
+      const p1 = String(v1).replace(/^[v^~]/i, '').split('.').map(n => parseInt(n, 10) || 0);
+      const p2 = String(v2).replace(/^[v^~]/i, '').split('.').map(n => parseInt(n, 10) || 0);
+      const maxLen = Math.max(p1.length, p2.length);
+      for (let i = 0; i < maxLen; i++) {
+        const num1 = p1[i] || 0;
+        const num2 = p2[i] || 0;
+        if (num1 > num2) return 1;
+        if (num1 < num2) return -1;
+      }
+      return 0;
+    }
+
+    /**
+     * Check if an installed plugin has an update available upstream
+     * @param {string} pluginId
+     * @param {Array} [catalog]
+     */
+    getUpdateStatus(pluginId, catalog = null) {
+      if (!pluginId) return null;
+      const installed = this.plugins.get(pluginId);
+      if (!installed) return null;
+      if (this.builtinIds.has(pluginId)) return null;
+
+      let cat = catalog;
+      if (!cat && typeof localStorage !== 'undefined') {
+        try { cat = JSON.parse(localStorage.getItem('gemini_plugin_catalog_cache') || '[]'); } catch (_) { cat = []; }
+      }
+      if (!Array.isArray(cat)) return null;
+
+      const remote = cat.find(p => p && p.id && p.id.toLowerCase() === pluginId.toLowerCase());
+      if (!remote || !remote.version) return null;
+
+      const currentVer = installed.version || '1.0.0';
+      const hasUpdate = this.compareVersions(remote.version, currentVer) > 0;
+      return {
+        hasUpdate,
+        currentVersion: currentVer,
+        latestVersion: remote.version,
+        latestUrl: remote.url,
+        pluginMeta: remote
+      };
+    }
+
+    /**
+     * Fetch catalog of plugins from all configured repository manifests
      * @returns {Promise<Array<{ id: string, name: string, site: string, lang: string, version: string, url: string, iconUrl: string }>>}
      */
     async fetchCatalog() {
@@ -189,7 +286,7 @@
             // Trigger silent background refresh
             setTimeout(() => {
               this._fetchRemoteCatalog().catch(() => {});
-            }, 200);
+            }, 300);
             return parsed;
           }
         }
@@ -199,20 +296,56 @@
     }
 
     async _fetchRemoteCatalog() {
-      const catalogUrl = 'https://raw.githubusercontent.com/lnreader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.json';
+      const repos = this.getRepoUrls();
       const fetchFn = (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
-      let raw = '';
-      if (fetchFn) {
-        raw = await fetchFn(catalogUrl);
-      } else {
-        const res = await fetch(catalogUrl);
-        raw = await res.text();
+      const pluginMap = new Map();
+
+      for (const repoUrl of repos) {
+        try {
+          let raw = '';
+          if (fetchFn) {
+            raw = await fetchFn(repoUrl);
+          } else {
+            const res = await fetch(repoUrl);
+            raw = await res.text();
+          }
+          const data = JSON.parse(raw);
+          if (Array.isArray(data)) {
+            for (const p of data) {
+              if (p && p.id && !pluginMap.has(p.id)) {
+                pluginMap.set(p.id, { ...p, repoUrl });
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[SourceRegistry] Failed to fetch repo catalog:', repoUrl, e.message);
+        }
       }
-      const data = JSON.parse(raw);
-      if (Array.isArray(data) && data.length > 0 && typeof localStorage !== 'undefined') {
-        try { localStorage.setItem('gemini_plugin_catalog_cache', JSON.stringify(data)); } catch (_) {}
+
+      const combined = Array.from(pluginMap.values());
+      if (combined.length > 0 && typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('gemini_plugin_catalog_cache', JSON.stringify(combined)); } catch (_) {}
       }
-      return data;
+      return combined;
+    }
+
+    /**
+     * Update an installed plugin to its latest remote catalog version
+     * @param {string} pluginId
+     */
+    async updatePlugin(pluginId) {
+      const catalog = await this.fetchCatalog();
+      const status = this.getUpdateStatus(pluginId, catalog);
+      if (!status || !status.hasUpdate) {
+        throw new Error(`Plugin "${pluginId}" is already up to date.`);
+      }
+      return await this.loadPluginFromUrl(status.latestUrl, {
+        name: status.pluginMeta.name,
+        site: status.pluginMeta.site,
+        version: status.pluginMeta.version,
+        lang: status.pluginMeta.lang,
+        icon: status.pluginMeta.iconUrl || ''
+      });
     }
 
     /**
@@ -390,13 +523,6 @@
     getAll() {
       return this.listPlugins();
     }
-
-    /**
-     * Get list of all active plugins (alias for listPlugins)
-     */
-    getAll() {
-      return this.listPlugins();
-    }
   }
 
   const defaultRegistry = new SourceRegistry();
@@ -411,6 +537,12 @@
   SourceRegistry.loadPluginById = (id) => defaultRegistry.loadPluginById(id);
   SourceRegistry.loadPluginFromUrl = (url, meta) => defaultRegistry.loadPluginFromUrl(url, meta);
   SourceRegistry.fetchCatalog = () => defaultRegistry.fetchCatalog();
+  SourceRegistry.getRepoUrls = () => defaultRegistry.getRepoUrls();
+  SourceRegistry.addRepoUrl = (url) => defaultRegistry.addRepoUrl(url);
+  SourceRegistry.removeRepoUrl = (url) => defaultRegistry.removeRepoUrl(url);
+  SourceRegistry.compareVersions = (v1, v2) => defaultRegistry.compareVersions(v1, v2);
+  SourceRegistry.getUpdateStatus = (id, cat) => defaultRegistry.getUpdateStatus(id, cat);
+  SourceRegistry.updatePlugin = (id) => defaultRegistry.updatePlugin(id);
   SourceRegistry.searchAll = (query, onPartial) => defaultRegistry.searchAll(query, onPartial);
   SourceRegistry.searchPlugin = (id, query) => defaultRegistry.searchPlugin(id, query);
   SourceRegistry.defaultRegistry = defaultRegistry;

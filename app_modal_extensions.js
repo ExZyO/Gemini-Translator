@@ -48,6 +48,8 @@
     if (!isOpen) return null;
     const h = getH();
     const ReactComp = typeof React !== 'undefined' ? React : window.React;
+    const [newRepoUrl, setNewRepoUrl] = ReactComp.useState ? ReactComp.useState('') : ['', () => {}];
+    const [repoListTick, setRepoListTick] = ReactComp.useState ? ReactComp.useState(0) : [0, () => {}];
 
     return h('div', {
       style: {
@@ -165,6 +167,7 @@
           return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
             installed.map(p => {
               const isBuiltin = ['novelfire', 'lnori', 'syosetu', 'kakuyomu', 'novelbuddy', 'royalroad', 'readnovelfull', 'boxnovel', 'novelfull'].includes(p.id);
+              const updateStatus = reg && typeof reg.getUpdateStatus === 'function' ? reg.getUpdateStatus(p.id, pluginCatalog) : null;
               return h('div', {
                 key: p.id,
                 style: {
@@ -211,12 +214,28 @@
                     h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } }, `ID: ${p.id}${p.site ? ` · ${p.site}` : ''}`)
                   )
                 ),
-                !isBuiltin && h('button', {
-                  type: 'button',
-                  className: 'mini-btn danger',
-                  style: { padding: '6px 14px', fontSize: 11.5, borderRadius: 6 },
-                  onClick: () => handleUninstallPlugin && handleUninstallPlugin(p.id)
-                }, 'Uninstall')
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                  updateStatus && updateStatus.hasUpdate && h('button', {
+                    type: 'button',
+                    className: 'mini-btn',
+                    disabled: installingPluginId === p.id,
+                    style: {
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      padding: '6px 14px',
+                      fontSize: 11.5,
+                      borderRadius: 6
+                    },
+                    onClick: () => handleInstallPlugin && handleInstallPlugin(updateStatus.pluginMeta || { id: p.id, name: p.name })
+                  }, installingPluginId === p.id ? 'Updating…' : `Update to v${updateStatus.latestVersion}`),
+                  !isBuiltin && h('button', {
+                    type: 'button',
+                    className: 'mini-btn danger',
+                    style: { padding: '6px 14px', fontSize: 11.5, borderRadius: 6 },
+                    onClick: () => handleUninstallPlugin && handleUninstallPlugin(p.id)
+                  }, 'Uninstall')
+                )
               );
             })
           );
@@ -329,12 +348,43 @@
                       p.site && h('div', { style: { fontSize: 11.5, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3 } }, p.site)
                     )
                   ),
-                  isInstalled ? h('button', {
-                    type: 'button',
-                    className: 'mini-btn danger',
-                    style: { padding: '6px 14px', fontSize: 11.5, borderRadius: 6 },
-                    onClick: () => handleUninstallPlugin && handleUninstallPlugin(p.id)
-                  }, 'Uninstall') : h('button', {
+                  isInstalled ? (
+                    (() => {
+                      const regInst = window.sourceRegistry || window.SourceRegistry;
+                      const updateStatus = regInst && typeof regInst.getUpdateStatus === 'function' ? regInst.getUpdateStatus(p.id, [p]) : null;
+                      if (updateStatus && updateStatus.hasUpdate) {
+                        return h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn',
+                            disabled: isInstalling,
+                            style: {
+                              background: isInstalling ? 'var(--hairline)' : 'linear-gradient(135deg, #10b981, #059669)',
+                              color: '#fff',
+                              fontWeight: 700,
+                              padding: '6px 14px',
+                              fontSize: 11.5,
+                              borderRadius: 6,
+                              cursor: isInstalling ? 'wait' : 'pointer'
+                            },
+                            onClick: () => handleInstallPlugin && handleInstallPlugin(p)
+                          }, isInstalling ? 'Updating…' : `Update to v${p.version}`),
+                          h('button', {
+                            type: 'button',
+                            className: 'mini-btn danger',
+                            style: { padding: '6px 12px', fontSize: 11.5, borderRadius: 6 },
+                            onClick: () => handleUninstallPlugin && handleUninstallPlugin(p.id)
+                          }, 'Uninstall')
+                        );
+                      }
+                      return h('button', {
+                        type: 'button',
+                        className: 'mini-btn danger',
+                        style: { padding: '6px 14px', fontSize: 11.5, borderRadius: 6 },
+                        onClick: () => handleUninstallPlugin && handleUninstallPlugin(p.id)
+                      }, 'Uninstall');
+                    })()
+                  ) : h('button', {
                     type: 'button',
                     className: 'mini-btn',
                     disabled: isInstalling,
@@ -374,7 +424,89 @@
             className: 'mini-btn',
             style: { background: 'var(--iris)', color: '#fff', fontWeight: 700, padding: '8px 18px', alignSelf: 'flex-start' },
             onClick: handleInstallCustomPluginUrl
-          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Download', 13), 'Fetch & Register Plugin'))
+          }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Download', 13), 'Fetch & Register Plugin')),
+
+          // ── REPOSITORY FEEDS MANAGER ──
+          h('div', { style: { marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--hairline)' } },
+            h('div', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 } },
+              ic('Globe', 15, 'text-indigo-400'),
+              'Plugin Repository Feeds'
+            ),
+            h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.5, marginBottom: 12 } },
+              'Configure community manifest feeds for automatic source discovery and updates.'
+            ),
+            (() => {
+              const regInst = window.sourceRegistry || window.SourceRegistry;
+              const repos = (regInst && typeof regInst.getRepoUrls === 'function') ? regInst.getRepoUrls() : ['https://raw.githubusercontent.com/lnreader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.json'];
+              return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 } },
+                repos.map((rUrl, rIdx) => {
+                  const isOfficial = rUrl.includes('lnreader/lnreader-plugins');
+                  return h('div', {
+                    key: rIdx,
+                    style: {
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 10,
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid var(--hairline)',
+                      fontSize: 11.5,
+                      fontFamily: 'monospace',
+                      color: 'var(--paper-dim)'
+                    }
+                  },
+                    h('div', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 } },
+                      rUrl,
+                      isOfficial && h('span', { style: { marginLeft: 8, fontSize: 9.5, color: 'var(--iris)', background: 'rgba(99, 102, 241, 0.15)', padding: '2px 6px', borderRadius: 4, fontFamily: 'sans-serif' } }, 'Official')
+                    ),
+                    !isOfficial && h('button', {
+                      type: 'button',
+                      className: 'mini-btn danger',
+                      style: { padding: '3px 8px', fontSize: 10.5, borderRadius: 4 },
+                      onClick: () => {
+                        if (regInst && typeof regInst.removeRepoUrl === 'function') {
+                          regInst.removeRepoUrl(rUrl);
+                          setRepoListTick(t => (typeof t === 'number' ? t + 1 : 1));
+                          if (typeof window.showToast === 'function') window.showToast('Repository feed removed', 'info');
+                        }
+                      }
+                    }, 'Remove')
+                  );
+                })
+              );
+            })(),
+            h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+              h('input', {
+                type: 'text',
+                placeholder: 'https://example.com/custom-plugins.json',
+                value: newRepoUrl,
+                onChange: e => setNewRepoUrl(e.target.value),
+                style: { flex: 1, padding: '8px 12px', fontSize: 12, borderRadius: 6, border: '1px solid var(--hairline)', background: 'var(--void)', color: 'var(--paper)', fontFamily: 'monospace' }
+              }),
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                disabled: !newRepoUrl || !newRepoUrl.trim(),
+                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '7px 14px', fontSize: 12, borderRadius: 6, flexShrink: 0 },
+                onClick: () => {
+                  const regInst = window.sourceRegistry || window.SourceRegistry;
+                  if (regInst && typeof regInst.addRepoUrl === 'function') {
+                    const added = regInst.addRepoUrl(newRepoUrl.trim());
+                    if (added) {
+                      setNewRepoUrl('');
+                      setRepoListTick(t => (typeof t === 'number' ? t + 1 : 1));
+                      if (typeof window.showToast === 'function') window.showToast('Repository added! Syncing catalog...', 'success');
+                      regInst.fetchCatalog();
+                    } else {
+                      if (typeof window.showToast === 'function') window.showToast('Repository already added or invalid', 'warning');
+                    }
+                  }
+                }
+              }, 'Add Feed')
+            )
+          )
         )
       )
     );

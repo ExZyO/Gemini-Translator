@@ -1373,7 +1373,7 @@
                             speedCtrl.recordThrottle(errMsg, 429);
                         } else {
                             if (attempts < 4) {
-                                const backoffDelay = Math.min(2500, (500 * Math.pow(2, attempts - 1)) + (Math.random() * 200));
+                                const backoffDelay = Math.min(4000, (600 * Math.pow(2, attempts - 1)) + (Math.random() * 300));
                                 await new Promise(r => setTimeout(r, backoffDelay));
                             }
                         }
@@ -1382,12 +1382,12 @@
                     if (rateLimitDetected && !ctrl.isPaused && !ctrl.isCancelled) {
                         rateLimitDetected = false;
                         isBackingOff = true;
-                        const cooldownSec = Math.min(4, 2 + attempts);
-                        console.warn(`[Cloudflare Rate Limit 1015] detected on chapter ${currentIndex + 1}. Cooling down ${cooldownSec}s...`);
-                        window.sendTelemetry?.('CLOUDFLARE_1015', `Cloudflare 1015 rate limit on Ch ${currentIndex + 1}. Cooldown: ${cooldownSec}s...`);
+                        const cooldownSec = Math.min(8, 2 + (attempts * 2));
+                        console.warn(`[Rate Limit] detected on chapter ${currentIndex + 1}. Cooling down ${cooldownSec}s...`);
+                        window.sendTelemetry?.('RATE_LIMIT_COOLDOWN', `Rate limit on Ch ${currentIndex + 1}. Cooldown: ${cooldownSec}s...`);
                         for (let c = cooldownSec; c > 0; c--) {
                             if (ctrl.isPaused || ctrl.isCancelled) break;
-                            progressCb?.(`⏳ Rate limit cooldown: resuming in ${c}s... (${completedIndices.size}/${chapterList.length} ch done)`);
+                            progressCb?.(`Rate limit cooldown: resuming in ${c}s... (${completedIndices.size}/${chapterList.length} ch done)`);
                             await new Promise(r => setTimeout(r, 1000));
                         }
                         isBackingOff = false;
@@ -1397,6 +1397,10 @@
                 let chapterSaved = false;
                 if (chData && (chData.text || chData.content)) {
                     let chapterText = chData.text || chData.content || '';
+                    const transformer = (typeof window !== 'undefined' && window.ContentTransformerEngine) ? window.ContentTransformerEngine : (typeof ContentTransformerEngine !== 'undefined' ? ContentTransformerEngine : null);
+                    if (transformer && typeof transformer.sanitizeForStorage === 'function') {
+                        chapterText = transformer.sanitizeForStorage(chapterText);
+                    }
                     const trapCleaner = (typeof window !== 'undefined' && window.stripInvisibleTrapsAndWatermarks) ? window.stripInvisibleTrapsAndWatermarks : (typeof stripInvisibleTrapsAndWatermarks === 'function' ? stripInvisibleTrapsAndWatermarks : null);
                     if (typeof trapCleaner === 'function') {
                         chapterText = trapCleaner(chapterText);
