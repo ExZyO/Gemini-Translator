@@ -494,27 +494,16 @@
       }
       /* Moon+ Reader Pro 2-Row Bottom Status Bar (Exact match to Moon+ Reader HUD) */
       
-      /* Moon+ Reader Top Border Strip (Screenshot 1 & Moon Reader parity) */
+      /* Moon+ Reader Top Border Strip (Clean border line without text) */
       .moon-reader-top-border-strip {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
-        height: calc(26px + env(safe-area-inset-top, 0px));
+        height: calc(14px + env(safe-area-inset-top, 0px));
         background: #000000;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         z-index: 80;
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        padding: 0 16px 5px;
-        box-sizing: border-box;
-        font-size: 10px;
-        color: rgba(255, 255, 255, 0.5);
-        letter-spacing: 0.2px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        user-select: none;
-        -webkit-user-select: none;
         pointer-events: none;
       }
       .reader-v2-theme-sepia .moon-reader-top-border-strip {
@@ -1458,6 +1447,19 @@
       }
 
       /* ── Moon+ Reader Top-Right Dog-Ear Bookmark Indicator ── */
+      .moon-dogear-touch-zone {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 75px;
+        height: 75px;
+        z-index: 95;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-end;
+      }
       .moon-dogear-corner {
         position: absolute;
         top: 0;
@@ -1465,24 +1467,17 @@
         width: 0;
         height: 0;
         border-style: solid;
-        border-width: 0 34px 34px 0;
+        border-width: 0 38px 38px 0;
+        border-color: transparent rgba(255, 255, 255, 0.15) transparent transparent;
+        pointer-events: none;
+        transition: border-color 0.15s ease, transform 0.12s ease;
+      }
+      .moon-dogear-corner.active {
         border-color: transparent var(--r-accent, #6366f1) transparent transparent;
-        z-index: 45;
-        cursor: pointer;
-        filter: drop-shadow(-1px 2px 4px rgba(0, 0, 0, 0.4));
-        transition: transform 0.15s ease;
+        filter: drop-shadow(-1px 2px 5px rgba(0, 0, 0, 0.55));
       }
-      .moon-dogear-corner:active {
-        transform: scale(1.15);
-      }
-      .moon-dogear-touch-zone {
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 72px;
-        height: 72px;
-        z-index: 46;
-        cursor: pointer;
+      .moon-dogear-touch-zone:active .moon-dogear-corner {
+        transform: scale(1.12);
       }
 
       /* ── Moon+ Reader Vertical Scroll Pull-to-Next & Prev Chapter Prompters ── */

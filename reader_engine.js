@@ -2545,18 +2545,23 @@
         activeMatchIndex, setActiveMatchIndex, handlePrevSearchMatch, handleNextSearchMatch
       }),
 
-      // ── MOON+ READER TOP BORDER STRIP (Exact match to Moon+ Reader frame) ──
+      // ── MOON+ READER TOP BORDER STRIP (Exact match to Moon+ Reader frame, clean without text) ──
       !hudVisible && h('div', {
         className: 'moon-reader-top-border-strip'
+      }),
+
+      // ── MOON+ READER TOP-RIGHT DOG-EAR BOOKMARK TOUCH TARGET ──
+      !hudVisible && h('div', {
+        className: 'moon-dogear-touch-zone',
+        title: isCurrentSpotBookmarked ? 'Bookmark Saved · Tap to remove' : 'Tap to bookmark this location',
+        onClick: (e) => {
+          e.stopPropagation();
+          handleToggleBookmark();
+        }
       },
-        h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' } },
-          (typeof window !== 'undefined' && window.cleanRawChapterTitle)
-            ? window.cleanRawChapterTitle(currentChapter?.title || '')
-            : (currentChapter?.title || bookTitle || '')
-        ),
-        h('span', { style: { flexShrink: 0, opacity: 0.8 } },
-          `${activeIdx + 1} / ${safeChapters.length}`
-        )
+        h('div', {
+          className: `moon-dogear-corner ${isCurrentSpotBookmarked ? 'active' : ''}`
+        })
       ),
 
       // ── READING CANVAS CONTAINER ──
@@ -2569,15 +2574,7 @@
             onTouchStart: handleTouchStart,
             onTouchEnd: handleTouchEnd
           },
-            // Moon+ Reader Top-Right Dog-Ear Bookmark Indicator
-            isCurrentSpotBookmarked && h('div', {
-              className: 'moon-dogear-corner',
-              title: 'Chapter Bookmarked · Tap to toggle',
-              onClick: (e) => {
-                e.stopPropagation();
-                handleToggleBookmark();
-              }
-            }),
+
             // Multi-column Paginated Track
             h('div', {
               ref: paginatedTrackRef,
@@ -2667,15 +2664,7 @@
               setHudVisible(prev => !prev);
             }
           },
-            // Moon+ Reader Top-Right Dog-Ear Bookmark Indicator
-            isCurrentSpotBookmarked && h('div', {
-              className: 'moon-dogear-corner',
-              title: 'Chapter Bookmarked · Tap to toggle',
-              onClick: (e) => {
-                e.stopPropagation();
-                handleToggleBookmark();
-              }
-            }),
+
             h('div', { className: `reader-v2-content-box ${widthClass} ${paragraphIndent ? 'reader-v2-indent' : ''}`, style: { textAlign: justify ? 'justify' : 'left' } },
           // Moon+ Reader Centered Bold Chapter Header (Screenshot 1)
           (() => {
