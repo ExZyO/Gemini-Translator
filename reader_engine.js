@@ -350,16 +350,37 @@
       }
     }, [currentIdx]);
 
+    // Immersive Fullscreen Mode (hides Android status bar / phone top bar while reading)
+    useEffect(() => {
+      if (open) {
+        if (window.NativeBridge && typeof window.NativeBridge.setImmersiveMode === 'function') {
+          window.NativeBridge.setImmersiveMode(true);
+        }
+      }
+      return () => {
+        if (window.NativeBridge && typeof window.NativeBridge.setImmersiveMode === 'function') {
+          window.NativeBridge.setImmersiveMode(false);
+        }
+      };
+    }, [open]);
+
     const pendingScrollTargetRef = useRef(null);
     const scrollRestoredRef = useRef(false);
 
     const changeChapter = useCallback((newIdx, options = {}) => {
       if (newIdx < 0 || newIdx >= safeChapters.length) return;
-      const isBackward = typeof options.scrollToBottom === 'boolean'
-        ? options.scrollToBottom
-        : (newIdx < activeIdx);
-
-      pendingScrollTargetRef.current = isBackward ? 'bottom' : 'top';
+      if (typeof options.targetScrollTop === 'number' || typeof options.targetPct === 'number') {
+        pendingScrollTargetRef.current = {
+          type: 'custom',
+          scrollTop: options.targetScrollTop,
+          pct: options.targetPct
+        };
+      } else {
+        const isBackward = typeof options.scrollToBottom === 'boolean'
+          ? options.scrollToBottom
+          : (newIdx < activeIdx);
+        pendingScrollTargetRef.current = isBackward ? 'bottom' : 'top';
+      }
       setActiveIdx(newIdx);
       if (typeof onChapterChange === 'function') onChapterChange(newIdx);
     }, [safeChapters.length, onChapterChange, activeIdx]);
@@ -382,13 +403,21 @@
             const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
             container.scrollTop = maxScroll;
             saveReadingProgress(activeNovelKey, activeIdx, maxScroll, 100);
-          } else {
+          } else if (target === 'top') {
             container.scrollTop = 0;
             saveReadingProgress(activeNovelKey, activeIdx, 0, 0);
+          } else if (typeof target === 'object' && target.type === 'custom') {
+            const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+            const targetTop = typeof target.scrollTop === 'number'
+              ? target.scrollTop
+              : (typeof target.pct === 'number' ? (target.pct / 100) * maxScroll : 0);
+            container.scrollTop = targetTop;
+            saveReadingProgress(activeNovelKey, activeIdx, targetTop, target.pct || 0);
           }
         };
         setPos();
         requestAnimationFrame(setPos);
+        setTimeout(setPos, 60);
         return;
       }
 
@@ -1445,15 +1474,49 @@
 
     const handleToggleBookmark = useCallback(() => {
       const k = novelId || (typeof window !== 'undefined' && window.activeNovelRecord?.id) || 'default';
+      const container = document.getElementById('gemini-reader-scroll-area');
+      const curScrollTop = container ? container.scrollTop : 0;
+      const scrollHeight = container ? Math.max(1, container.scrollHeight - container.clientHeight) : 1;
+      const curPct = Math.round((curScrollTop / scrollHeight) * 100);
+
+      // Extract visible paragraph snippet around current scroll position
+      let snippet = '';
+      if (container) {
+        const paragraphs = container.querySelectorAll('.reader-v2-content-box p');
+        const cRect = container.getBoundingClientRect();
+        for (let i = 0; i < paragraphs.length; i++) {
+          const rect = paragraphs[i].getBoundingClientRect();
+          if (rect.top >= cRect.top - 20 && rect.top <= cRect.bottom) {
+            snippet = paragraphs[i].textContent.trim().slice(0, 85);
+            if (paragraphs[i].textContent.trim().length > 85) snippet += '…';
+            break;
+          }
+        }
+      }
+      if (!snippet && currentChapter) {
+        snippet = (currentChapter.title || `Chapter ${activeIdx + 1}`) + ` (${curPct}%)`;
+      }
+
       setBookmarks(prev => {
-        const exists = prev.some(b => b.chapterIdx === activeIdx);
+        // Match existing bookmark within 4% of current position
+        const existingIdx = prev.findIndex(b => b.chapterIdx === activeIdx && Math.abs((b.pct ?? 0) - curPct) <= 4);
         let next;
-        if (exists) {
-          next = prev.filter(b => b.chapterIdx !== activeIdx);
-          if (typeof window !== 'undefined' && window.toast) window.toast(`Bookmark removed from Chapter ${activeIdx + 1}`);
+        if (existingIdx !== -1) {
+          next = prev.filter((_, idx) => idx !== existingIdx);
+          if (typeof window !== 'undefined' && window.toast) window.toast(`Bookmark removed at ${curPct}%`);
         } else {
-          next = [...prev, { id: 'bm_' + Date.now(), chapterIdx: activeIdx, chapterTitle: currentChapter?.title || `Chapter ${activeIdx + 1}`, pct: Math.round(chapterScrollPct || 0), time: Date.now(), type: 0 }];
-          if (typeof window !== 'undefined' && window.toast) window.toast(`Bookmark saved for Chapter ${activeIdx + 1}`);
+          const newBm = {
+            id: 'bm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            chapterIdx: activeIdx,
+            chapterTitle: currentChapter?.title || `Chapter ${activeIdx + 1}`,
+            scrollTop: curScrollTop,
+            pct: curPct,
+            snippet: snippet,
+            time: Date.now(),
+            type: 0
+          };
+          next = [...prev, newBm];
+          if (typeof window !== 'undefined' && window.toast) window.toast(`Bookmark saved at ${curPct}%`);
         }
         try { localStorage.setItem('gemini_reader_bookmarks_' + k, JSON.stringify(next)); } catch (_) {}
         if (activeNovelRecord && typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
@@ -1461,7 +1524,7 @@
         }
         return next;
       });
-    }, [novelId, activeIdx, currentChapter, chapterScrollPct, activeNovelRecord]);
+    }, [novelId, activeIdx, currentChapter, activeNovelRecord]);
 
     const handleAddBookmark = useCallback((entry = {}) => {
       const k = novelId || (typeof window !== 'undefined' && window.activeNovelRecord?.id) || 'default';
@@ -2585,19 +2648,6 @@
               }
             }),
             h('div', { className: `reader-v2-content-box ${widthClass} ${paragraphIndent ? 'reader-v2-indent' : ''}`, style: { textAlign: justify ? 'justify' : 'left' } },
-          // Moon+ Reader Pull-to-Prev Chapter Prompter
-          activeIdx > 0 && h('div', {
-            id: 'moon-reader-pull-prev',
-            className: 'moon-reader-prev-swipe-card',
-            onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx - 1, { scrollToBottom: true }); }
-          },
-            h('div', { className: 'moon-swipe-pill' },
-              ic('ChevronsDown', 16, 'moon-swipe-arrow'),
-              h('span', { className: 'moon-swipe-text-default' }, `Pull down for Chapter ${activeIdx}: ${(safeChapters[activeIdx - 1]?.title || `Chapter ${activeIdx}`).slice(0, 32)}`),
-              h('span', { className: 'moon-swipe-text-release' }, `Release to open Chapter ${activeIdx}`)
-            )
-          ),
-
           // Moon+ Reader Centered Bold Chapter Header (Screenshot 1)
           (() => {
             const rawT = (typeof window !== 'undefined' && window.cleanRawChapterTitle) ? window.cleanRawChapterTitle(currentChapter.title) : (currentChapter.title || '');
@@ -2615,39 +2665,7 @@
           (() => {
             let mCounter = { count: 0 };
             return chapterElements.map((el, pIdx) => renderParagraphNode(el, pIdx, false, mCounter));
-          })(),
-
-          // Bottom Chapter Navigation Stepper
-          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 40, paddingTop: 24, borderTop: '1px solid var(--r-border)' } },
-            h('button', {
-              type: 'button',
-              className: 'mini-btn ghost',
-              disabled: activeIdx <= 0,
-              style: { padding: '10px 18px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
-              onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx - 1, { scrollToBottom: true }); }
-            }, ic('ArrowLeft', 15), 'Previous Chapter'),
-            h('span', { style: { fontSize: 12, color: 'var(--r-muted)' } }, `${activeIdx + 1} / ${safeChapters.length}`),
-            h('button', {
-              type: 'button',
-              className: 'mini-btn',
-              disabled: activeIdx >= safeChapters.length - 1,
-              style: { padding: '10px 18px', background: 'var(--r-accent)', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
-              onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx + 1, { scrollToBottom: false }); }
-            }, 'Next Chapter', ic('ArrowRight', 15))
-          ),
-
-          // Moon+ Reader Vertical Scroll Pull-to-Next Chapter Prompter
-          activeIdx < safeChapters.length - 1 && h('div', {
-            id: 'moon-reader-pull-next',
-            className: 'moon-reader-next-swipe-card',
-            onClick: (e) => { e.stopPropagation(); changeChapter(activeIdx + 1, { scrollToBottom: false }); }
-          },
-            h('div', { className: 'moon-swipe-pill' },
-              ic('ChevronsUp', 16, 'moon-swipe-arrow'),
-              h('span', { className: 'moon-swipe-text-default' }, `Swipe up for Chapter ${activeIdx + 2}: ${(safeChapters[activeIdx + 1]?.title || `Chapter ${activeIdx + 2}`).slice(0, 32)}`),
-              h('span', { className: 'moon-swipe-text-release' }, `Release to open Chapter ${activeIdx + 2}`)
-            )
-          )
+          })()
         )
       ),
 

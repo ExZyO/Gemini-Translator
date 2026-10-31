@@ -117,7 +117,7 @@
       }
       .reader-v2-content-box {
         margin: 0 auto;
-        padding: 40px 24px 140px;
+        padding: 32px 24px calc(24px + env(safe-area-inset-bottom, 12px));
         transition: max-width 0.2s ease;
       }
       .reader-v2-w-compact { max-width: 600px; }

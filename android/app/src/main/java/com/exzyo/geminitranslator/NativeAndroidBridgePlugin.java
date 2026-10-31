@@ -4000,6 +4000,39 @@ public class NativeAndroidBridgePlugin extends Plugin {
         }
     }
 
+    @PluginMethod
+    public void setImmersiveMode(PluginCall call) {
+        try {
+            boolean enabled = call.getBoolean("enabled", true);
+            Activity activity = getActivity();
+            if (activity != null) {
+                activity.runOnUiThread(() -> {
+                    try {
+                        androidx.core.view.WindowInsetsControllerCompat controller =
+                            androidx.core.view.WindowCompat.getInsetsController(activity.getWindow(), activity.getWindow().getDecorView());
+                        if (controller != null) {
+                            if (enabled) {
+                                controller.setSystemBarsBehavior(
+                                    androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                                );
+                                controller.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars());
+                            } else {
+                                controller.show(androidx.core.view.WindowInsetsCompat.Type.statusBars());
+                            }
+                        }
+                    } catch (Exception ex) {
+                        Log.w(TAG, "Immersive mode error: " + ex.getMessage());
+                    }
+                });
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to toggle immersive mode: " + e.getMessage());
+        }
+    }
+
     public static class OpdsServer {
         private ServerSocket serverSocket;
         private int port = 8080;

@@ -613,7 +613,18 @@
                   key: bm.id || `moon-bm-${bIdx}`,
                   className: 'moon-bm-card',
                   onClick: () => {
-                    changeChapter(bm.chapterIdx || 0);
+                    if (bm.chapterIdx === activeIdx) {
+                      const container = document.getElementById('gemini-reader-scroll-area');
+                      if (container) {
+                        const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+                        const targetTop = typeof bm.scrollTop === 'number'
+                          ? bm.scrollTop
+                          : (typeof bm.pct === 'number' ? (bm.pct / 100) * maxScroll : 0);
+                        container.scrollTo({ top: targetTop, behavior: 'smooth' });
+                      }
+                    } else {
+                      changeChapter(bm.chapterIdx || 0, { targetScrollTop: bm.scrollTop, targetPct: bm.pct });
+                    }
                     setShowToc(false);
                   }
                 },

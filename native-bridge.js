@@ -199,6 +199,28 @@
     window.NativeBridge = {
         isAndroid: () => isCapacitor(),
         isNative: () => isCapacitor(),
+        setImmersiveMode: async (enabled = true) => {
+            const bridge = getBridge();
+            if (bridge && bridge.setImmersiveMode) {
+                try {
+                    await bridge.setImmersiveMode({ enabled: Boolean(enabled) });
+                } catch (e) {
+                    console.warn('Native immersive mode error:', e);
+                }
+            } else {
+                try {
+                    if (enabled) {
+                        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                            await document.documentElement.requestFullscreen();
+                        }
+                    } else {
+                        if (document.fullscreenElement && document.exitFullscreen) {
+                            await document.exitFullscreen();
+                        }
+                    }
+                } catch (e) {}
+            }
+        },
         installApk: async (url = "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk") => {
             const bridge = getBridge();
             if (bridge && bridge.installApk) {

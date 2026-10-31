@@ -961,6 +961,18 @@
             const rowRight = document.createElement('div');
             rowRight.className = 'flex items-center justify-end gap-1.5 sm:gap-2 shrink-0 self-end sm:self-center';
 
+            // Edit Chapter button (opens prose editor modal)
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.className = 'stu-chip-btn accent shrink-0 px-2.5 sm:px-3 h-8 text-xs font-semibold';
+            editBtn.innerHTML = '<span>Edit</span>';
+            editBtn.title = 'Edit chapter prose and illustrations';
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                openChapterModal(idx);
+            };
+            rowRight.appendChild(editBtn);
+
             // Up arrow
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
