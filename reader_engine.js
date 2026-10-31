@@ -1503,7 +1503,7 @@
         let next;
         if (existingIdx !== -1) {
           next = prev.filter((_, idx) => idx !== existingIdx);
-          if (typeof window !== 'undefined' && window.toast) window.toast(`Bookmark removed at ${curPct}%`);
+          // Silent bookmark removal
         } else {
           const newBm = {
             id: 'bm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
@@ -1516,7 +1516,7 @@
             type: 0
           };
           next = [...prev, newBm];
-          if (typeof window !== 'undefined' && window.toast) window.toast(`Bookmark saved at ${curPct}%`);
+          // Silent bookmark addition
         }
         try { localStorage.setItem('gemini_reader_bookmarks_' + k, JSON.stringify(next)); } catch (_) {}
         if (activeNovelRecord && typeof window !== 'undefined' && window.GeminiNovelDB?.updateNovel) {
@@ -2545,12 +2545,7 @@
         activeMatchIndex, setActiveMatchIndex, handlePrevSearchMatch, handleNextSearchMatch
       }),
 
-      // ── MOON+ READER TOP BORDER STRIP (Exact match to Moon+ Reader frame, clean without text) ──
-      !hudVisible && h('div', {
-        className: 'moon-reader-top-border-strip'
-      }),
-
-      // ── MOON+ READER TOP-RIGHT DOG-EAR BOOKMARK TOUCH TARGET ──
+      // ── MOON+ READER TOP-RIGHT DOG-EAR BOOKMARK TOUCH TARGET (Generous 100x120px touch zone, borderless) ──
       !hudVisible && h('div', {
         className: 'moon-dogear-touch-zone',
         title: isCurrentSpotBookmarked ? 'Bookmark Saved · Tap to remove' : 'Tap to bookmark this location',
@@ -2559,8 +2554,9 @@
           handleToggleBookmark();
         }
       },
-        h('div', {
-          className: `moon-dogear-corner ${isCurrentSpotBookmarked ? 'active' : ''}`
+        // Only render the crisp white dog-ear corner when at the exact bookmarked location
+        isCurrentSpotBookmarked && h('div', {
+          className: 'moon-dogear-corner'
         })
       ),
 

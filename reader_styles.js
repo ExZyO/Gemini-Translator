@@ -494,49 +494,6 @@
       }
       /* Moon+ Reader Pro 2-Row Bottom Status Bar (Exact match to Moon+ Reader HUD) */
       
-      /* Moon+ Reader Top Border Strip (Clean border line without text) */
-      .moon-reader-top-border-strip {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: calc(14px + env(safe-area-inset-top, 0px));
-        background: #000000;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        z-index: 80;
-        pointer-events: none;
-      }
-      .reader-v2-theme-sepia .moon-reader-top-border-strip {
-        background: #fbf0d9;
-        color: rgba(67, 52, 34, 0.65);
-        border-bottom: 1px solid rgba(67, 52, 34, 0.12);
-      }
-      .reader-v2-theme-parchment .moon-reader-top-border-strip {
-        background: #f4ecd8;
-        color: rgba(56, 50, 38, 0.65);
-        border-bottom: 1px solid rgba(56, 50, 38, 0.12);
-      }
-      .reader-v2-theme-sage .moon-reader-top-border-strip {
-        background: #e2ece2;
-        color: rgba(34, 51, 34, 0.65);
-        border-bottom: 1px solid rgba(34, 51, 34, 0.12);
-      }
-      .reader-v2-theme-light .moon-reader-top-border-strip {
-        background: #ffffff;
-        color: rgba(17, 24, 39, 0.65);
-        border-bottom: 1px solid rgba(17, 24, 39, 0.1);
-      }
-      .reader-v2-theme-dark .moon-reader-top-border-strip {
-        background: #0a0f1d;
-        color: rgba(203, 213, 225, 0.6);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      }
-      .reader-v2-theme-nord .moon-reader-top-border-strip {
-        background: #242933;
-        color: rgba(236, 239, 244, 0.6);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      }
-
       .moon-reader-status-bar {
         position: fixed;
         bottom: 0;
@@ -547,7 +504,7 @@
         flex-direction: column;
         justify-content: flex-end;
         padding: 4px 14px calc(4px + env(safe-area-inset-bottom, 6px));
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        border-top: none;
         box-sizing: border-box;
         font-size: 10.5px;
         color: rgba(255, 255, 255, 0.72);
@@ -557,7 +514,7 @@
         -webkit-user-select: none;
         letter-spacing: 0.2px;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.4);
+        box-shadow: none;
       }
       .reader-v2-theme-sepia .moon-reader-status-bar {
         background: #fbf0d9;
@@ -1451,8 +1408,8 @@
         position: fixed;
         top: 0;
         right: 0;
-        width: 75px;
-        height: 75px;
+        width: 100px;
+        height: 120px;
         z-index: 95;
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
@@ -1468,16 +1425,13 @@
         height: 0;
         border-style: solid;
         border-width: 0 38px 38px 0;
-        border-color: transparent rgba(255, 255, 255, 0.15) transparent transparent;
+        border-color: transparent #ffffff transparent transparent;
+        filter: drop-shadow(-1px 2px 6px rgba(0, 0, 0, 0.7));
         pointer-events: none;
-        transition: border-color 0.15s ease, transform 0.12s ease;
-      }
-      .moon-dogear-corner.active {
-        border-color: transparent var(--r-accent, #6366f1) transparent transparent;
-        filter: drop-shadow(-1px 2px 5px rgba(0, 0, 0, 0.55));
+        transition: transform 0.12s ease;
       }
       .moon-dogear-touch-zone:active .moon-dogear-corner {
-        transform: scale(1.12);
+        transform: scale(1.15);
       }
 
       /* ── Moon+ Reader Vertical Scroll Pull-to-Next & Prev Chapter Prompters ── */
