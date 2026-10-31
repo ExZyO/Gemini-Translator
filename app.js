@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.23';
+    let VERSION = '8.22.24';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -135,7 +135,7 @@
       const [tmStats, setTmStats] = useState({ totalUnits: 0, tokensSaved: 0, exactHits: 0, fuzzyHits: 0 });
 
       const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'history');
-      const [settingsCategory, setSettingsCategory] = useState(() => localStorage.getItem('gemini_settings_category') || 'engine');
+      const [settingsCategory, setSettingsCategory] = useState(() => localStorage.getItem('gemini_settings_category') || 'all');
       const [isFetchingUrl, setIsFetchingUrl] = useState(false);
       const [isFetchingPaused, setIsFetchingPaused] = useState(false);
       const [webImportStatus, setWebImportStatus] = useState('');

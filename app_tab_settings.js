@@ -249,12 +249,12 @@
     };
 
     const SETTINGS_CATEGORIES = [
+      { id: 'all', label: 'All Settings', icon: 'Sliders' },
       { id: 'engine', label: 'Engine & Keys', icon: 'Key' },
       { id: 'sources', label: 'Sites & Sources', icon: 'Compass' },
       { id: 'quality', label: 'Quality & TM', icon: 'Shield' },
       { id: 'display', label: 'Reader & Display', icon: 'Palette' },
-      { id: 'backup', label: 'Backup & Storage', icon: 'Save' },
-      { id: 'all', label: 'All Settings', icon: 'Sliders' }
+      { id: 'backup', label: 'Backup & Storage', icon: 'Save' }
     ];
 
               return h(React.Fragment, null,

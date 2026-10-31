@@ -882,20 +882,20 @@
             }
 
             const card = document.createElement('div');
-            card.className = `stu-chapter-row flex items-center justify-between gap-2.5 min-w-0 overflow-hidden ${
+            card.className = `stu-chapter-row flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0 ${
                 isSub ? 'pl-6 sm:pl-10' : ''
             }`;
             card.onclick = () => openChapterModal(idx);
 
             // Left: Index, Chevron, Title & Subtitle Stack
             const rowLeft = document.createElement('div');
-            rowLeft.className = 'flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden';
+            rowLeft.className = 'flex items-start gap-2.5 min-w-0 flex-1 w-full';
 
             // Collapse Chevron if parent
             if (hasChildren) {
                 const collBtn = document.createElement('button');
                 collBtn.type = 'button';
-                collBtn.className = 'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-sky-400 hover:bg-white/10 shrink-0';
+                collBtn.className = 'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-sky-400 hover:bg-white/10 shrink-0 mt-0.5';
                 const subCount = blockEnd - blockStart;
                 const isCollapsed = state.collapsedVolumes.has(ch.id);
                 collBtn.textContent = isCollapsed ? '▶' : '▼';
@@ -914,7 +914,7 @@
 
             // Index Pill
             const numBadge = document.createElement('span');
-            numBadge.className = 'text-xs font-mono font-bold shrink-0 px-2 py-0.5 rounded-full select-none';
+            numBadge.className = 'text-xs font-mono font-bold shrink-0 mt-0.5 px-2 py-0.5 rounded-full select-none';
             numBadge.style.color = isSub ? '#818cf8' : (isExplicitVolume ? '#a5b4fc' : '#94a3b8');
             numBadge.style.background = 'rgba(255,255,255,0.06)';
             numBadge.textContent = isSub ? `↳ #${idx + 1}` : (isExplicitVolume ? `[Vol] #${idx + 1}` : `#${idx + 1}`);
@@ -941,15 +941,15 @@
 
             // Title & Metrics Stack
             const textStack = document.createElement('div');
-            textStack.className = 'flex flex-col min-w-0 flex-1 overflow-hidden';
+            textStack.className = 'flex flex-col min-w-0 flex-1';
 
             const titleSpan = document.createElement('span');
-            titleSpan.className = 'font-bold text-sm sm:text-base truncate max-w-full block text-slate-100 hover:text-sky-400 transition-colors';
+            titleSpan.className = 'font-bold text-sm sm:text-base break-words text-slate-100 hover:text-sky-400 transition-colors leading-snug';
             titleSpan.textContent = ch.title;
             textStack.appendChild(titleSpan);
 
             const metaSpan = document.createElement('span');
-            metaSpan.className = 'text-xs text-slate-400 font-mono mt-0.5 truncate max-w-full block';
+            metaSpan.className = 'text-xs text-slate-400 font-mono mt-1 break-words block';
             const imgCount = (ch.images || []).length;
             metaSpan.textContent = `${(ch.words || 0).toLocaleString()} words${imgCount > 0 ? ` · ${imgCount} img` : ''}${isSub ? ' · Sub-Chapter' : ''}`;
             textStack.appendChild(metaSpan);
@@ -957,14 +957,14 @@
             rowLeft.appendChild(textStack);
             card.appendChild(rowLeft);
 
-            // Right: Reorder & Action Pills (Compact on mobile)
+            // Right: Reorder & Action Pills
             const rowRight = document.createElement('div');
-            rowRight.className = 'flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto';
+            rowRight.className = 'flex items-center justify-end gap-1.5 sm:gap-2 shrink-0 self-end sm:self-center';
 
             // Up arrow
             const upBtn = document.createElement('button');
             upBtn.type = 'button';
-            upBtn.className = 'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none shrink-0';
+            upBtn.className = 'w-9 h-9 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-sm font-bold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/10 active:scale-95 disabled:opacity-20 disabled:pointer-events-none transition-all shrink-0';
             upBtn.textContent = '▲';
             upBtn.title = 'Move up';
             upBtn.disabled = idx === 0;
@@ -978,7 +978,7 @@
             // Down arrow
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
-            downBtn.className = 'w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:pointer-events-none shrink-0';
+            downBtn.className = 'w-9 h-9 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-sm font-bold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/10 active:scale-95 disabled:opacity-20 disabled:pointer-events-none transition-all shrink-0';
             downBtn.textContent = '▼';
             downBtn.title = 'Move down';
             downBtn.disabled = idx >= state.chapters.length - 1;
