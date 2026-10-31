@@ -350,11 +350,11 @@
       }
     }, [currentIdx]);
 
-    // Immersive Fullscreen Mode (hides Android status bar / phone top bar while reading)
+    // Moon+ Reader Standard Frame (phone top bar / status bar preserved with top & bottom borders)
     useEffect(() => {
       if (open) {
         if (window.NativeBridge && typeof window.NativeBridge.setImmersiveMode === 'function') {
-          window.NativeBridge.setImmersiveMode(true);
+          window.NativeBridge.setImmersiveMode(false);
         }
       }
       return () => {
@@ -2544,6 +2544,20 @@
         showSearch, setShowSearch, searchQuery, setSearchQuery, searchMatches,
         activeMatchIndex, setActiveMatchIndex, handlePrevSearchMatch, handleNextSearchMatch
       }),
+
+      // ── MOON+ READER TOP BORDER STRIP (Exact match to Moon+ Reader frame) ──
+      !hudVisible && h('div', {
+        className: 'moon-reader-top-border-strip'
+      },
+        h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' } },
+          (typeof window !== 'undefined' && window.cleanRawChapterTitle)
+            ? window.cleanRawChapterTitle(currentChapter?.title || '')
+            : (currentChapter?.title || bookTitle || '')
+        ),
+        h('span', { style: { flexShrink: 0, opacity: 0.8 } },
+          `${activeIdx + 1} / ${safeChapters.length}`
+        )
+      ),
 
       // ── READING CANVAS CONTAINER ──
       viewMode === 'paginated'

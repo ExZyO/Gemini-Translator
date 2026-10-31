@@ -117,7 +117,7 @@
       }
       .reader-v2-content-box {
         margin: 0 auto;
-        padding: 32px 24px calc(24px + env(safe-area-inset-bottom, 12px));
+        padding: calc(36px + env(safe-area-inset-top, 0px)) 24px calc(52px + env(safe-area-inset-bottom, 12px));
         transition: max-width 0.2s ease;
       }
       .reader-v2-w-compact { max-width: 600px; }
@@ -493,6 +493,61 @@
         box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
       }
       /* Moon+ Reader Pro 2-Row Bottom Status Bar (Exact match to Moon+ Reader HUD) */
+      
+      /* Moon+ Reader Top Border Strip (Screenshot 1 & Moon Reader parity) */
+      .moon-reader-top-border-strip {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: calc(26px + env(safe-area-inset-top, 0px));
+        background: #000000;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        z-index: 80;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 0 16px 5px;
+        box-sizing: border-box;
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 0.2px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        user-select: none;
+        -webkit-user-select: none;
+        pointer-events: none;
+      }
+      .reader-v2-theme-sepia .moon-reader-top-border-strip {
+        background: #fbf0d9;
+        color: rgba(67, 52, 34, 0.65);
+        border-bottom: 1px solid rgba(67, 52, 34, 0.12);
+      }
+      .reader-v2-theme-parchment .moon-reader-top-border-strip {
+        background: #f4ecd8;
+        color: rgba(56, 50, 38, 0.65);
+        border-bottom: 1px solid rgba(56, 50, 38, 0.12);
+      }
+      .reader-v2-theme-sage .moon-reader-top-border-strip {
+        background: #e2ece2;
+        color: rgba(34, 51, 34, 0.65);
+        border-bottom: 1px solid rgba(34, 51, 34, 0.12);
+      }
+      .reader-v2-theme-light .moon-reader-top-border-strip {
+        background: #ffffff;
+        color: rgba(17, 24, 39, 0.65);
+        border-bottom: 1px solid rgba(17, 24, 39, 0.1);
+      }
+      .reader-v2-theme-dark .moon-reader-top-border-strip {
+        background: #0a0f1d;
+        color: rgba(203, 213, 225, 0.6);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .reader-v2-theme-nord .moon-reader-top-border-strip {
+        background: #242933;
+        color: rgba(236, 239, 244, 0.6);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
       .moon-reader-status-bar {
         position: fixed;
         bottom: 0;
@@ -502,7 +557,8 @@
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
-        padding: 4px 14px 4px;
+        padding: 4px 14px calc(4px + env(safe-area-inset-bottom, 6px));
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
         box-sizing: border-box;
         font-size: 10.5px;
         color: rgba(255, 255, 255, 0.72);
