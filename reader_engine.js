@@ -2540,6 +2540,11 @@
       });
     }, [bookmarks, activeIdx, chapterScrollPct, viewMode, totalPages, currentPage]);
 
+    // ── 5. Reader Shell Style Classes ──
+    const themeClass = `reader-v2-theme-${theme || 'dark'}`;
+    const fontClass = `reader-v2-font-${font || 'serif'}`;
+    const widthClass = `reader-v2-w-${contentWidth || 'standard'}`;
+
     // Memoized Chapter Prose & Typography: immune to scroll events, preventing 5fps re-rendering & DOM unloads
     const memoizedScrollChapterContent = useMemo(() => {
       if (!currentChapter) return null;
@@ -2569,11 +2574,7 @@
       activeMatchIndex
     ]);
 
-    // ── 5. Render Reader Shell ──
-    const themeClass = `reader-v2-theme-${theme || 'dark'}`;
-    const fontClass = `reader-v2-font-${font || 'serif'}`;
-    const widthClass = `reader-v2-w-${contentWidth || 'standard'}`;
-
+    // ── 6. Render Reader Shell ──
     return h('div', {
       className: `reader-v2-shell ${themeClass} ${fontClass}`,
       style: { fontSize: `${fontSize}px`, lineHeight: lineHeight }

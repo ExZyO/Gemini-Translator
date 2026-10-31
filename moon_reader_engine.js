@@ -1757,14 +1757,24 @@
           }
         };
 
+        let screenRaf = null;
+        const throttledUpdateScreens = () => {
+          if (screenRaf) return;
+          screenRaf = requestAnimationFrame(() => {
+            screenRaf = null;
+            updateScreens();
+          });
+        };
+
         updateScreens();
         const el = document.getElementById('gemini-reader-scroll-area');
         if (el) {
-          el.addEventListener('scroll', updateScreens, { passive: true });
-          window.addEventListener('resize', updateScreens, { passive: true });
+          el.addEventListener('scroll', throttledUpdateScreens, { passive: true });
+          window.addEventListener('resize', throttledUpdateScreens, { passive: true });
           return () => {
-            el.removeEventListener('scroll', updateScreens);
-            window.removeEventListener('resize', updateScreens);
+            if (screenRaf) cancelAnimationFrame(screenRaf);
+            el.removeEventListener('scroll', throttledUpdateScreens);
+            window.removeEventListener('resize', throttledUpdateScreens);
           };
         }
       }, [chapterIndex, currentPage, totalPages, viewMode, currentChapter]);

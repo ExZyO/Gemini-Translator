@@ -1,10 +1,10 @@
 {
-  "version": "8.22.31",
-  "versionCode": 8542,
+  "version": "8.22.32",
+  "versionCode": 8543,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.18/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.31/app-release.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.32/app-release.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.17",
   "releaseDate": "2026-10-31",
-  "releaseNotes": "v8.22.31: Fix reader scroll stability: hide right-edge scrollbar line, throttle scroll updates via requestAnimationFrame, memoize chapter DOM tree, and eliminate 5fps scrolling lag.",
+  "releaseNotes": "v8.22.32: Fix TDZ ReferenceError for widthClass in reader, eliminate scroll stutter with RAF throttling, and suppress native scrollbar edge line.",
   "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.20"
 }

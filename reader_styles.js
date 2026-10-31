@@ -49,17 +49,20 @@
         width: 100%;
         overflow-y: auto;
         overflow-x: hidden;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior-y: contain;
         padding-bottom: 56px;
         box-sizing: border-box;
       }
-      .reader-v2-scroll-container::-webkit-scrollbar {
+      .reader-v2-scroll-container::-webkit-scrollbar,
+      .reader-v2-shell::-webkit-scrollbar,
+      #gemini-reader-scroll-area::-webkit-scrollbar {
         display: none !important;
         width: 0 !important;
         height: 0 !important;
+        background: transparent !important;
       }
       .reader-v2-paginated-viewport {
         flex: 1;
