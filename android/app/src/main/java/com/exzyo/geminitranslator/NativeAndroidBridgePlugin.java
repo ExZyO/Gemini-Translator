@@ -4008,8 +4008,18 @@ public class NativeAndroidBridgePlugin extends Plugin {
             if (activity != null) {
                 activity.runOnUiThread(() -> {
                     try {
+                        android.view.Window window = activity.getWindow();
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            android.view.WindowManager.LayoutParams lp = window.getAttributes();
+                            lp.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                            window.setAttributes(lp);
+                        }
+                        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false);
+                        window.setStatusBarColor(android.graphics.Color.TRANSPARENT);
+                        window.getDecorView().setBackgroundColor(android.graphics.Color.parseColor("#030712"));
+
                         androidx.core.view.WindowInsetsControllerCompat controller =
-                            androidx.core.view.WindowCompat.getInsetsController(activity.getWindow(), activity.getWindow().getDecorView());
+                            androidx.core.view.WindowCompat.getInsetsController(window, window.getDecorView());
                         if (controller != null) {
                             if (enabled) {
                                 controller.setSystemBarsBehavior(

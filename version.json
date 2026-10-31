@@ -1,8 +1,8 @@
 {
-  "version": "8.22.25",
-  "versionCode": 8536,
+  "version": "8.22.26",
+  "versionCode": 8537,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.18/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.25/app-release.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.26/app-release.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.17",
   "releaseDate": "2026-10-31",
   "releaseNotes": "v8.22.17: Added dedicated source scraper plugin for Anime Anyway with native Sanity Portable Text and Next.js SSR extraction, parsing full chapter prose and high-resolution illustrations. Fixed EPUB Editor and Table of Contents chapter deletion buttons with responsive two-tap confirmation, preventing mobile WebView dialog suppression.",

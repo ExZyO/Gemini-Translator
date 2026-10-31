@@ -13,6 +13,18 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NativeEpubMergerPlugin.class);
         super.onCreate(savedInstanceState);
 
+        // Ensure edge-to-edge layout and cutout short edges so WebView never letterboxes into a gray bar
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+                lp.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                getWindow().setAttributes(lp);
+            }
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+            getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+            getWindow().getDecorView().setBackgroundColor(android.graphics.Color.parseColor("#030712"));
+        } catch (Exception ignored) {}
+
         // Enable Chrome remote debugging and verbose adb console output
         android.webkit.WebView.setWebContentsDebuggingEnabled(true);
 

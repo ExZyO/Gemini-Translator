@@ -154,33 +154,34 @@
             </div>
         </div>
 
-        <!-- ═══ MODAL 1: CHAPTER PROSE & IN-CHAPTER IMAGE EDITOR ═══ -->
+        <!-- ═══ MODAL 1: CHAPTER PROSE & IN-CHAPTER IMAGE EDITOR (FULLSCREEN UNBOXED STUDIO) ═══ -->
         <div id="edit-chapter-modal" class="hidden stu-modal-overlay"
              onclick="if(event.target===this) (window.requestCloseChapterModal ? window.requestCloseChapterModal() : this.classList.add('hidden'));">
-            <div class="stu-modal-sheet max-w-4xl h-full sm:h-[90dvh]">
-                <!-- Modal Top Header -->
-                <div class="stu-modal-header" style="display:flex; flex-direction:column; gap:8px; padding:12px 18px;">
-                    <div class="flex items-center justify-between gap-3 w-full">
-                        <div class="flex items-center gap-2.5 flex-1 min-w-0">
-                            <span id="edit-ch-modal-idx" class="stu-badge-idx shrink-0">#1</span>
-                            <input type="text" id="edit-ch-modal-title" placeholder="Chapter Title" class="stu-modal-title-input min-w-0 flex-1">
-                        </div>
+            <div class="stu-modal-sheet w-full h-full flex flex-col">
+                <!-- Modal Top Header (Clean, Unboxed Fullscreen App Bar) -->
+                <div class="stu-modal-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:calc(12px + env(safe-area-inset-top, 0px)) 16px 12px 16px; border-bottom:1px solid rgba(255,255,255,0.06); background:rgba(3,7,18,0.95); flex-shrink:0;">
+                    <div class="flex items-center gap-3 flex-1 min-w-0">
                         <button type="button" onclick="window.closeChapterModalDirect ? window.closeChapterModalDirect() : (window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden'))"
-                                class="stu-modal-close-btn shrink-0" title="Close" style="width:38px; height:38px; font-size:22px; line-height:1; display:flex; align-items:center; justify-content:center; border-radius:10px; z-index:10;">&times;</button>
+                                class="stu-btn-glass shrink-0" title="Back to chapters" style="padding:6px 14px; font-size:13px; font-weight:700; border-radius:10px; display:inline-flex; align-items:center; gap:6px;">
+                            ← Back
+                        </button>
+                        <span id="edit-ch-modal-idx" class="stu-badge-idx shrink-0" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-weight:800; border-radius:8px; padding:4px 8px; font-size:12px;">#1</span>
+                        <input type="text" id="edit-ch-modal-title" placeholder="Chapter Title"
+                               class="stu-modal-title-input min-w-0 flex-1"
+                               style="background:transparent; border:none; border-bottom:1px solid rgba(255,255,255,0.1); border-radius:0; padding:4px 8px; font-size:15px; font-weight:700; color:#f8fafc; outline:none;">
                     </div>
-                    <!-- Level Switcher Sub-Bar -->
-                    <div class="flex items-center gap-2.5 text-xs" style="color:var(--slate);">
-                        <span class="font-medium text-slate-300 shrink-0">Hierarchy Level:</span>
-                        <select id="edit-ch-modal-level" class="stu-modal-select" style="padding:4px 10px; font-size:12px; height:32px;">
+                    <div class="flex items-center gap-2.5 shrink-0">
+                        <select id="edit-ch-modal-level" class="stu-modal-select" style="padding:4px 10px; font-size:12px; height:32px; border-radius:8px; background:rgba(255,255,255,0.05); color:#cbd5e1; border:1px solid rgba(255,255,255,0.1);">
                             <option value="1">Main Chapter (Level 1)</option>
                             <option value="2">Sub-Chapter (Level 2)</option>
                         </select>
+                        <button type="button" id="btn-edit-modal-save" class="stu-btn-radiant-sky" style="padding:7px 18px; font-size:13px; font-weight:700; border-radius:8px;">Save</button>
                     </div>
                 </div>
 
-                <!-- Modal Sub-Toolbar (Prose Editor Mode) -->
-                <div id="edit-ch-modal-subtoolbar" class="stu-modal-subtoolbar">
-                    <div class="flex items-center gap-2 flex-wrap">
+                <!-- Modal Sub-Toolbar (Prose Editor Ribbon) -->
+                <div id="edit-ch-modal-subtoolbar" class="stu-modal-subtoolbar" style="padding:8px 16px; background:rgba(255,255,255,0.02); border-bottom:1px solid rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:space-between; gap:12px; overflow-x:auto; scrollbar-width:none; flex-shrink:0;">
+                    <div class="flex items-center gap-2 shrink-0">
                         <!-- Group 1: Typography Formatting -->
                         <div class="stu-toolbar-btn-group">
                             <button type="button" id="fmt-btn-bold" class="stu-tb-btn" title="Bold (Ctrl+B)"><b>B</b></button>
@@ -215,14 +216,14 @@
                             Preview HTML
                         </button>
                     </div>
-                    <div class="flex items-center gap-3 font-mono text-[11.5px]" style="color:var(--slate);">
+                    <div class="flex items-center gap-3 font-mono text-[11.5px] shrink-0" style="color:var(--slate);">
                         <span id="edit-modal-word-count">0 words</span> ·
                         <span id="edit-modal-char-count">0 chars</span>
                     </div>
                 </div>
 
                 <!-- Modal Preview Top Bar (Dedicated, ALWAYS visible when previewing) -->
-                <div id="edit-ch-modal-preview-bar" class="hidden stu-modal-preview-bar">
+                <div id="edit-ch-modal-preview-bar" class="hidden stu-modal-preview-bar" style="padding:10px 16px; background:rgba(3,7,18,0.95); border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
                     <button type="button" id="btn-preview-back-to-edit" class="stu-btn-glass" style="padding:7px 18px; font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:6px;">
                         ← Back to Editor
                     </button>
@@ -232,13 +233,14 @@
                     </div>
                 </div>
 
-                <!-- Modal Body (Textarea or Rendered Preview) -->
-                <div class="flex-1 overflow-hidden relative flex flex-col" style="min-height:0; flex:1 1 0px; height:100%;">
+                <!-- Modal Body (Distraction-Free Full-Bleed Writing Canvas) -->
+                <div class="flex-1 overflow-hidden relative flex flex-col" style="min-height:0; flex:1 1 0px; height:100%; background:#030712;">
                     <textarea id="edit-ch-modal-textarea"
                               placeholder="Type or paste chapter prose here… Markdown headings (# Title) and images (![Alt](url)) are supported."
-                              class="stu-prose-textarea custom-scrollbar"></textarea>
+                              class="stu-prose-textarea custom-scrollbar"
+                              style="width:100%; height:100%; flex:1 1 0px; background:transparent; border:none; outline:none; padding:20px 24px; font-size:16px; line-height:1.8; color:#e2e8f0; resize:none; overflow-y:auto; -webkit-overflow-scrolling:touch; box-sizing:border-box;"></textarea>
                     <div id="edit-ch-modal-preview" class="hidden flex-1 overflow-y-auto custom-scrollbar font-serif text-base leading-relaxed"
-                         style="color:var(--paper-dim); background:rgba(0,0,0,0.25); min-height:0; height:100%; flex:1 1 0px; -webkit-overflow-scrolling:touch; touch-action:pan-y; overscroll-behavior-y:contain; padding:24px 28px 100px 28px; position:relative;">
+                         style="color:var(--paper-dim); background:#030712; min-height:0; height:100%; flex:1 1 0px; -webkit-overflow-scrolling:touch; touch-action:pan-y; overscroll-behavior-y:contain; padding:24px 28px 100px 28px; position:relative;">
                         <div id="preview-html-content" style="max-width:100%; min-height:0;"></div>
                         <!-- Sticky floating return button inside preview container so user is never trapped -->
                         <div style="position:sticky; bottom:20px; display:flex; justify-content:flex-end; pointer-events:none; margin-top:24px;">
@@ -252,22 +254,21 @@
                 </div>
 
                 <!-- In-Chapter Illustration Gallery Tray -->
-                <div id="edit-ch-modal-img-tray" class="stu-modal-img-tray custom-scrollbar">
+                <div id="edit-ch-modal-img-tray" class="stu-modal-img-tray custom-scrollbar" style="padding:8px 16px; background:rgba(255,255,255,0.02); border-top:1px solid rgba(255,255,255,0.04); flex-shrink:0;">
                     <span class="text-[11px] font-bold shrink-0 text-slate-400">Chapter Images:</span>
                     <div id="edit-ch-modal-img-items" class="flex items-center gap-2.5">
                         <!-- Populated with in-chapter image thumbnails -->
                     </div>
                 </div>
 
-                <!-- Modal Footer -->
-                <div class="stu-modal-footer">
+                <!-- Modal Footer (Clean Safe-Area Bottom Bar) -->
+                <div class="stu-modal-footer" style="padding:10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) 16px; background:rgba(3,7,18,0.95); border-top:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
                     <div class="flex gap-2">
-                        <button type="button" id="btn-edit-modal-prev-ch" class="stu-chip-btn">← Previous Chapter</button>
+                        <button type="button" id="btn-edit-modal-prev-ch" class="stu-chip-btn">← Prev Chapter</button>
                         <button type="button" id="btn-edit-modal-next-ch" class="stu-chip-btn">Next Chapter →</button>
                     </div>
                     <div class="flex gap-2.5">
                         <button type="button" onclick="window.requestCloseChapterModal ? window.requestCloseChapterModal() : document.getElementById('edit-chapter-modal').classList.add('hidden')" class="stu-chip-btn">Close</button>
-                        <button type="button" id="btn-edit-modal-save" class="stu-btn-radiant-sky" style="padding:8px 22px;">Save Chapter</button>
                     </div>
                 </div>
             </div>

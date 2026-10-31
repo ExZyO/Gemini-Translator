@@ -948,30 +948,34 @@
             titleSpan.textContent = ch.title;
             textStack.appendChild(titleSpan);
 
-            const metaSpan = document.createElement('span');
-            metaSpan.className = 'text-xs text-slate-400 font-mono mt-1 break-words block';
-            const imgCount = (ch.images || []).length;
-            metaSpan.textContent = `${(ch.words || 0).toLocaleString()} words${imgCount > 0 ? ` · ${imgCount} img` : ''}${isSub ? ' · Sub-Chapter' : ''}`;
-            textStack.appendChild(metaSpan);
-
             rowLeft.appendChild(textStack);
-            card.appendChild(rowLeft);
 
-            // Right: Reorder & Action Pills
-            const rowRight = document.createElement('div');
-            rowRight.className = 'flex items-center justify-end gap-1.5 sm:gap-2 shrink-0 self-end sm:self-center';
-
-            // Edit Chapter button (opens prose editor modal)
+            // Prominent, unmissable Edit Chapter button placed right alongside title on every device
             const editBtn = document.createElement('button');
             editBtn.type = 'button';
-            editBtn.className = 'stu-chip-btn accent shrink-0 px-2.5 sm:px-3 h-8 text-xs font-semibold';
-            editBtn.innerHTML = '<span>Edit</span>';
+            editBtn.className = 'stu-chip-btn accent shrink-0 px-3.5 h-8 text-xs font-bold shadow-sm';
+            editBtn.innerHTML = '<span>Edit Chapter</span>';
             editBtn.title = 'Edit chapter prose and illustrations';
             editBtn.onclick = (e) => {
                 e.stopPropagation();
                 openChapterModal(idx);
             };
-            rowRight.appendChild(editBtn);
+            rowLeft.appendChild(editBtn);
+
+            card.appendChild(rowLeft);
+
+            // Right / Sub-bar: Word count & Action cluster
+            const rowRight = document.createElement('div');
+            rowRight.className = 'flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full sm:w-auto pt-1 sm:pt-0';
+
+            const metaSpan = document.createElement('span');
+            metaSpan.className = 'text-xs text-slate-400 font-mono break-words block shrink-0';
+            const imgCount = (ch.images || []).length;
+            metaSpan.textContent = `${(ch.words || 0).toLocaleString()} words${imgCount > 0 ? ` · ${imgCount} img` : ''}${isSub ? ' · Sub' : ''}`;
+            rowRight.appendChild(metaSpan);
+
+            const btnCluster = document.createElement('div');
+            btnCluster.className = 'flex items-center gap-1.5 sm:gap-2 shrink-0';
 
             // Up arrow
             const upBtn = document.createElement('button');
@@ -985,7 +989,7 @@
                 const [bStart, bEnd] = getChapterBlockRange(idx);
                 moveChapterBlock(bStart, bEnd, -1);
             };
-            rowRight.appendChild(upBtn);
+            btnCluster.appendChild(upBtn);
 
             // Down arrow
             const downBtn = document.createElement('button');
@@ -999,7 +1003,7 @@
                 const [bStart, bEnd] = getChapterBlockRange(idx);
                 moveChapterBlock(bStart, bEnd, 1);
             };
-            rowRight.appendChild(downBtn);
+            btnCluster.appendChild(downBtn);
 
             // Rename button
             const renameBtn = document.createElement('button');
@@ -1011,7 +1015,7 @@
                 e.stopPropagation();
                 openRenameChapterModal(idx);
             };
-            rowRight.appendChild(renameBtn);
+            btnCluster.appendChild(renameBtn);
 
             // Level / Nesting toggle button
             const lvlBtn = document.createElement('button');
@@ -1041,7 +1045,7 @@
                     saveNovelToDatabase({ silent: true }).catch(err => console.warn('Auto-save error:', err));
                 };
             }
-            rowRight.appendChild(lvlBtn);
+            btnCluster.appendChild(lvlBtn);
 
             // Delete button with two-tap confirm
             const delBtn = document.createElement('button');
@@ -1075,7 +1079,8 @@
                     }, 3000);
                 }
             };
-            rowRight.appendChild(delBtn);
+            btnCluster.appendChild(delBtn);
+            rowRight.appendChild(btnCluster);
 
             card.appendChild(rowRight);
             frag.appendChild(card);

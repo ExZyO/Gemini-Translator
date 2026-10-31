@@ -2497,6 +2497,21 @@
       );
     };
 
+        // Spot-specific bookmark proximity check (Rule: bookmark mark only visible when at bookmarked location)
+    const isCurrentSpotBookmarked = useMemo(() => {
+      if (!bookmarks || bookmarks.length === 0) return false;
+      const curPct = viewMode === 'paginated'
+        ? (totalPages > 1 ? ((currentPage + 1) / totalPages) * 100 : 0)
+        : chapterScrollPct;
+      return bookmarks.some(b => {
+        if (b.chapterIdx !== activeIdx) return false;
+        if (typeof b.pct === 'number' && typeof curPct === 'number') {
+          return Math.abs(b.pct - curPct) <= 3;
+        }
+        return false;
+      });
+    }, [bookmarks, activeIdx, chapterScrollPct, viewMode, totalPages, currentPage]);
+
     // ── 5. Render Reader Shell ──
     const themeClass = `reader-v2-theme-${theme || 'dark'}`;
     const fontClass = `reader-v2-font-${font || 'serif'}`;
@@ -2541,7 +2556,7 @@
             onTouchEnd: handleTouchEnd
           },
             // Moon+ Reader Top-Right Dog-Ear Bookmark Indicator
-            bookmarks.some(b => b.chapterIdx === activeIdx) && h('div', {
+            isCurrentSpotBookmarked && h('div', {
               className: 'moon-dogear-corner',
               title: 'Chapter Bookmarked · Tap to toggle',
               onClick: (e) => {
@@ -2639,7 +2654,7 @@
             }
           },
             // Moon+ Reader Top-Right Dog-Ear Bookmark Indicator
-            bookmarks.some(b => b.chapterIdx === activeIdx) && h('div', {
+            isCurrentSpotBookmarked && h('div', {
               className: 'moon-dogear-corner',
               title: 'Chapter Bookmarked · Tap to toggle',
               onClick: (e) => {
@@ -2709,7 +2724,7 @@
         autoScroll,
         onToggleAutoScroll: () => setAutoScroll(s => !s),
         onToggleBookmark: handleToggleBookmark,
-        isCurrentBookmarked: bookmarks.some(b => b.chapterIdx === activeIdx),
+        isCurrentBookmarked: isCurrentSpotBookmarked,
         onOpenToc: (tab = 'chapters') => { setTocTab(tab); setShowToc(true); },
         onOpenBookmarksDrawer: () => { setTocTab('bookmarks'); setTocBmFilter('all'); setShowToc(true); }
       }),
