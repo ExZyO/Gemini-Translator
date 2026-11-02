@@ -404,6 +404,151 @@ function resolveRelativePath(baseDir, relativePath) {
     return stack.join('/');
 }
 
+// Universal TOC extractor for any book (EPUB 2 or EPUB 3)
+async function extractBookTocEntries(opfDoc, zip, opfDir) {
+    const entries = [];
+    const parser = new DOMParser();
+
+    // 1. Try EPUB 2 NCX
+    let ncxItem = null;
+    const manifestItems = Array.from(opfDoc.getElementsByTagName ? opfDoc.getElementsByTagName("item") : opfDoc.querySelectorAll("manifest item, item"));
+    for (const it of manifestItems) {
+        if ((it.getAttribute("media-type") || "").toLowerCase() === "application/x-dtbncx+xml") {
+            ncxItem = it;
+            break;
+        }
+    }
+
+    if (ncxItem) {
+        const ncxHref = ncxItem.getAttribute("href") || "";
+        const fullNcxPath = opfDir + ncxHref;
+        const ncxFile = zip.file(fullNcxPath) || zip.file(ncxHref);
+        if (ncxFile) {
+            try {
+                const ncxText = await ncxFile.async("text");
+                const ncxDoc = parser.parseFromString(ncxText, "application/xml");
+                const ncxDir = ncxHref.includes('/') ? ncxHref.substring(0, ncxHref.lastIndexOf('/') + 1) : "";
+
+                const navMap = ncxDoc.getElementsByTagName ? ncxDoc.getElementsByTagName("navMap")[0] : ncxDoc.querySelector("navMap");
+                if (navMap) {
+                    const walkNavPoints = (parentEl, level = 1) => {
+                        const children = Array.from(parentEl.childNodes || []);
+                        for (const child of children) {
+                            if (child.nodeType === 1 && (child.localName || child.tagName || '').toLowerCase() === 'navpoint') {
+                                const labelEl = child.getElementsByTagName ? child.getElementsByTagName("text")[0] : child.querySelector("text");
+                                const contentEl = child.getElementsByTagName ? child.getElementsByTagName("content")[0] : child.querySelector("content");
+                                const label = (labelEl?.textContent || '').trim();
+                                const src = (contentEl?.getAttribute("src") || '').trim();
+                                
+                                if (label || src) {
+                                    entries.push({
+                                        title: label || `Chapter ${entries.length + 1}`,
+                                        src: src,
+                                        baseDir: ncxDir,
+                                        level: level
+                                    });
+                                }
+                                walkNavPoints(child, level + 1);
+                            }
+                        }
+                    };
+                    walkNavPoints(navMap, 1);
+                }
+            } catch (e) {
+                console.warn("NCX extraction warning:", e.message);
+            }
+        }
+    }
+
+    // 2. If no entries found, try EPUB 3 NAV
+    if (entries.length === 0) {
+        let navItem = null;
+        for (const it of manifestItems) {
+            const props = (it.getAttribute("properties") || "").toLowerCase();
+            const href = (it.getAttribute("href") || "").toLowerCase();
+            if (props.includes("nav") || href.includes("nav.xhtml") || href.includes("toc.xhtml")) {
+                navItem = it;
+                break;
+            }
+        }
+
+        if (navItem) {
+            const navHref = navItem.getAttribute("href") || "";
+            const fullNavPath = opfDir + navHref;
+            const navFile = zip.file(fullNavPath) || zip.file(navHref);
+            if (navFile) {
+                try {
+                    const navText = await navFile.async("text");
+                    const navDoc = parser.parseFromString(navText, "application/xhtml+xml");
+                    const navDir = navHref.includes('/') ? navHref.substring(0, navHref.lastIndexOf('/') + 1) : "";
+
+                    const navEls = Array.from(navDoc.getElementsByTagName ? navDoc.getElementsByTagName("nav") : navDoc.querySelectorAll("nav"));
+                    const tocNav = navEls.find(n => (n.getAttribute("epub:type") || n.getAttribute("type") || n.getAttribute("id") || "").includes("toc")) || navEls[0];
+                    if (tocNav) {
+                        const ol = tocNav.getElementsByTagName ? tocNav.getElementsByTagName("ol")[0] : tocNav.querySelector("ol");
+                        if (ol) {
+                            const walkOl = (olEl, level = 1) => {
+                                const children = Array.from(olEl.childNodes || []);
+                                for (const li of children) {
+                                    if (li.nodeType === 1 && (li.localName || li.tagName || '').toLowerCase() === 'li') {
+                                        let aEl = null;
+                                        let subOl = null;
+                                        for (const c of Array.from(li.childNodes || [])) {
+                                            if (c.nodeType === 1) {
+                                                const tag = (c.localName || c.tagName || '').toLowerCase();
+                                                if (tag === 'a' && !aEl) aEl = c;
+                                                if (tag === 'ol' && !subOl) subOl = c;
+                                            }
+                                        }
+                                        const label = (aEl?.textContent || li.textContent || '').trim();
+                                        const href = (aEl?.getAttribute("href") || '').trim();
+                                        if (label || href) {
+                                            entries.push({
+                                                title: label || `Chapter ${entries.length + 1}`,
+                                                src: href,
+                                                baseDir: navDir,
+                                                level: level
+                                            });
+                                        }
+                                        if (subOl) walkOl(subOl, level + 1);
+                                    }
+                                }
+                            };
+                            walkOl(ol, 1);
+                        }
+                    }
+                } catch (e) {
+                    console.warn("NAV extraction warning:", e.message);
+                }
+            }
+        }
+    }
+
+    // 3. Fallback: spine items
+    if (entries.length === 0) {
+        const spineItems = Array.from(opfDoc.getElementsByTagName ? opfDoc.getElementsByTagName("itemref") : opfDoc.querySelectorAll("spine itemref"));
+        const manifestMap = new Map();
+        manifestItems.forEach(it => {
+            manifestMap.set(it.getAttribute("id"), it.getAttribute("href"));
+        });
+
+        spineItems.forEach((ref, idx) => {
+            const idref = ref.getAttribute("idref");
+            const href = manifestMap.get(idref);
+            if (href && (href.endsWith('.xhtml') || href.endsWith('.html'))) {
+                entries.push({
+                    title: `Chapter ${idx + 1}`,
+                    src: href,
+                    baseDir: "",
+                    level: 1
+                });
+            }
+        });
+    }
+
+    return entries;
+}
+
 // Merge execution
 btnExecuteMerge?.addEventListener('click', async () => {
     if (mergeFiles.length < 2) return showToast("Add at least 2 books to merge", "warn");
@@ -480,85 +625,18 @@ btnExecuteMerge?.addEventListener('click', async () => {
             if (coverItem) newZip.file(masterOpfDir + coverItem.getAttribute("href"), data);
         }
 
-        // 1. Initialize Master EPUB 2 NCX
-        let masterNcxPath = null, masterNcxDoc = null, masterNavMap = null;
-        const ncxItem = masterOpfDoc.querySelector('item[media-type="application/x-dtbncx+xml"]');
-        if (ncxItem) {
-            masterNcxPath = masterOpfDir + ncxItem.getAttribute("href");
-            if (masterZip.file(masterNcxPath)) {
-                masterNcxDoc = parser.parseFromString(await masterZip.file(masterNcxPath).async("text"), "application/xml");
-                masterNavMap = masterNcxDoc.querySelector("navMap");
+        // 1. Initialize Master TOC Data (Book 1)
+        const booksToc = [];
+        const b0Chapters = await extractBookTocEntries(masterOpfDoc, masterZip, masterOpfDir);
+        booksToc.push({
+            label: (mergeFiles[0].customLabel || 'Book 1').trim(),
+            chapters: b0Chapters
+        });
 
-                if (masterNavMap) {
-                    const originalNavPoints = Array.from(masterNavMap.children).filter(el => el.tagName === 'navPoint');
-                    const labelStr = (mergeFiles[0].customLabel || 'Book 1').trim();
-                    
-                    const masterPoint = masterNcxDoc.createElement("navPoint");
-                    masterPoint.setAttribute("id", "vol_master_1");
-                    masterPoint.setAttribute("playOrder", "1");
+        const isNested = document.getElementById('merge-nested-toc')?.checked ?? true;
+        const stripDupes = document.getElementById('merge-strip-dupes')?.checked ?? true;
 
-                    const navLabel = masterNcxDoc.createElement("navLabel");
-                    const textNode = masterNcxDoc.createElement("text");
-                    textNode.textContent = labelStr;
-                    navLabel.appendChild(textNode);
-                    masterPoint.appendChild(navLabel);
-
-                    if (originalNavPoints.length > 0) {
-                        const firstContent = originalNavPoints[0].querySelector("content");
-                        if (firstContent) {
-                            const masterContent = masterNcxDoc.createElement("content");
-                            masterContent.setAttribute("src", firstContent.getAttribute("src"));
-                            masterPoint.appendChild(masterContent);
-                        }
-                    }
-
-                    originalNavPoints.forEach(np => masterPoint.appendChild(np));
-                    masterNavMap.innerHTML = '';
-                    masterNavMap.appendChild(masterPoint);
-                }
-            }
-        }
-
-        // 2. Initialize Master EPUB 3 NAV (nav.xhtml)
-        const navItem = masterOpfDoc.querySelector('item[properties~="nav"]') || masterOpfDoc.querySelector('item[id*="nav"]') || masterOpfDoc.querySelector('item[id*="toc"]');
-        let masterNavPath = null, masterNavDoc = null, masterNavOl = null;
-        if (navItem) {
-            masterNavPath = masterOpfDir + navItem.getAttribute("href");
-            if (masterZip.file(masterNavPath)) {
-                masterNavDoc = parser.parseFromString(await masterZip.file(masterNavPath).async("text"), "application/xhtml+xml");
-                const navEl = masterNavDoc.querySelector('nav[epub\\:type="toc"], nav[type="toc"], nav#toc, nav');
-                if (navEl) {
-                    masterNavOl = navEl.querySelector('ol');
-                    if (masterNavOl) {
-                        const originalLis = Array.from(masterNavOl.children).filter(el => el.tagName.toLowerCase() === 'li');
-                        const labelStr = (mergeFiles[0].customLabel || 'Book 1').trim();
-
-                        const masterLi = masterNavDoc.createElement("li");
-                        const subOl = masterNavDoc.createElement("ol");
-
-                        const firstA = originalLis[0]?.querySelector('a');
-                        if (firstA) {
-                            const masterA = masterNavDoc.createElement("a");
-                            masterA.setAttribute("href", firstA.getAttribute("href"));
-                            masterA.textContent = labelStr;
-                            masterLi.appendChild(masterA);
-                        } else {
-                            const masterSpan = masterNavDoc.createElement("span");
-                            masterSpan.textContent = labelStr;
-                            masterLi.appendChild(masterSpan);
-                        }
-
-                        originalLis.forEach(li => subOl.appendChild(li));
-                        masterLi.appendChild(subOl);
-
-                        masterNavOl.innerHTML = '';
-                        masterNavOl.appendChild(masterLi);
-                    }
-                }
-            }
-        }
-
-        // 3. Loop and merge remaining books (Book 2, Book 3, ...)
+        // 2. Loop and merge remaining books (Book 2, Book 3, ...)
         for (let i = 1; i < mergeFiles.length; i++) {
             updateParsingProgress(i + 1, mergeFiles.length, `Merging Book ${i + 1} of ${mergeFiles.length} (${mergeFiles[i].name})...`);
 
@@ -566,11 +644,12 @@ btnExecuteMerge?.addEventListener('click', async () => {
             validateZipHeader(subBuffer, mergeFiles[i].name);
             let subZip = await new JSZip().loadAsync(subBuffer);
             const subContainerXml = await subZip.file("META-INF/container.xml").async("text");
-            const subOpfPath = parser.parseFromString(subContainerXml, "text/xml").querySelector("rootfile").getAttribute("full-path");
+            const subOpfPath = parser.parseFromString(subContainerXml, "text/xml").querySelector("rootfile")?.getAttribute("full-path");
+            if (!subOpfPath) continue;
             const subOpfDir = subOpfPath.includes("/") ? subOpfPath.substring(0, subOpfPath.lastIndexOf('/') + 1) : "";
             const subOpfDoc = parser.parseFromString(await subZip.file(subOpfPath).async("text"), "text/xml");
 
-            const subManifest = Array.from(subOpfDoc.querySelectorAll("manifest > item"));
+            const subManifest = Array.from(subOpfDoc.querySelectorAll("manifest > item, item"));
             const idMap = {};
             const hrefMap = {};
 
@@ -588,12 +667,21 @@ btnExecuteMerge?.addEventListener('click', async () => {
             });
 
             // Parallel asset transfer with re-written relative paths
+            // STRICT FILTER: NEVER copy sub-book NCX or NAV files into master manifest or ZIP!
             const ASSET_CHUNK = 50;
             for (let aIdx = 0; aIdx < subManifest.length; aIdx += ASSET_CHUNK) {
                 const chunk = subManifest.slice(aIdx, aIdx + ASSET_CHUNK);
                 await Promise.all(chunk.map(async (it) => {
                     const oldHref = (it.getAttribute("href") || '').trim();
-                    const mime = it.getAttribute("media-type") || "";
+                    const mime = (it.getAttribute("media-type") || "").toLowerCase();
+                    const props = (it.getAttribute("properties") || "").toLowerCase();
+                    const oldHrefLower = oldHref.toLowerCase();
+
+                    // Filter out secondary navigation files
+                    if (mime === 'application/x-dtbncx+xml' || props.includes('nav') || oldHrefLower.endsWith('toc.ncx') || oldHrefLower.endsWith('nav.xhtml')) {
+                        return;
+                    }
+
                     const newHref = hrefMap[oldHref] || `b${i}_${oldHref.split('/').pop()}`;
                     const fullPath = subOpfDir + oldHref;
 
@@ -624,132 +712,218 @@ btnExecuteMerge?.addEventListener('click', async () => {
                 }));
             }
 
-            // Append spine items
-            const subSpine = subOpfDoc.querySelectorAll("spine > itemref");
+            // Append spine items (filtering duplicate covers and navigation pages)
+            const subSpine = Array.from(subOpfDoc.querySelectorAll("spine > itemref, itemref"));
             subSpine.forEach(ref => {
                 const sid = ref.getAttribute("idref");
-                if (idMap[sid]) {
-                    const nr = masterOpfDoc.createElement("itemref");
-                    nr.setAttribute("idref", idMap[sid]);
-                    masterOpfDoc.querySelector("spine")?.appendChild(nr);
-                }
+                if (!idMap[sid]) return;
+                const sidLower = sid.toLowerCase();
+                if (sidLower === 'nav' || sidLower === 'toc') return;
+                if (stripDupes && sidLower.includes('cover')) return;
+                const nr = masterOpfDoc.createElement("itemref");
+                nr.setAttribute("idref", idMap[sid]);
+                masterOpfDoc.querySelector("spine")?.appendChild(nr);
             });
 
-            const labelStr = (mergeFiles[i].customLabel || `Book ${i + 1}`).trim();
+            // Extract chapters from this sub-book and map their destination hrefs
+            const rawSubChapters = await extractBookTocEntries(subOpfDoc, subZip, subOpfDir);
+            const mappedChapters = rawSubChapters.map(ch => {
+                let s = (ch.src || '').trim();
+                let lp = s.split('#')[0];
+                let h = s.split('#')[1] ? '#' + s.split('#')[1] : '';
+                let res = resolveRelativePath(ch.baseDir || '', lp);
+                let mapped = hrefMap[res] || hrefMap[lp] || hrefMap[lp.split('/').pop()];
+                return {
+                    title: ch.title,
+                    href: (mapped || lp) + h,
+                    level: ch.level
+                };
+            });
 
-            // Append to EPUB 2 NCX (toc.ncx)
-            if (masterNcxDoc && masterNavMap) {
-                const subNcx = subOpfDoc.querySelector('item[media-type="application/x-dtbncx+xml"]');
-                if (subNcx) {
-                    const snPath = subOpfDir + subNcx.getAttribute("href");
-                    const snDir = subNcx.getAttribute("href").includes('/') ? subNcx.getAttribute("href").substring(0, subNcx.getAttribute("href").lastIndexOf('/') + 1) : "";
-                    if (subZip.file(snPath)) {
-                        const snd = parser.parseFromString(await subZip.file(snPath).async("text"), "application/xml");
+            booksToc.push({
+                label: (mergeFiles[i].customLabel || `Book ${i + 1}`).trim(),
+                chapters: mappedChapters
+            });
 
-                        const masterPoint = masterNcxDoc.createElement("navPoint");
-                        masterPoint.setAttribute("id", `vol_master_${i + 1}`);
-
-                        const navLabel = masterNcxDoc.createElement("navLabel");
-                        const textNode = masterNcxDoc.createElement("text");
-                        textNode.textContent = labelStr;
-                        navLabel.appendChild(textNode);
-                        masterPoint.appendChild(navLabel);
-
-                        let firstContentFound = false;
-                        let childIdx = 0;
-
-                        snd.querySelectorAll("navMap > navPoint").forEach(np => {
-                            const cl = masterNcxDoc.importNode(np, true);
-                            cl.setAttribute("id", `b${i}_np_${++childIdx}`);
-                            
-                            cl.querySelectorAll("content").forEach(c => {
-                                let s = (c.getAttribute("src") || '').trim();
-                                let lp = s.split('#')[0];
-                                let h = s.split('#')[1] ? '#' + s.split('#')[1] : '';
-                                let res = resolveRelativePath(snDir, lp);
-                                let mapped = hrefMap[res] || hrefMap[lp] || hrefMap[lp.split('/').pop()];
-                                if (mapped) {
-                                    const finalSrc = mapped + h;
-                                    c.setAttribute("src", finalSrc);
-
-                                    if (!firstContentFound) {
-                                        const masterContent = masterNcxDoc.createElement("content");
-                                        masterContent.setAttribute("src", finalSrc);
-                                        masterPoint.appendChild(masterContent);
-                                        firstContentFound = true;
-                                    }
-                                }
-                            });
-                            masterPoint.appendChild(cl);
-                        });
-
-                        masterNavMap.appendChild(masterPoint);
-                    }
-                }
-            }
-
-            // Append to EPUB 3 NAV (nav.xhtml)
-            if (masterNavDoc && masterNavOl) {
-                const subNavItem = subOpfDoc.querySelector('item[properties~="nav"]') || subOpfDoc.querySelector('item[id*="nav"]') || subOpfDoc.querySelector('item[id*="toc"]');
-                const masterLi = masterNavDoc.createElement("li");
-                const subOl = masterNavDoc.createElement("ol");
-                let firstAHref = null;
-
-                if (subNavItem) {
-                    const snNavPath = subOpfDir + subNavItem.getAttribute("href");
-                    const snNavDir = subNavItem.getAttribute("href").includes('/') ? subNavItem.getAttribute("href").substring(0, subNavItem.getAttribute("href").lastIndexOf('/') + 1) : "";
-                    if (subZip.file(snNavPath)) {
-                        const subNavDoc = parser.parseFromString(await subZip.file(snNavPath).async("text"), "application/xhtml+xml");
-                        const subNavEl = subNavDoc.querySelector('nav[epub\\:type="toc"], nav[type="toc"], nav#toc, nav');
-                        const subOlSource = subNavEl?.querySelector('ol');
-
-                        if (subOlSource) {
-                            Array.from(subOlSource.children).forEach(childLi => {
-                                const cl = masterNavDoc.importNode(childLi, true);
-                                cl.querySelectorAll('a').forEach(a => {
-                                    let href = (a.getAttribute('href') || '').trim();
-                                    let lp = href.split('#')[0];
-                                    let h = href.split('#')[1] ? '#' + href.split('#')[1] : '';
-                                    let res = resolveRelativePath(snNavDir, lp);
-                                    let mapped = hrefMap[res] || hrefMap[lp] || hrefMap[lp.split('/').pop()];
-                                    if (mapped) {
-                                        const finalHref = mapped + h;
-                                        a.setAttribute('href', finalHref);
-                                        if (!firstAHref) firstAHref = finalHref;
-                                    }
-                                });
-                                subOl.appendChild(cl);
-                            });
-                        }
-                    }
-                }
-
-                if (firstAHref) {
-                    const masterA = masterNavDoc.createElement("a");
-                    masterA.setAttribute("href", firstAHref);
-                    masterA.textContent = labelStr;
-                    masterLi.appendChild(masterA);
-                } else {
-                    const masterSpan = masterNavDoc.createElement("span");
-                    masterSpan.textContent = labelStr;
-                    masterLi.appendChild(masterSpan);
-                }
-
-                if (subOl.children.length > 0) {
-                    masterLi.appendChild(subOl);
-                }
-                masterNavOl.appendChild(masterLi);
-            }
-            subZip = null; // Immediate garbage collection
+            subZip = null;
         }
 
-        // Sequential playOrder renumbering across all merged NCX navPoints
-        if (masterNcxDoc) {
-            let playOrderCounter = 1;
-            masterNcxDoc.querySelectorAll("navPoint").forEach(np => {
-                np.setAttribute("playOrder", String(playOrderCounter++));
+        // 3. Build Consolidated Master EPUB 2 NCX (toc.ncx)
+        const NCX_NS = "http://www.daisy.org/z3986/2005/ncx/";
+        let masterNcxItem = Array.from(masterOpfDoc.querySelectorAll('manifest > item, item')).find(it => (it.getAttribute("media-type") || '').toLowerCase() === "application/x-dtbncx+xml");
+        let masterNcxPath = masterNcxItem ? masterOpfDir + masterNcxItem.getAttribute("href") : masterOpfDir + "toc.ncx";
+
+        if (!masterNcxItem) {
+            masterNcxItem = masterOpfDoc.createElement("item");
+            masterNcxItem.setAttribute("id", "ncx");
+            masterNcxItem.setAttribute("href", "toc.ncx");
+            masterNcxItem.setAttribute("media-type", "application/x-dtbncx+xml");
+            masterOpfDoc.querySelector("manifest")?.appendChild(masterNcxItem);
+            masterOpfDoc.querySelector("spine")?.setAttribute("toc", "ncx");
+        }
+
+        let masterNcxDoc;
+        if (newZip.file(masterNcxPath)) {
+            masterNcxDoc = parser.parseFromString(await newZip.file(masterNcxPath).async("text"), "application/xml");
+        } else {
+            masterNcxDoc = parser.parseFromString(`<?xml version="1.0" encoding="utf-8"?>
+<ncx xmlns="${NCX_NS}" version="2005-1">
+  <head><meta name="dtb:uid" content="urn:uuid:merged-book"/></head>
+  <docTitle><text>${cleanTitle}</text></docTitle>
+  <navMap/>
+</ncx>`, "application/xml");
+        }
+
+        let masterNavMap = masterNcxDoc.querySelector("navMap") || masterNcxDoc.getElementsByTagName("navMap")[0];
+        if (!masterNavMap) {
+            masterNavMap = masterNcxDoc.createElementNS ? masterNcxDoc.createElementNS(NCX_NS, "navMap") : masterNcxDoc.createElement("navMap");
+            masterNcxDoc.documentElement.appendChild(masterNavMap);
+        }
+        while (masterNavMap.firstChild) masterNavMap.removeChild(masterNavMap.firstChild);
+
+        function createNcxEl(tag) {
+            return masterNcxDoc.createElementNS ? masterNcxDoc.createElementNS(NCX_NS, tag) : masterNcxDoc.createElement(tag);
+        }
+
+        let playOrder = 1;
+        booksToc.forEach((book, bIdx) => {
+            if (isNested) {
+                const volPoint = createNcxEl("navPoint");
+                volPoint.setAttribute("id", `vol_${bIdx + 1}`);
+                volPoint.setAttribute("playOrder", String(playOrder++));
+
+                const navLabel = createNcxEl("navLabel");
+                const textNode = createNcxEl("text");
+                textNode.textContent = book.label;
+                navLabel.appendChild(textNode);
+                volPoint.appendChild(navLabel);
+
+                const contentNode = createNcxEl("content");
+                contentNode.setAttribute("src", book.chapters[0]?.href || "");
+                volPoint.appendChild(contentNode);
+
+                book.chapters.forEach((ch, chIdx) => {
+                    const chPoint = createNcxEl("navPoint");
+                    chPoint.setAttribute("id", `b${bIdx}_np_${chIdx + 1}`);
+                    chPoint.setAttribute("playOrder", String(playOrder++));
+
+                    const chLabel = createNcxEl("navLabel");
+                    const chText = createNcxEl("text");
+                    chText.textContent = ch.title;
+                    chLabel.appendChild(chText);
+                    chPoint.appendChild(chLabel);
+
+                    const chContent = createNcxEl("content");
+                    chContent.setAttribute("src", ch.href);
+                    chPoint.appendChild(chContent);
+
+                    volPoint.appendChild(chPoint);
+                });
+
+                masterNavMap.appendChild(volPoint);
+            } else {
+                book.chapters.forEach((ch, chIdx) => {
+                    const chPoint = createNcxEl("navPoint");
+                    chPoint.setAttribute("id", `b${bIdx}_np_${chIdx + 1}`);
+                    chPoint.setAttribute("playOrder", String(playOrder++));
+
+                    const chLabel = createNcxEl("navLabel");
+                    const chText = createNcxEl("text");
+                    chText.textContent = ch.title;
+                    chLabel.appendChild(chText);
+                    chPoint.appendChild(chLabel);
+
+                    const chContent = createNcxEl("content");
+                    chContent.setAttribute("src", ch.href);
+                    chPoint.appendChild(chContent);
+
+                    masterNavMap.appendChild(chPoint);
+                });
+            }
+        });
+
+        newZip.file(masterNcxPath, serializer.serializeToString(masterNcxDoc));
+
+        // 4. Build Consolidated Master EPUB 3 Navigation (nav.xhtml)
+        const XHTML_NS = "http://www.w3.org/1999/xhtml";
+        let masterNavItem = Array.from(masterOpfDoc.querySelectorAll('manifest > item, item')).find(it => (it.getAttribute("properties") || '').toLowerCase().includes("nav"));
+        let masterNavPath = masterNavItem ? masterOpfDir + masterNavItem.getAttribute("href") : masterOpfDir + "nav.xhtml";
+
+        if (!masterNavItem) {
+            masterNavItem = masterOpfDoc.createElement("item");
+            masterNavItem.setAttribute("id", "nav");
+            masterNavItem.setAttribute("href", "nav.xhtml");
+            masterNavItem.setAttribute("media-type", "application/xhtml+xml");
+            masterNavItem.setAttribute("properties", "nav");
+            masterOpfDoc.querySelector("manifest")?.appendChild(masterNavItem);
+        }
+
+        let masterNavDoc;
+        if (newZip.file(masterNavPath)) {
+            masterNavDoc = parser.parseFromString(await newZip.file(masterNavPath).async("text"), "application/xhtml+xml");
+        } else {
+            masterNavDoc = parser.parseFromString(`<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="${XHTML_NS}" xmlns:epub="http://www.idpf.org/2007/ops">
+<head><title>${cleanTitle} - Table of Contents</title></head>
+<body>
+  <nav epub:type="toc" id="toc">
+    <h1>Table of Contents</h1>
+    <ol></ol>
+  </nav>
+</body>
+</html>`, "application/xhtml+xml");
+        }
+
+        function createXhtmlEl(tag) {
+            return masterNavDoc.createElementNS ? masterNavDoc.createElementNS(XHTML_NS, tag) : masterNavDoc.createElement(tag);
+        }
+
+        const navEls = Array.from(masterNavDoc.querySelectorAll("nav") || masterNavDoc.getElementsByTagName("nav"));
+        let tocNav = navEls.find(n => (n.getAttribute("epub:type") || n.getAttribute("type") || n.getAttribute("id") || "").includes("toc")) || navEls[0];
+        let masterOl = tocNav?.querySelector("ol") || tocNav?.getElementsByTagName("ol")[0];
+        if (!masterOl && tocNav) {
+            masterOl = createXhtmlEl("ol");
+            tocNav.appendChild(masterOl);
+        }
+
+        if (masterOl) {
+            while (masterOl.firstChild) masterOl.removeChild(masterOl.firstChild);
+
+            booksToc.forEach((book, bIdx) => {
+                if (isNested) {
+                    const bookLi = createXhtmlEl("li");
+                    const bookA = createXhtmlEl("a");
+                    bookA.setAttribute("href", book.chapters[0]?.href || "");
+                    bookA.textContent = book.label;
+                    bookLi.appendChild(bookA);
+
+                    if (book.chapters.length > 0) {
+                        const subOl = createXhtmlEl("ol");
+                        book.chapters.forEach(ch => {
+                            const chLi = createXhtmlEl("li");
+                            const chA = createXhtmlEl("a");
+                            chA.setAttribute("href", ch.href);
+                            chA.textContent = ch.title;
+                            chLi.appendChild(chA);
+                            subOl.appendChild(chLi);
+                        });
+                        bookLi.appendChild(subOl);
+                    }
+                    masterOl.appendChild(bookLi);
+                } else {
+                    book.chapters.forEach(ch => {
+                        const chLi = createXhtmlEl("li");
+                        const chA = createXhtmlEl("a");
+                        chA.setAttribute("href", ch.href);
+                        chA.textContent = ch.title;
+                        chLi.appendChild(chA);
+                        masterOl.appendChild(chLi);
+                    });
+                }
             });
-            newZip.file(masterNcxPath, serializer.serializeToString(masterNcxDoc));
+
+            // CRUCIAL: Write masterNavDoc back to newZip!
+            newZip.file(masterNavPath, serializer.serializeToString(masterNavDoc));
         }
 
         // Optional Typography & CSS Theme Injection
@@ -784,6 +958,23 @@ btnExecuteMerge?.addEventListener('click', async () => {
                 logMsg(`Applied ${mergeTheme} typography theme to merged book.`);
             }
         }
+
+        // Ensure manifest has strictly ONE NCX and ONE NAV item
+        const allManifestItems = Array.from(masterOpfDoc.querySelectorAll("manifest > item, item"));
+        let seenNcx = false;
+        let seenNav = false;
+        allManifestItems.forEach(it => {
+            const mime = (it.getAttribute("media-type") || "").toLowerCase();
+            const props = (it.getAttribute("properties") || "").toLowerCase();
+            if (mime === "application/x-dtbncx+xml") {
+                if (seenNcx) it.remove();
+                else seenNcx = true;
+            }
+            if (props.includes("nav")) {
+                if (seenNav) it.remove();
+                else seenNav = true;
+            }
+        });
 
         newZip.file(masterOpfPath, serializer.serializeToString(masterOpfDoc));
 
