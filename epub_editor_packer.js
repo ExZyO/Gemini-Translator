@@ -196,11 +196,37 @@
         return relParts.join('/');
     }
 
+    // ── Chapter Deduplication Engine ──
+    function deduplicateChapterList(chapters) {
+        if (!Array.isArray(chapters) || chapters.length <= 1) return chapters || [];
+        const seen = new Set();
+        const clean = [];
+        chapters.forEach((ch) => {
+            if (!ch) return;
+            const pathKey = (ch.fullPath || ch.href || '').trim().toLowerCase();
+            const textSig = (ch.content || '').replace(/\s+/g, ' ').slice(0, 150).trim();
+            const key = pathKey ? `path:${pathKey}` : `sig:${(ch.title || '').trim()}:::${ch.words || 0}:::${textSig}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            ch.id = 'ch_' + (clean.length + 1);
+            clean.push(ch);
+        });
+        return clean;
+    }
+
     // ── Parse EPUB Archive using JSZip ──
+    let isParsingEpub = false;
     async function parseEpubFile(file) {
+        if (!file) return;
+        if (isParsingEpub) {
+            console.warn('parseEpubFile is already active, ignoring concurrent invocation');
+            return;
+        }
+        isParsingEpub = true;
         const JSZipClass = (typeof window !== 'undefined' && window.JSZip) ? window.JSZip : (typeof JSZip !== 'undefined' ? JSZip : null);
         if (!JSZipClass) {
             if (typeof window.toast === 'function') window.toast('JSZip library is required to unpack EPUBs.', 'error');
+            isParsingEpub = false;
             return;
         }
 
@@ -432,6 +458,7 @@
             }
 
             let chIdx = 0;
+            const seenChapterFiles = new Set();
 
             for (const itemRef of spineItems) {
                 try {
@@ -444,6 +471,13 @@
                         console.warn('Could not locate chapter file in zip:', item.href, 'opfDir:', opfDir);
                         continue;
                     }
+
+                    const normFilePath = chFile.name.toLowerCase();
+                    if (seenChapterFiles.has(normFilePath)) {
+                        console.warn('Skipping duplicate chapter file in spine:', chFile.name);
+                        continue;
+                    }
+                    seenChapterFiles.add(normFilePath);
 
                     chIdx++;
                     const xhtml = await chFile.async('text');
@@ -554,6 +588,9 @@
                     try {
                         const chFile = zip.files[k];
                         if (!chFile) continue;
+                        const normFilePath = chFile.name.toLowerCase();
+                        if (seenChapterFiles.has(normFilePath)) continue;
+                        seenChapterFiles.add(normFilePath);
                         chIdx++;
                         const xhtml = await chFile.async('text');
                         const chDoc = parser.parseFromString(xhtml, 'text/html');
@@ -631,6 +668,7 @@
                 }
             }
 
+            state.chapters = deduplicateChapterList(state.chapters);
             updateProgress('Finished parsing book!', 100);
             renderEditorView();
             if (typeof window.toast === 'function') {
@@ -640,6 +678,7 @@
             console.error('EPUB parse error:', err);
             if (typeof window.toast === 'function') window.toast('Failed to parse EPUB: ' + err.message, 'error');
         } finally {
+            isParsingEpub = false;
             if (spinner) spinner.classList.add('hidden');
             if (progWrap) progWrap.classList.add('hidden');
         }
@@ -1149,6 +1188,7 @@ ${bodyHtml}
     findZipEntry,
     getRelativeZipHref,
     parseEpubFile,
-    exportCleanEpub
+    exportCleanEpub,
+    deduplicateChapterList
   };
 }));

@@ -627,7 +627,18 @@ btnExecuteMerge?.addEventListener('click', async () => {
 
         // 1. Initialize Master TOC Data (Book 1)
         const booksToc = [];
-        const b0Chapters = await extractBookTocEntries(masterOpfDoc, masterZip, masterOpfDir);
+        const rawB0Chapters = await extractBookTocEntries(masterOpfDoc, masterZip, masterOpfDir);
+        const b0Chapters = rawB0Chapters.map(ch => {
+            let s = (ch.src || ch.href || '').trim();
+            let lp = s.split('#')[0];
+            let h = s.split('#')[1] ? '#' + s.split('#')[1] : '';
+            let res = resolveRelativePath(ch.baseDir || '', lp);
+            return {
+                title: ch.title,
+                href: (res || lp) + h,
+                level: ch.level || 1
+            };
+        });
         booksToc.push({
             label: (mergeFiles[0].customLabel || 'Book 1').trim(),
             chapters: b0Chapters
@@ -713,7 +724,14 @@ btnExecuteMerge?.addEventListener('click', async () => {
             }
 
             // Append spine items (filtering duplicate covers and navigation pages)
-            const subSpine = Array.from(subOpfDoc.querySelectorAll("spine > itemref, itemref"));
+            const subSpineRaw = Array.from(subOpfDoc.getElementsByTagName ? subOpfDoc.getElementsByTagName("itemref") : subOpfDoc.querySelectorAll("spine itemref, itemref"));
+            const seenSubIds = new Set();
+            const subSpine = subSpineRaw.filter(ref => {
+                const sid = ref.getAttribute("idref");
+                if (!sid || seenSubIds.has(sid)) return false;
+                seenSubIds.add(sid);
+                return true;
+            });
             subSpine.forEach(ref => {
                 const sid = ref.getAttribute("idref");
                 if (!idMap[sid]) return;
@@ -751,16 +769,16 @@ btnExecuteMerge?.addEventListener('click', async () => {
         // 3. Build Consolidated Master EPUB 2 NCX (toc.ncx)
         const NCX_NS = "http://www.daisy.org/z3986/2005/ncx/";
         let masterNcxItem = Array.from(masterOpfDoc.querySelectorAll('manifest > item, item')).find(it => (it.getAttribute("media-type") || '').toLowerCase() === "application/x-dtbncx+xml");
-        let masterNcxPath = masterNcxItem ? masterOpfDir + masterNcxItem.getAttribute("href") : masterOpfDir + "toc.ncx";
 
         if (!masterNcxItem) {
             masterNcxItem = masterOpfDoc.createElement("item");
             masterNcxItem.setAttribute("id", "ncx");
-            masterNcxItem.setAttribute("href", "toc.ncx");
             masterNcxItem.setAttribute("media-type", "application/x-dtbncx+xml");
             masterOpfDoc.querySelector("manifest")?.appendChild(masterNcxItem);
             masterOpfDoc.querySelector("spine")?.setAttribute("toc", "ncx");
         }
+        masterNcxItem.setAttribute("href", "toc.ncx");
+        let masterNcxPath = masterOpfDir + "toc.ncx";
 
         let masterNcxDoc;
         if (newZip.file(masterNcxPath)) {
@@ -847,16 +865,16 @@ btnExecuteMerge?.addEventListener('click', async () => {
         // 4. Build Consolidated Master EPUB 3 Navigation (nav.xhtml)
         const XHTML_NS = "http://www.w3.org/1999/xhtml";
         let masterNavItem = Array.from(masterOpfDoc.querySelectorAll('manifest > item, item')).find(it => (it.getAttribute("properties") || '').toLowerCase().includes("nav"));
-        let masterNavPath = masterNavItem ? masterOpfDir + masterNavItem.getAttribute("href") : masterOpfDir + "nav.xhtml";
 
         if (!masterNavItem) {
             masterNavItem = masterOpfDoc.createElement("item");
             masterNavItem.setAttribute("id", "nav");
-            masterNavItem.setAttribute("href", "nav.xhtml");
             masterNavItem.setAttribute("media-type", "application/xhtml+xml");
             masterNavItem.setAttribute("properties", "nav");
             masterOpfDoc.querySelector("manifest")?.appendChild(masterNavItem);
         }
+        masterNavItem.setAttribute("href", "nav.xhtml");
+        let masterNavPath = masterOpfDir + "nav.xhtml";
 
         let masterNavDoc;
         if (newZip.file(masterNavPath)) {

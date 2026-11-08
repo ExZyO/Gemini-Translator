@@ -688,10 +688,91 @@
     );
   }
 
+  /**
+   * Poweramp-style Horizontal Screen Swipe Gestures for Tab Navigation
+   * Enables seamless fluid swiping across the main canvas to switch tabs
+   * @param {Object} options
+   * @param {Function} options.getActiveTab
+   * @param {Function} options.onSelectTab
+   * @param {Array<string>} [options.tabs]
+   * @returns {Function} cleanup
+   */
+  function initPowerampTabGestures(options) {
+    if (typeof window === 'undefined') return () => {};
+    options = options || {};
+    const tabs = options.tabs || ['text', 'web_importer', 'studio', 'history', 'settings'];
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let isTracking = false;
+
+    const shouldIgnoreElement = (el) => {
+      if (!el || !(el instanceof Element)) return false;
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable) return true;
+      if (el.closest('input, textarea, [contenteditable="true"], .stu-modal-overlay, .modal-backdrop, .reader-v2-root, #reader-hud, #audio-full-player, .rc-slider, [role="slider"]')) {
+        return true;
+      }
+      return false;
+    };
+
+    const onTouchStart = (e) => {
+      if (!e.touches || e.touches.length !== 1) {
+        isTracking = false;
+        return;
+      }
+      if (shouldIgnoreElement(e.target)) {
+        isTracking = false;
+        return;
+      }
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      touchStartTime = Date.now();
+      isTracking = true;
+    };
+
+    const onTouchEnd = (e) => {
+      if (!isTracking) return;
+      isTracking = false;
+      const touch = (e.changedTouches && e.changedTouches[0]) || null;
+      if (!touch) return;
+
+      const dx = touch.clientX - touchStartX;
+      const dy = touch.clientY - touchStartY;
+      const dt = Date.now() - touchStartTime;
+
+      if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.8 && dt < 500) {
+        const currentTab = typeof options.getActiveTab === 'function' ? options.getActiveTab() : options.activeTab;
+        const curIdx = tabs.indexOf(currentTab);
+        if (curIdx === -1) return;
+
+        if (dx < 0 && curIdx < tabs.length - 1) {
+          try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
+          if (typeof options.onSelectTab === 'function') {
+            options.onSelectTab(tabs[curIdx + 1]);
+          }
+        } else if (dx > 0 && curIdx > 0) {
+          try { window.NativeBridge?.haptic?.('light'); } catch (_) {}
+          if (typeof options.onSelectTab === 'function') {
+            options.onSelectTab(tabs[curIdx - 1]);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }
+
   const NavigationEngine = {
     initBoxResizer,
     initDeepLinkRouter,
     initBackButtonHandler,
+    initPowerampTabGestures,
     LiquidGlassDock
   };
 

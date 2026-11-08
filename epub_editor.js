@@ -324,12 +324,18 @@
             ? record.translatedChapters
             : (record.rawChapters || record.chapters || []);
 
+        const seenChapterKeys = new Set();
         srcChapters.forEach((c, idx) => {
             const rawContent = c.content || c.text || '';
-            const chImages = extractImagesFromContent(rawContent);
             const chTitle = record.isEdited ? (c.title || `Chapter ${idx + 1}`) : cleanTitle(c.title || `Chapter ${idx + 1}`, idx + 1);
+            const contentSig = rawContent.replace(/\s+/g, ' ').slice(0, 150).trim();
+            const dedupeKey = `${chTitle.toLowerCase()}:::${contentSig}`;
+            if (seenChapterKeys.has(dedupeKey)) return;
+            seenChapterKeys.add(dedupeKey);
+
+            const chImages = extractImagesFromContent(rawContent);
             state.chapters.push({
-                id: 'ch_' + (idx + 1),
+                id: 'ch_' + (state.chapters.length + 1),
                 title: chTitle,
                 originalTitle: c.title || chTitle,
                 level: c.level || 1,
@@ -340,10 +346,14 @@
                 bodyAttrs: '',
                 originalXhtml: '',
                 fullPath: '',
-                href: `chapter_${idx + 1}.xhtml`,
+                href: `chapter_${state.chapters.length + 1}.xhtml`,
                 isNew: true
             });
         });
+
+        if (window.EpubEditorPacker?.deduplicateChapterList) {
+            state.chapters = window.EpubEditorPacker.deduplicateChapterList(state.chapters);
+        }
 
         renderEditorView();
         if (typeof window.toast === 'function') {
@@ -389,6 +399,9 @@
     }
 
     function updateStats() {
+        if (window.EpubEditorPacker?.deduplicateChapterList && state.chapters && state.chapters.length > 1) {
+            state.chapters = window.EpubEditorPacker.deduplicateChapterList(state.chapters);
+        }
         const statCh = document.getElementById('edit-stat-ch-count');
         const statW = document.getElementById('edit-stat-words');
         const statImg = document.getElementById('edit-stat-images');

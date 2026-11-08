@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.35';
+    let VERSION = '8.22.36';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1161,7 +1161,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8442);
+      const [appVersionCode, setAppVersionCode] = useState(8547);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [assignWebsiteModalNovel, setAssignWebsiteModalNovel] = useState(null);
@@ -1604,6 +1604,16 @@
           toast: (msg, type) => backActionsRef.current?.toast?.(msg, type)
         });
       }, []);
+
+      useEffect(() => {
+        const engine = window.NavigationEngine || NavigationEngine;
+        if (engine && typeof engine.initPowerampTabGestures === 'function') {
+          return engine.initPowerampTabGestures({
+            getActiveTab: () => activeTab,
+            onSelectTab: (tab) => setActiveTab(tab)
+          });
+        }
+      }, [activeTab]);
 
       useEffect(() => { document.documentElement.classList.add('dark'); localStorage.setItem('darkMode', 'true'); }, []);
       useEffect(() => { localStorage.setItem('enableStreaming', String(enableStreaming)) }, [enableStreaming]);

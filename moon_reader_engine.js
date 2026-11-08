@@ -1365,12 +1365,32 @@
           return { totalOnlineCount, chapterList };
         } catch (err) {
           console.error('Scan TOC error:', err);
+          const isCf = err.isCloudflare || /cloudflare|turnstile|challenge|human verification/i.test(err.message || '');
+          if (isCf && !options._cfAutoAttempted && (window.NativeBridge?.resolveCloudflare || window.NativeBridge?.openInAppBrowser)) {
+            const solver = window.NativeBridge.resolveCloudflare || window.NativeBridge.openInAppBrowser;
+            if (typeof toast === 'function') toast('Cloudflare security check active. Opening verification window...', 'info');
+            try {
+              const res = await solver(targetUrl);
+              if (res?.success || res?.status === 'ok') {
+                if (typeof toast === 'function') toast('Verification passed! Scanning chapters now...', 'success');
+                return await this.handleScanContinuationToc(targetUrl, { ...options, _cfAutoAttempted: true }, callbacks);
+              }
+            } catch (solveErr) {
+              console.warn('[MoonReaderEngine] Cloudflare solver error:', solveErr);
+            }
+          }
+
           const isStillTarget = options.ongoingEpubModal ? (options.ongoingEpubModal.sourceUrl === targetUrl) : true;
           if (isStillTarget && err.name !== 'AbortError' && typeof toast === 'function') {
             toast('Failed to scan online source: ' + err.message, 'error');
           }
           if (typeof setOngoingEpubModal === 'function') {
-            setOngoingEpubModal(prev => (prev && prev.sourceUrl === targetUrl) ? { ...prev, isScanningToc: false } : prev);
+            setOngoingEpubModal(prev => (prev && prev.sourceUrl === targetUrl) ? {
+              ...prev,
+              isScanningToc: false,
+              cloudflareBlocked: isCf,
+              cloudflareUrl: targetUrl
+            } : prev);
           }
           return null;
         }

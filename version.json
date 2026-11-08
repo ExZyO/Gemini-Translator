@@ -1,10 +1,11 @@
 {
-  "version": "8.22.35",
-  "versionCode": 8546,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.18/GeminiTranslator.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.35/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.17",
-  "releaseDate": "2026-11-02",
-  "releaseNotes": "v8.22.35: Fix merged EPUB Table of Contents: eliminate duplicate sub-book NCX/NAV registration that caused readers to show only the last book, ensure both EPUB 2 NCX and EPUB 3 NAV are fully generated and saved with clean namespaces, and respect hierarchical versus flat TOC options.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.20"
+  "version": "8.22.36",
+  "versionCode": 8547,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.36/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.36/GeminiTranslator-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.36/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.36",
+  "releaseDate": "2026-11-08",
+  "releaseNotes": "v8.22.36: Automated Release and Debug APK builds with Chrome remote web inspector and live wireless ADB diagnostic logging enabled.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.36"
 }

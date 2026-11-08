@@ -54,22 +54,24 @@ jobs:
             echo "Warning: Release signing secrets not found. Falling back to debug keystore."
           fi
 
-      - name: Build Optimized Release APK
+      - name: Build Release and Debug APKs
         run: |
           mkdir -p ~/.android ~/.config/.android
           keytool -genkeypair -alias androiddebugkey -keypass android -keystore ~/.android/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000 || true
           cp -f ~/.android/debug.keystore ~/.config/.android/debug.keystore || true
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --build-cache --parallel
+          ./gradlew assembleRelease assembleDebug --no-daemon --build-cache --parallel
 
       - name: Verify Release APK Signature
         run: |
           echo "Verifying APK signing certificate..."
           keytool -printcert -jarfile android/app/build/outputs/apk/release/app-release.apk
 
-      - name: Prepare APK for Direct Download
-        run: cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/GeminiTranslator.apk
+      - name: Prepare APKs for Direct Download
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/GeminiTranslator.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/GeminiTranslator-Debug.apk
 
       - name: Read Version from package.json
         id: pkg_version
@@ -81,13 +83,17 @@ jobs:
           files: |
             android/app/build/outputs/apk/release/GeminiTranslator.apk
             android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/debug/GeminiTranslator-Debug.apk
+            android/app/build/outputs/apk/debug/app-debug.apk
           tag_name: v${{ steps.pkg_version.outputs.version }}
           name: "Gemini Translator v${{ steps.pkg_version.outputs.version }}"
           body: |
             ## Gemini Translator v${{ steps.pkg_version.outputs.version }}
-            Direct APK download: tap **GeminiTranslator.apk** below to install directly!
+            Direct APK downloads:
+            - **GeminiTranslator.apk**: Standard release build.
+            - **GeminiTranslator-Debug.apk**: Debug build with Chrome remote inspector and wireless ADB diagnostic logging enabled.
 
-            Version: v${{ steps.pkg_version.outputs.version }} • Build #${{ github.run_number }} • ${{ github.sha }}
+            Version: v${{ steps.pkg_version.outputs.version }} - Build #${{ github.run_number }} - ${{ github.sha }}
           draft: false
           prerelease: false
           make_latest: true
@@ -100,13 +106,17 @@ jobs:
           files: |
             android/app/build/outputs/apk/release/GeminiTranslator.apk
             android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/debug/GeminiTranslator-Debug.apk
+            android/app/build/outputs/apk/debug/app-debug.apk
           tag_name: latest
-          name: "📱 Gemini Translator v${{ steps.pkg_version.outputs.version }} — Latest Android APK"
+          name: "Gemini Translator v${{ steps.pkg_version.outputs.version }} - Latest Android APK"
           body: |
-            ## 📱 Direct APK Download (v${{ steps.pkg_version.outputs.version }})
-            Tap **GeminiTranslator.apk** below to download directly — no unzipping needed!
+            ## Direct APK Download (v${{ steps.pkg_version.outputs.version }})
+            Direct APK downloads:
+            - **GeminiTranslator.apk**: Standard release build.
+            - **GeminiTranslator-Debug.apk**: Debug build with Chrome remote inspector and wireless ADB diagnostic logging enabled.
 
-            Version: v${{ steps.pkg_version.outputs.version }} • Build #${{ github.run_number }} • ${{ github.sha }}
+            Version: v${{ steps.pkg_version.outputs.version }} - Build #${{ github.run_number }} - ${{ github.sha }}
           draft: false
           prerelease: false
           make_latest: false

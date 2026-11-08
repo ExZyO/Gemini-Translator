@@ -7,7 +7,7 @@
 
     const editHtml = `
     <div id="epub-edit-tab" class="stu-page-container" style="width:100%; padding-bottom: calc(120px + env(safe-area-inset-bottom, 24px));">
-        <input type="file" id="edit-epub-input" accept="*/*,.epub" class="hidden" onchange="if(this.files && this.files[0]) { if(window.loadEpubForEditing) window.loadEpubForEditing(this.files[0]); else if(window.EpubEditorPacker?.parseEpubFile) window.EpubEditorPacker.parseEpubFile(this.files[0]); }" />
+        <input type="file" id="edit-epub-input" accept="*/*,.epub" class="hidden" />
         <input type="file" id="edit-cover-file-input" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
         <input type="file" id="edit-chapter-img-input" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
 

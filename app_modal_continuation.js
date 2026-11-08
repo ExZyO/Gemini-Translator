@@ -547,6 +547,75 @@
             )
           ),
 
+          // Cloudflare Verification Action Card
+          ongoingEpubModal.cloudflareBlocked && h('div', {
+            style: {
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              borderRadius: 12,
+              padding: '12px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              marginTop: 4
+            }
+          },
+            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                ic('Shield', 14, 'text-red-400'),
+                h('span', { style: { fontSize: 12, fontWeight: 700, color: '#f87171' } }, 'Security Check Required')
+              ),
+              h('button', {
+                type: 'button',
+                style: { background: 'none', border: 'none', color: 'var(--slate)', cursor: 'pointer', fontSize: 14 },
+                onClick: () => setOngoingEpubModal(prev => prev ? { ...prev, cloudflareBlocked: false } : null)
+              }, ic('X', 14))
+            ),
+            h('div', { style: { fontSize: 11.5, color: 'var(--paper)', lineHeight: 1.45 } },
+              'The website requires human verification before returning chapters. Tap the button below to open the verification window.'
+            ),
+            h('div', { style: { display: 'flex', gap: 8, marginTop: 2 } },
+              h('button', {
+                type: 'button',
+                className: 'mini-btn',
+                style: {
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  padding: '8px 16px',
+                  borderRadius: 999,
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                },
+                onClick: async () => {
+                  const targetUrl = ongoingEpubModal.cloudflareUrl || ongoingEpubModal.sourceUrl;
+                  if (window.NativeBridge?.resolveCloudflare || window.NativeBridge?.openInAppBrowser) {
+                    const solver = window.NativeBridge.resolveCloudflare || window.NativeBridge.openInAppBrowser;
+                    if (typeof toast === 'function') toast('Opening in-app verification window...', 'info');
+                    try {
+                      const res = await solver(targetUrl);
+                      if (res?.success || res?.status === 'ok') {
+                        if (typeof toast === 'function') toast('Verification passed! Scanning chapters now...', 'success');
+                        setOngoingEpubModal(prev => prev ? { ...prev, cloudflareBlocked: false } : null);
+                        if (handleScanContinuationToc) {
+                          handleScanContinuationToc(targetUrl, ongoingEpubModal.existingCount);
+                        }
+                      }
+                    } catch (e) {
+                      if (typeof toast === 'function') toast('Verification window closed: ' + e.message, 'warning');
+                    }
+                  } else {
+                    window.open(targetUrl, '_blank');
+                  }
+                }
+              }, [ic('Shield', 13), 'Solve Security Check in In-App Window'])
+            )
+          ),
+
           // Source Switcher Tray
           (!ongoingEpubModal.sourceUrl || ongoingEpubModal.showSourceSwitcher) && h('div', {
             style: {
