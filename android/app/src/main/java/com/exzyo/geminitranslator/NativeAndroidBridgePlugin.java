@@ -12,7 +12,12 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.Voice;
@@ -3560,7 +3565,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 chunkStreams.remove(transferId);
 
                 if (!cacheFile.exists() || cacheFile.length() <= 0) {
-                    throw new IOException("Staged file cache is empty or corrupted after chunk transfer.");
+                    throw new java.io.IOException("Staged file cache is empty or corrupted after chunk transfer.");
                 }
 
                 boolean safSaved = false;
