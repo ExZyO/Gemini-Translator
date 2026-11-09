@@ -2147,13 +2147,13 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                 // 2. Open destination stream: SAF Document Tree
                 if (treeUri != null && !treeUri.trim().isEmpty()) {
+                    Uri targetDocUri = null;
                     try {
                         Uri parsedTree = Uri.parse(treeUri);
                         String treeDocId = DocumentsContract.getTreeDocumentId(parsedTree);
                         Uri parentDocUri = DocumentsContract.buildDocumentUriUsingTree(parsedTree, treeDocId);
                         Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parsedTree, treeDocId);
 
-                        Uri targetDocUri = null;
                         try (Cursor cursor = context.getContentResolver().query(
                                 childrenUri,
                                 new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME},
@@ -3560,13 +3560,13 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                 // 1. Direct SAF Document Tree Overwrite (Custom Novel Folder)
                 if (treeUri != null && !treeUri.trim().isEmpty()) {
+                    Uri targetDocUri = null;
                     try {
                         Uri parsedTree = Uri.parse(treeUri);
                         String treeDocId = DocumentsContract.getTreeDocumentId(parsedTree);
                         Uri parentDocUri = DocumentsContract.buildDocumentUriUsingTree(parsedTree, treeDocId);
                         Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parsedTree, treeDocId);
 
-                        Uri targetDocUri = null;
                         try (Cursor cursor = context.getContentResolver().query(
                                 childrenUri,
                                 new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME},

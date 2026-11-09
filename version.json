@@ -1,11 +1,11 @@
 {
-  "version": "8.22.38",
-  "versionCode": 8549,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.38/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.38/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.38/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.38",
+  "version": "8.22.39",
+  "versionCode": 8550,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.39/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.39/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.39/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.39",
   "releaseDate": "2026-11-09",
-  "releaseNotes": "v8.22.38: Enabled side-by-side installation for GeminiTranslator and GeminiTLD-Debug via applicationIdSuffix, fixed Cloudflare Turnstile auto-solver calling reference, and cleaned up orphaned 0-byte SAF files on custom folder save failure.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.38"
+  "releaseNotes": "v8.22.39: Fixed Java compilation scoping for targetDocUri in NativeAndroidBridgePlugin, verified multi-source search in Continue Ongoing EPUB, and published synchronized release and debug APKs.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.39"
 }

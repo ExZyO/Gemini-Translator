@@ -1060,7 +1060,7 @@
             throw abortErr;
         }
         const isSecurityBlock = lastDetectedBlock && (lastDetectedBlock.type === 'turnstile' || lastDetectedBlock.type === 'waf_block');
-        if (isSecurityBlock && !options._cfSolverTriggered && (window.NativeBridge?.resolveCloudflare || window.NativeBridge?.openInAppBrowser)) {
+        if (isSecurityBlock && !options.isSearch && !options.suppressSolver && !options._cfSolverTriggered && (window.NativeBridge?.resolveCloudflare || window.NativeBridge?.openInAppBrowser)) {
             const solver = window.NativeBridge.resolveCloudflare || window.NativeBridge.openInAppBrowser;
             try {
                 window.sendTelemetry?.('CLOUDFLARE_SOLVER_AUTO', `Triggering interactive Cloudflare resolver for ${url}`);
