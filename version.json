@@ -1,11 +1,11 @@
 {
-  "version": "8.22.37",
-  "versionCode": 8548,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.37/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.37/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.37/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.37",
+  "version": "8.22.38",
+  "versionCode": 8549,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.38/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.38/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.38/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.38",
   "releaseDate": "2026-11-09",
-  "releaseNotes": "v8.22.37: Aligned Poweramp tab swipe gestures to match visual navbar order (Bookshelf, Discover, Translate, Studio, Settings), added automatic in-app Cloudflare Turnstile verification solver for Royal Road continuation, and published GeminiTranslator.apk and GeminiTLD-Debug.apk builds.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.37"
+  "releaseNotes": "v8.22.38: Enabled side-by-side installation for GeminiTranslator and GeminiTLD-Debug via applicationIdSuffix, fixed Cloudflare Turnstile auto-solver calling reference, and cleaned up orphaned 0-byte SAF files on custom folder save failure.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.38"
 }

@@ -2179,12 +2179,23 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         }
 
                         if (targetDocUri != null) {
-                            out = context.getContentResolver().openOutputStream(targetDocUri, "wt");
-                            safSaved = true;
-                            savedPath = "Saved in novel folder: " + fileName;
+                            try {
+                                out = context.getContentResolver().openOutputStream(targetDocUri, "wt");
+                            } catch (Throwable modeErr) {
+                                out = context.getContentResolver().openOutputStream(targetDocUri, "w");
+                            }
+                            if (out != null) {
+                                safSaved = true;
+                                savedPath = "Saved in novel folder: " + fileName;
+                            }
                         }
                     } catch (Exception safErr) {
                         Log.e(TAG, "SAF download output failed: " + safErr.getMessage(), safErr);
+                        if (targetDocUri != null && !safSaved) {
+                            try {
+                                DocumentsContract.deleteDocument(context.getContentResolver(), targetDocUri);
+                            } catch (Throwable ignored) {}
+                        }
                     }
                 }
 
@@ -3581,18 +3592,39 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         }
 
                         if (targetDocUri != null) {
-                            try (InputStream in = new java.io.FileInputStream(cacheFile);
-                                 OutputStream out = context.getContentResolver().openOutputStream(targetDocUri, "wt")) {
-                                byte[] buf = new byte[65536];
-                                int len;
-                                while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
-                                out.flush();
+                            OutputStream out = null;
+                            try {
+                                try {
+                                    out = context.getContentResolver().openOutputStream(targetDocUri, "wt");
+                                } catch (Throwable modeErr) {
+                                    out = context.getContentResolver().openOutputStream(targetDocUri, "w");
+                                }
+                                if (out != null) {
+                                    try (InputStream in = new java.io.FileInputStream(cacheFile)) {
+                                        byte[] buf = new byte[65536];
+                                        int len;
+                                        while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                                        out.flush();
+                                    }
+                                    safSaved = true;
+                                    savedPath = "Overwritten in custom novel folder: " + fileName;
+                                }
+                            } finally {
+                                if (out != null) {
+                                    try { out.close(); } catch (Exception ignored) {}
+                                }
                             }
-                            safSaved = true;
-                            savedPath = "Overwritten in custom novel folder: " + fileName;
                         }
                     } catch (Exception safErr) {
                         Log.e(TAG, "SAF write failed: " + safErr.getMessage(), safErr);
+                        if (targetDocUri != null && !safSaved) {
+                            try {
+                                DocumentsContract.deleteDocument(context.getContentResolver(), targetDocUri);
+                                Log.i(TAG, "Deleted incomplete 0-byte document: " + targetDocUri);
+                            } catch (Throwable delErr) {
+                                Log.w(TAG, "Failed to delete incomplete document: " + delErr.getMessage());
+                            }
+                        }
                     }
                 }
 
