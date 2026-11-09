@@ -71,6 +71,7 @@ jobs:
       - name: Prepare APKs for Direct Download
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/GeminiTranslator.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/GeminiTLD-Debug.apk
           cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/GeminiTranslator-Debug.apk
 
       - name: Read Version from package.json
@@ -83,6 +84,7 @@ jobs:
           files: |
             android/app/build/outputs/apk/release/GeminiTranslator.apk
             android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/debug/GeminiTLD-Debug.apk
             android/app/build/outputs/apk/debug/GeminiTranslator-Debug.apk
             android/app/build/outputs/apk/debug/app-debug.apk
           tag_name: v${{ steps.pkg_version.outputs.version }}
@@ -90,8 +92,8 @@ jobs:
           body: |
             ## Gemini Translator v${{ steps.pkg_version.outputs.version }}
             Direct APK downloads:
-            - **GeminiTranslator.apk**: Standard release build.
-            - **GeminiTranslator-Debug.apk**: Debug build with Chrome remote inspector and wireless ADB diagnostic logging enabled.
+            - **GeminiTranslator.apk**: Standard everyday reading release.
+            - **GeminiTLD-Debug.apk**: Diagnostic inspection build with Chrome remote inspector and wireless ADB diagnostic logging enabled.
 
             Version: v${{ steps.pkg_version.outputs.version }} - Build #${{ github.run_number }} - ${{ github.sha }}
           draft: false
@@ -106,6 +108,7 @@ jobs:
           files: |
             android/app/build/outputs/apk/release/GeminiTranslator.apk
             android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/debug/GeminiTLD-Debug.apk
             android/app/build/outputs/apk/debug/GeminiTranslator-Debug.apk
             android/app/build/outputs/apk/debug/app-debug.apk
           tag_name: latest
@@ -113,8 +116,8 @@ jobs:
           body: |
             ## Direct APK Download (v${{ steps.pkg_version.outputs.version }})
             Direct APK downloads:
-            - **GeminiTranslator.apk**: Standard release build.
-            - **GeminiTranslator-Debug.apk**: Debug build with Chrome remote inspector and wireless ADB diagnostic logging enabled.
+            - **GeminiTranslator.apk**: Standard everyday reading release.
+            - **GeminiTLD-Debug.apk**: Diagnostic inspection build with Chrome remote inspector and wireless ADB diagnostic logging enabled.
 
             Version: v${{ steps.pkg_version.outputs.version }} - Build #${{ github.run_number }} - ${{ github.sha }}
           draft: false

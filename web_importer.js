@@ -1059,6 +1059,18 @@
             abortErr.name = 'AbortError';
             throw abortErr;
         }
+        if (lastDetectedBlock && lastDetectedBlock.type === 'turnstile' && !options._cfSolverTriggered && (window.NativeBridge?.resolveCloudflare || window.NativeBridge?.openInAppBrowser)) {
+            const solver = window.NativeBridge.resolveCloudflare || window.NativeBridge.openInAppBrowser;
+            try {
+                window.sendTelemetry?.('CLOUDFLARE_SOLVER_AUTO', `Triggering interactive Cloudflare resolver for ${url}`);
+                const solveResult = await solver(url);
+                if (solveResult?.success || solveResult?.status === 'ok') {
+                    return await fetchWithFailover(url, { ...options, _cfSolverTriggered: true }, context);
+                }
+            } catch (cfErr) {
+                console.warn('[fetchWithFailover] Auto-solver error or dismissed:', cfErr);
+            }
+        }
         let errMsg = `Failed to fetch ${url}. All proxies exhausted or rate-limited.`;
         let isCloudflare = false;
         let challengeType = null;

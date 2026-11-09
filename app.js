@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.36';
+    let VERSION = '8.22.37';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1161,7 +1161,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8547);
+      const [appVersionCode, setAppVersionCode] = useState(8548);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [assignWebsiteModalNovel, setAssignWebsiteModalNovel] = useState(null);
@@ -1605,15 +1605,23 @@
         });
       }, []);
 
+      const activeTabRef = useRef(activeTab);
+      activeTabRef.current = activeTab;
+
       useEffect(() => {
         const engine = window.NavigationEngine || NavigationEngine;
         if (engine && typeof engine.initPowerampTabGestures === 'function') {
           return engine.initPowerampTabGestures({
-            getActiveTab: () => activeTab,
-            onSelectTab: (tab) => setActiveTab(tab)
+            tabs: ['history', 'web_importer', 'text', 'studio', 'settings'],
+            getActiveTab: () => activeTabRef.current,
+            onSelectTab: (tab) => {
+              setActiveTab(tab);
+              localStorage.setItem('activeTab', tab);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
           });
         }
-      }, [activeTab]);
+      }, []);
 
       useEffect(() => { document.documentElement.classList.add('dark'); localStorage.setItem('darkMode', 'true'); }, []);
       useEffect(() => { localStorage.setItem('enableStreaming', String(enableStreaming)) }, [enableStreaming]);

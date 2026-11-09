@@ -1593,11 +1593,30 @@
           return result;
         } catch (err) {
           console.error('Continuation error:', err);
+          const isCf = err.isCloudflare || /cloudflare|turnstile|challenge|human verification/i.test(err.message || '');
+          if (isCf && !options._cfAutoAttempted && (window.NativeBridge?.resolveCloudflare || window.NativeBridge?.openInAppBrowser)) {
+            const solver = window.NativeBridge.resolveCloudflare || window.NativeBridge.openInAppBrowser;
+            if (typeof toast === 'function') toast('Cloudflare security check active. Opening verification window...', 'info');
+            try {
+              const res = await solver(ongoingEpubModal.sourceUrl);
+              if (res?.success || res?.status === 'ok') {
+                if (typeof toast === 'function') toast('Verification passed! Resuming download...', 'success');
+                return await this.handleExecuteContinuation({ ...options, _cfAutoAttempted: true }, callbacks);
+              }
+            } catch (solveErr) {
+              console.warn('[MoonReaderEngine] Cloudflare solver error:', solveErr);
+            }
+          }
           if (err.name !== 'AbortError' && typeof toast === 'function') {
             toast('Continuation failed: ' + err.message, 'error');
           }
           if (typeof setOngoingEpubModal === 'function') {
-            setOngoingEpubModal(prev => prev ? { ...prev, isFetching: false } : null);
+            setOngoingEpubModal(prev => prev ? {
+              ...prev,
+              isFetching: false,
+              cloudflareBlocked: isCf,
+              cloudflareUrl: ongoingEpubModal.sourceUrl
+            } : null);
           }
         } finally {
           MoonReaderEngine._isContinuationExecuting = false;

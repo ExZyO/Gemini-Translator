@@ -1,11 +1,11 @@
 {
-  "version": "8.22.36",
-  "versionCode": 8547,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.36/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.36/GeminiTranslator-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.36/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.36",
-  "releaseDate": "2026-11-08",
-  "releaseNotes": "v8.22.36: Automated Release and Debug APK builds with Chrome remote web inspector and live wireless ADB diagnostic logging enabled.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.36"
+  "version": "8.22.37",
+  "versionCode": 8548,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.37/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.37/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.37/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.37",
+  "releaseDate": "2026-11-09",
+  "releaseNotes": "v8.22.37: Aligned Poweramp tab swipe gestures to match visual navbar order (Bookshelf, Discover, Translate, Studio, Settings), added automatic in-app Cloudflare Turnstile verification solver for Royal Road continuation, and published GeminiTranslator.apk and GeminiTLD-Debug.apk builds.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.37"
 }

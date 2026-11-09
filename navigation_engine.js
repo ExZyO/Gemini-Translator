@@ -700,7 +700,7 @@
   function initPowerampTabGestures(options) {
     if (typeof window === 'undefined') return () => {};
     options = options || {};
-    const tabs = options.tabs || ['text', 'web_importer', 'studio', 'history', 'settings'];
+    const tabs = options.tabs || ['history', 'web_importer', 'text', 'studio', 'settings'];
     let touchStartX = 0;
     let touchStartY = 0;
     let touchStartTime = 0;
@@ -709,7 +709,7 @@
     const shouldIgnoreElement = (el) => {
       if (!el || !(el instanceof Element)) return false;
       if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable) return true;
-      if (el.closest('input, textarea, [contenteditable="true"], .stu-modal-overlay, .modal-backdrop, .reader-v2-root, #reader-hud, #audio-full-player, .rc-slider, [role="slider"]')) {
+      if (el.closest('input, textarea, [contenteditable="true"], .stu-modal-overlay, .modal-backdrop, .reader-v2-root, #reader-hud, #audio-full-player, .rc-slider, [role="slider"], .horizontal-scroll, pre')) {
         return true;
       }
       return false;
