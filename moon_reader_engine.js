@@ -721,23 +721,44 @@
         const existingCount = epub.chapters.length;
         const highestStoryChapter = this.detectHighestChapterNumber(epub.chapters);
         const suggestedStart = (highestStoryChapter > 0 ? highestStoryChapter : existingCount) + 1;
-        const detectedSource = epub.sourceUrl || '';
-        const fOpts = this.getNovelFolderOptions({ id: epub.uuid, title: cleanTitle, sourceUrl: detectedSource });
+
+        // Auto-link with existing library bookshelf novel record by UUID, clean title, or filename
+        let existingNovel = null;
+        try {
+          const storedMeta = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
+          existingNovel = storedMeta.find(m => 
+            (epub.uuid && m.uuid && m.uuid === epub.uuid) ||
+            (m.title && cleanTitle && m.title.trim().toLowerCase() === cleanTitle.toLowerCase()) ||
+            (m.fileName && file.name && m.fileName.toLowerCase() === file.name.toLowerCase())
+          );
+        } catch (_) {}
+
+        const novelId = existingNovel?.id || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+        const detectedSource = existingNovel?.sourceUrl || epub.sourceUrl || '';
+        const fOpts = this.getNovelFolderOptions({ id: novelId, uuid: epub.uuid, title: cleanTitle, sourceUrl: detectedSource });
+        if (existingNovel?.folderTreeUri && !fOpts.treeUri) {
+          fOpts.treeUri = existingNovel.folderTreeUri;
+          fOpts.folderTreeUri = existingNovel.folderTreeUri;
+          fOpts.folderPath = existingNovel.folderPath || fOpts.folderPath;
+        }
 
         const modalState = {
           isOpen: true,
+          novelId,
+          novelItem: existingNovel || null,
           file,
-          originalFileName: file.name,
+          originalFileName: existingNovel?.fileName || file.name,
           originalTitle: epub.title || file.name.replace(/\.epub$/i, ''),
           title: cleanTitle,
           searchQuery: cleanTitle,
-          author: epub.author || 'Author',
-          cover: epub.cover || '',
-          uuid: epub.uuid || '',
+          author: epub.author || existingNovel?.author || 'Author',
+          cover: epub.cover || existingNovel?.cover || '',
+          uuid: epub.uuid || existingNovel?.uuid || '',
           chapters: epub.chapters,
           existingCount,
           highestStoryChapter,
           sourceUrl: detectedSource,
+          sources: existingNovel?.sources || [],
           selectedSource: null,
           continuationSources: [],
           isSearchingSources: true,

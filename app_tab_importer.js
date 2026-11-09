@@ -1505,20 +1505,21 @@
                         const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(full.title || activeNovelView.title, chs) : (full.title || activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(full.author || activeNovelView.author) : (full.author || activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                         try {
+                          const fixedName = full?.fileName || activeNovelView?.fileName;
                           if (full && full.epubBlob && !full.isEdited && !activeNovelView?.isEdited && (full.isEpub || full.isTranslated)) {
                             const isInc = full.isIncomplete || (full.totalChapterCount && chs.length < full.totalChapterCount);
-                            const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+                            const epubFileName = fixedName || getEpubFileName(novelTitle, chs.length, isInc);
                             await saveUniversalBlob(full.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(full || activeNovelView));
                             toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                             return;
                           }
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: full?.id || activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: full?.cover || activeNovelView?.cover || '' }) : { coverUrl: full?.cover || activeNovelView?.cover || '' };
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: full?.id || activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: full?.cover || activeNovelView?.cover || '', fixedFilename: fixedName }) : { coverUrl: full?.cover || activeNovelView?.cover || '', fixedFilename: fixedName };
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
                           const isInc = full.isIncomplete || activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
-                          const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+                          const epubFileName = fixedName || getEpubFileName(novelTitle, chs.length, isInc);
                           await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(full || activeNovelView));
                           toast(`EPUB downloaded! (${chs.length} chapters)`, 'success');
                         } catch (e) {
@@ -2218,18 +2219,19 @@
                           const novelTitle = (typeof cleanBookTitle === 'function' ? cleanBookTitle(activeNovelView.title, chs) : (activeNovelView.title || 'Web Novel')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                           const novelAuthor = (typeof cleanBookAuthor === 'function' ? cleanBookAuthor(activeNovelView.author) : (activeNovelView.author || 'Author')).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
                           const isInc = activeNovelView.isIncomplete || (activeNovelView.totalChapterCount && chs.length < activeNovelView.totalChapterCount);
+                          const fixedName = full?.fileName || activeNovelView?.fileName;
                           if (full && full.epubBlob && !full.isEdited && !activeNovelView?.isEdited) {
-                            const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+                            const epubFileName = fixedName || getEpubFileName(novelTitle, chs.length, isInc);
                             await saveUniversalBlob(full.epubBlob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView || full));
                             toast(`EPUB downloaded successfully! (${chs.length} chapters)`, 'success');
                             return;
                           }
                           setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters…`, pct: 5 });
-                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: activeNovelView?.cover || '' }) : { coverUrl: activeNovelView?.cover || '' };
+                          const opts = typeof getEpubOptions === 'function' ? getEpubOptions({ novelId: activeNovelView?.id || activeNovelView?.sourceUrl || novelTitle, coverUrl: activeNovelView?.cover || '', fixedFilename: fixedName }) : { coverUrl: activeNovelView?.cover || '', fixedFilename: fixedName };
                           const blob = await generateEpubFromChapters(chs, novelTitle, novelAuthor, 'en', (status, pct, elapsed) => {
                             setEpubPackagingModal({ title: novelTitle, status, pct, elapsed });
                           }, opts);
-                          const epubFileName = getEpubFileName(novelTitle, chs.length, isInc);
+                          const epubFileName = fixedName || getEpubFileName(novelTitle, chs.length, isInc);
                           await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(activeNovelView));
                           toast(`EPUB downloaded successfully! (${chs.length} chapters)`, 'success');
                         } catch (e) {

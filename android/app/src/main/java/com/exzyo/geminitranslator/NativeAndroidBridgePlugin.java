@@ -2148,6 +2148,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 // 2. Open destination stream: SAF Document Tree
                 if (treeUri != null && !treeUri.trim().isEmpty()) {
                     Uri targetDocUri = null;
+                    boolean wasNewlyCreated = false;
                     try {
                         Uri parsedTree = Uri.parse(treeUri);
                         String treeDocId = DocumentsContract.getTreeDocumentId(parsedTree);
@@ -2176,11 +2177,12 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                         if (targetDocUri == null) {
                             targetDocUri = DocumentsContract.createDocument(context.getContentResolver(), parentDocUri, mimeType, fileName);
+                            wasNewlyCreated = (targetDocUri != null);
                         }
 
                         if (targetDocUri != null) {
                             try {
-                                out = context.getContentResolver().openOutputStream(targetDocUri, "wt");
+                                out = context.getContentResolver().openOutputStream(targetDocUri, "rwt");
                             } catch (Throwable modeErr) {
                                 out = context.getContentResolver().openOutputStream(targetDocUri, "w");
                             }
@@ -2191,7 +2193,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         }
                     } catch (Exception safErr) {
                         Log.e(TAG, "SAF download output failed: " + safErr.getMessage(), safErr);
-                        if (targetDocUri != null && !safSaved) {
+                        if (wasNewlyCreated && targetDocUri != null && !safSaved) {
                             try {
                                 DocumentsContract.deleteDocument(context.getContentResolver(), targetDocUri);
                             } catch (Throwable ignored) {}
@@ -3530,7 +3532,9 @@ public class NativeAndroidBridgePlugin extends Plugin {
             String subDir = call.getString("subDir", "");
             String treeUri = call.getString("treeUri", "");
 
-            File cacheFile = new File(context.getCacheDir(), fileName);
+            String safeTransferId = transferId.replaceAll("[^a-zA-Z0-9_-]", "");
+            if (safeTransferId.isEmpty()) safeTransferId = "xfer_" + System.currentTimeMillis();
+            File cacheFile = new File(context.getCacheDir(), "blob_xfer_" + safeTransferId + ".tmp");
             if (isFirst) {
                 if (cacheFile.exists()) cacheFile.delete();
                 FileOutputStream fos = new FileOutputStream(cacheFile, false);
@@ -3555,12 +3559,17 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 } catch (Exception ignored) {}
                 chunkStreams.remove(transferId);
 
+                if (!cacheFile.exists() || cacheFile.length() <= 0) {
+                    throw new IOException("Staged file cache is empty or corrupted after chunk transfer.");
+                }
+
                 boolean safSaved = false;
                 String savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
 
                 // 1. Direct SAF Document Tree Overwrite (Custom Novel Folder)
                 if (treeUri != null && !treeUri.trim().isEmpty()) {
                     Uri targetDocUri = null;
+                    boolean wasNewlyCreated = false;
                     try {
                         Uri parsedTree = Uri.parse(treeUri);
                         String treeDocId = DocumentsContract.getTreeDocumentId(parsedTree);
@@ -3589,25 +3598,32 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                         if (targetDocUri == null) {
                             targetDocUri = DocumentsContract.createDocument(context.getContentResolver(), parentDocUri, mimeType, fileName);
+                            wasNewlyCreated = (targetDocUri != null);
                         }
 
                         if (targetDocUri != null) {
                             OutputStream out = null;
                             try {
                                 try {
-                                    out = context.getContentResolver().openOutputStream(targetDocUri, "wt");
+                                    out = context.getContentResolver().openOutputStream(targetDocUri, "rwt");
                                 } catch (Throwable modeErr) {
                                     out = context.getContentResolver().openOutputStream(targetDocUri, "w");
                                 }
                                 if (out != null) {
+                                    long totalWritten = 0;
                                     try (InputStream in = new java.io.FileInputStream(cacheFile)) {
                                         byte[] buf = new byte[65536];
                                         int len;
-                                        while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                                        while ((len = in.read(buf)) > 0) {
+                                            out.write(buf, 0, len);
+                                            totalWritten += len;
+                                        }
                                         out.flush();
                                     }
-                                    safSaved = true;
-                                    savedPath = "Overwritten in custom novel folder: " + fileName;
+                                    if (totalWritten > 0) {
+                                        safSaved = true;
+                                        savedPath = "Overwritten in custom novel folder: " + fileName;
+                                    }
                                 }
                             } finally {
                                 if (out != null) {
@@ -3617,10 +3633,12 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         }
                     } catch (Exception safErr) {
                         Log.e(TAG, "SAF write failed: " + safErr.getMessage(), safErr);
-                        if (targetDocUri != null && !safSaved) {
+                        // CRITICAL PROTECTION: Only delete document if it was newly created during this session.
+                        // NEVER delete a pre-existing user novel file!
+                        if (wasNewlyCreated && targetDocUri != null && !safSaved) {
                             try {
                                 DocumentsContract.deleteDocument(context.getContentResolver(), targetDocUri);
-                                Log.i(TAG, "Deleted incomplete 0-byte document: " + targetDocUri);
+                                Log.i(TAG, "Deleted incomplete newly created document: " + targetDocUri);
                             } catch (Throwable delErr) {
                                 Log.w(TAG, "Failed to delete incomplete document: " + delErr.getMessage());
                             }
@@ -3662,7 +3680,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             values.put(MediaStore.MediaColumns.IS_PENDING, 1);
                             Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
                             if (uri != null) {
-                                try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = context.getContentResolver().openOutputStream(uri, "wt")) {
+                                try (InputStream in = new java.io.FileInputStream(cacheFile); OutputStream out = context.getContentResolver().openOutputStream(uri, "w")) {
                                     byte[] buf = new byte[65536];
                                     int len;
                                     while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
@@ -3705,6 +3723,8 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         }
                     }
                 }
+
+                try { cacheFile.delete(); } catch (Exception ignored) {}
 
                 final boolean isSaf = safSaved;
                 final String finalSub = (subDir != null && !subDir.trim().isEmpty()) ? subDir : "Download/GeminiTranslator";

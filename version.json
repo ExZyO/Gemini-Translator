@@ -1,11 +1,11 @@
 {
-  "version": "8.22.39",
-  "versionCode": 8550,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.39/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.39/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.39/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.39",
+  "version": "8.22.40",
+  "versionCode": 8551,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.40/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.40/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.40/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.40",
   "releaseDate": "2026-11-09",
-  "releaseNotes": "v8.22.39: Fixed Java compilation scoping for targetDocUri in NativeAndroidBridgePlugin, verified multi-source search in Continue Ongoing EPUB, and published synchronized release and debug APKs.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.39"
+  "releaseNotes": "v8.22.40: Protected existing novel files from SAF deletion, preserved Moon+ Reader bookmarks, highlights and UUID on continuation, and enabled 1-click in-place updates directly from library.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.40"
 }

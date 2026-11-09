@@ -442,7 +442,18 @@
     async saveNovelToHistory(novelData, callbacks = {}) {
       if (!novelData || !novelData.chapters || novelData.chapters.length === 0) return null;
       const totalWords = novelData.chapters.reduce((acc, c) => acc + (c.words || (c.text ? c.text.split(/\s+/).filter(Boolean).length : (c.content ? c.content.split(/\s+/).filter(Boolean).length : 0))), 0);
-      const novelId = novelData.id || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+
+      let existingMeta = null;
+      try {
+        const storedMeta = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
+        existingMeta = storedMeta.find(n => 
+          (novelData.id && n.id === novelData.id) ||
+          (novelData.uuid && n.uuid && n.uuid === novelData.uuid) ||
+          (n.title && novelData.title && normalizeTitleKey(n.title) === normalizeTitleKey(novelData.title))
+        );
+      } catch(e) {}
+
+      const novelId = novelData.id || existingMeta?.id || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
 
       // Sanitize chapters into plain cloneable objects without DOM nodes, functions, or circular references
       const cleanChapters = novelData.chapters.map((c, i) => ({
@@ -486,12 +497,6 @@
       const totalChapters = novelData.totalChapterCount || (novelData.chapterList ? novelData.chapterList.length : cleanChapters.length);
       const isIncomplete = novelData.isIncomplete !== undefined ? !!novelData.isIncomplete : (cleanChapters.length < totalChapters);
       const isTranslated = !!novelData.isTranslated || (novelData.title || '').includes('(Translated)');
-
-      let existingMeta = null;
-      try {
-        const storedMeta = JSON.parse(localStorage.getItem('gemini_web_import_history_meta') || '[]');
-        existingMeta = storedMeta.find(n => (novelId && n.id === novelId) || (n.title && novelData.title && normalizeTitleKey(n.title) === normalizeTitleKey(novelData.title)));
-      } catch(e) {}
 
       const inSavedSpace = novelData.inSavedSpace !== undefined
         ? !!novelData.inSavedSpace
@@ -617,6 +622,8 @@
 
       const novelRecord = {
         id: novelId,
+        uuid: novelData.uuid || existingMeta?.uuid || '',
+        fileName: novelData.fileName || existingMeta?.fileName || `${finalTitle}.epub`,
         title: finalTitle,
         customTitle: customTitle || undefined,
         originalSourceTitle: novelData.originalSourceTitle || existingMeta?.originalSourceTitle || (customTitle && customTitle !== novelData.title ? novelData.title : undefined),
@@ -662,6 +669,8 @@
 
       const metaRecord = {
         id: novelId,
+        uuid: novelRecord.uuid,
+        fileName: novelRecord.fileName,
         title: novelRecord.title,
         author: novelRecord.author,
         summary: novelRecord.summary,
@@ -1172,18 +1181,22 @@
             const getOptsFn = callbacks.getEpubOptions || window.getEpubOptions;
             const extraMeta = {
               novelId: updatedNovel.id || sourceUrl || bookTitle,
+              uuid: targetItem.uuid || updatedNovel.uuid || undefined,
               sourceUrl: sourceUrl,
               sources: updatedNovel.sources,
               title: bookTitle,
-              coverUrl: updatedNovel.cover || ''
+              coverUrl: updatedNovel.cover || '',
+              fixedFilename: targetItem.fileName || updatedNovel.fileName || undefined
             };
             const opts = typeof getOptsFn === 'function' ? getOptsFn(extraMeta) : extraMeta;
+            if (extraMeta.fixedFilename && !opts.fixedFilename) opts.fixedFilename = extraMeta.fixedFilename;
+            if (extraMeta.uuid && !opts.uuid) opts.uuid = extraMeta.uuid;
 
             let blob = null;
-            if (options.appendEpub && window.appendChaptersToExistingEpub && (targetItem.epubBlob || options.originalFile)) {
-              const orig = targetItem.epubBlob || options.originalFile;
+            const origSource = targetItem.epubBlob || options.originalFile;
+            if (window.appendChaptersToExistingEpub && origSource && prevCount > 0 && fetchedChapters.length > prevCount) {
               const newChaptersToAppend = fetchedChapters.slice(prevCount);
-              blob = await window.appendChaptersToExistingEpub(orig, newChaptersToAppend, opts, (status, pct) => {
+              blob = await window.appendChaptersToExistingEpub(origSource, newChaptersToAppend, opts, (status, pct) => {
                 if (typeof callbacks.onProgress === 'function') {
                   callbacks.onProgress({ title: bookTitle, status, pct });
                 }
@@ -1198,7 +1211,7 @@
 
             if (blob) {
               const isInc = updatedNovel.isIncomplete || (updatedNovel.totalChapterCount && chs.length < updatedNovel.totalChapterCount);
-              const epubFileName = this.getEpubFileName(bookTitle, chs.length, isInc, opts.fixedFilename);
+              const epubFileName = opts.fixedFilename || this.getEpubFileName(bookTitle, chs.length, isInc);
               const folderOpts = window.MoonReaderEngine ? window.MoonReaderEngine.getNovelFolderOptions(updatedNovel) : {};
               if (typeof window.saveUniversalBlob === 'function') {
                 await window.saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, folderOpts);
@@ -1206,6 +1219,11 @@
                   callbacks.toast(`Downloaded updated raw EPUB (${chs.length} chapters)!`, 'success');
                 }
               }
+              // Update novel record in GeminiNovelDB with fresh epubBlob and consistent fileName
+              updatedNovel.epubBlob = blob;
+              updatedNovel.fileName = epubFileName;
+              if (opts.uuid) updatedNovel.uuid = opts.uuid;
+              await this.saveNovelToHistory(updatedNovel, callbacks);
             }
           } catch(epubErr) {
             console.error('[LibraryEngine] downloadNewChapters packaging error:', epubErr);
@@ -2488,7 +2506,9 @@
         }
         try {
           await LibraryEngine.downloadNewChapters(item, {
-            badge: (novelUpdateBadges && novelUpdateBadges[item.id]) || null
+            badge: (novelUpdateBadges && novelUpdateBadges[item.id]) || null,
+            appendEpub: true,
+            originalFile: item.epubBlob
           }, {
             toast,
             getEpubOptions,
