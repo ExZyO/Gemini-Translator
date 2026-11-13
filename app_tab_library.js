@@ -841,7 +841,23 @@
               gap: 6
             },
             title: 'Input an existing EPUB to auto-search sources and continue fetching',
-            onClick: () => ongoingEpubInputRef.current?.click()
+            onClick: async () => {
+              if (window.NativeBridge && window.NativeBridge.pickEpubFile) {
+                try {
+                  const res = await window.NativeBridge.pickEpubFile();
+                  if (res && res.file) {
+                    if (typeof handleSelectOngoingEpubFile === 'function') {
+                      handleSelectOngoingEpubFile(res.file, { fileUri: res.fileUri, displayPath: res.displayPath });
+                    }
+                    return;
+                  }
+                } catch (err) {
+                  if (String(err).includes('canceled')) return;
+                  console.warn('Native epub picker error, falling back to input:', err);
+                }
+              }
+              ongoingEpubInputRef.current?.click();
+            }
           }, ic(Zap, 13), 'Continue Ongoing EPUB')
         ),
         h('input', {

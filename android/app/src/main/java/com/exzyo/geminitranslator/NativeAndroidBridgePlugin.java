@@ -3536,6 +3536,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
             String subDir = call.getString("subDir", "");
             String treeUri = call.getString("treeUri", "");
+            String fileUri = call.getString("fileUri", "");
 
             String safeTransferId = transferId.replaceAll("[^a-zA-Z0-9_-]", "");
             if (safeTransferId.isEmpty()) safeTransferId = "xfer_" + System.currentTimeMillis();
@@ -3571,8 +3572,42 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 boolean safSaved = false;
                 String savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
 
+                // 0. Direct In-Place Document Overwrite (Picked EPUB File URI)
+                if (fileUri != null && !fileUri.trim().isEmpty()) {
+                    try {
+                        Uri targetUri = Uri.parse(fileUri);
+                        OutputStream out = null;
+                        try {
+                            out = context.getContentResolver().openOutputStream(targetUri, "rwt");
+                        } catch (Throwable modeErr) {
+                            out = context.getContentResolver().openOutputStream(targetUri, "w");
+                        }
+                        if (out != null) {
+                            long totalWritten = 0;
+                            try (InputStream in = new java.io.FileInputStream(cacheFile)) {
+                                byte[] buf = new byte[65536];
+                                int len;
+                                while ((len = in.read(buf)) > 0) {
+                                    out.write(buf, 0, len);
+                                    totalWritten += len;
+                                }
+                                out.flush();
+                            } finally {
+                                try { out.close(); } catch (Exception ignored) {}
+                            }
+                            if (totalWritten > 0) {
+                                safSaved = true;
+                                savedPath = "Overwritten in-place: " + fileName;
+                                Log.i(TAG, "Direct in-place overwrite successful for: " + fileUri);
+                            }
+                        }
+                    } catch (Exception fileUriErr) {
+                        Log.e(TAG, "Direct fileUri overwrite failed: " + fileUriErr.getMessage(), fileUriErr);
+                    }
+                }
+
                 // 1. Direct SAF Document Tree Overwrite (Custom Novel Folder)
-                if (treeUri != null && !treeUri.trim().isEmpty()) {
+                if (!safSaved && treeUri != null && !treeUri.trim().isEmpty()) {
                     Uri targetDocUri = null;
                     boolean wasNewlyCreated = false;
                     try {
@@ -3958,6 +3993,110 @@ public class NativeAndroidBridgePlugin extends Plugin {
         } catch (Exception e) {
             Log.e(TAG, "folderPickerCallback error: " + e.getMessage(), e);
             call.reject("Folder selection error: " + e.getMessage());
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // STORAGE ACCESS FRAMEWORK (SAF) DOCUMENT PICKER FOR IN-PLACE UPDATES
+    // ══════════════════════════════════════════════════════════════════════
+    @PluginMethod
+    public void pickEpubFile(PluginCall call) {
+        try {
+            saveCall(call);
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                "application/epub+zip",
+                "application/zip",
+                "application/octet-stream",
+                "*/*"
+            });
+            intent.addFlags(
+                Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
+                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+            );
+            startActivityForResult(call, intent, "epubFilePickerCallback");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to launch epub picker", e);
+            call.reject("Could not open file picker: " + e.getMessage());
+        }
+    }
+
+    @ActivityCallback
+    public void epubFilePickerCallback(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        try {
+            if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null && result.getData().getData() != null) {
+                Uri fileUri = result.getData().getData();
+                Context context = getContext();
+                try {
+                    int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+                    context.getContentResolver().takePersistableUriPermission(fileUri, takeFlags);
+                } catch (Exception e) {
+                    Log.w(TAG, "takePersistableUriPermission warning: " + e.getMessage());
+                }
+
+                String fileName = "book.epub";
+                try (Cursor c = context.getContentResolver().query(fileUri, null, null, null, null)) {
+                    if (c != null && c.moveToFirst()) {
+                        int nameIdx = c.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+                        if (nameIdx >= 0) {
+                            String found = c.getString(nameIdx);
+                            if (found != null && !found.trim().isEmpty()) fileName = found;
+                        }
+                    }
+                } catch (Exception ignored) {}
+
+                String docId = "";
+                try {
+                    docId = DocumentsContract.getDocumentId(fileUri);
+                } catch (Exception ignored) {
+                    docId = fileUri.getLastPathSegment();
+                }
+
+                String displayPath = "/Internal Storage";
+                if (docId != null && !docId.isEmpty()) {
+                    if (docId.contains(":")) {
+                        displayPath = "/" + docId.substring(docId.indexOf(":") + 1);
+                    } else {
+                        displayPath = "/" + docId;
+                    }
+                }
+
+                File cacheFile = new File(context.getCacheDir(), "picked_ongoing_epub.epub");
+                if (cacheFile.exists()) cacheFile.delete();
+                try (InputStream in = context.getContentResolver().openInputStream(fileUri);
+                     FileOutputStream out = new FileOutputStream(cacheFile)) {
+                    byte[] buf = new byte[65536];
+                    int len;
+                    while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                    out.flush();
+                }
+
+                JSObject ret = new JSObject();
+                ret.put("fileUri", fileUri.toString());
+                ret.put("fileName", fileName);
+                ret.put("displayPath", displayPath);
+                ret.put("cachePath", cacheFile.getAbsolutePath());
+                ret.put("fileSize", cacheFile.length());
+
+                if (cacheFile.length() <= 15 * 1024 * 1024) {
+                    byte[] bytes = new byte[(int) cacheFile.length()];
+                    try (FileInputStream fis = new FileInputStream(cacheFile)) {
+                        fis.read(bytes);
+                    }
+                    ret.put("base64", Base64.encodeToString(bytes, Base64.NO_WRAP));
+                }
+
+                call.resolve(ret);
+            } else {
+                call.reject("File selection canceled");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "epubFilePickerCallback error: " + e.getMessage(), e);
+            call.reject("File selection error: " + e.getMessage());
         }
     }
 

@@ -32,11 +32,15 @@
         const meta = metaList.find(m => (novel.id && m.id === novel.id) || (m.title && novel.title && m.title.trim().toLowerCase() === novel.title.trim().toLowerCase()));
         const treeUri = novel.folderTreeUri || mapped?.treeUri || mapped?.folderTreeUri || meta?.folderTreeUri || '';
         const folderPath = novel.folderPath || mapped?.folderPath || mapped?.subDir || meta?.folderPath || '';
+        const fileUri = novel.fileUri || mapped?.fileUri || meta?.fileUri || '';
+        const displayPath = novel.displayPath || mapped?.displayPath || meta?.displayPath || folderPath;
         return {
           treeUri,
           folderTreeUri: treeUri,
           subDir: folderPath,
-          folderPath
+          folderPath,
+          fileUri,
+          displayPath
         };
       } catch (e) {
         return {};
@@ -55,7 +59,9 @@
       // 1. Dedicated persistent folder mapping dictionary
       try {
         const mappingStore = JSON.parse(localStorage.getItem('gemini_novel_folder_mappings') || '{}');
-        const entry = { treeUri, folderTreeUri: treeUri, folderPath: displayPath, subDir: displayPath };
+        const existingEntry = (novelId && mappingStore[novelId]) || (normTitle && mappingStore[normTitle]) || {};
+        const fileUri = (typeof novel === 'object' && novel.fileUri) ? novel.fileUri : (existingEntry.fileUri || '');
+        const entry = { treeUri, folderTreeUri: treeUri, folderPath: displayPath, subDir: displayPath, fileUri };
         if (novelId) mappingStore[novelId] = entry;
         if (normTitle) mappingStore[normTitle] = entry;
         if (novelUrl) mappingStore[novelUrl] = entry;
@@ -533,7 +539,9 @@
         originalZip,
         originalFileName,
         originalTitle,
-        folderOptions
+        folderOptions,
+        fileUri,
+        displayPath
       } = config;
 
       if (!sourceUrl) throw new Error('Source URL is required to fetch new chapters.');
@@ -651,8 +659,15 @@
       // Retain exact original filename if linked/known to ensure Moon+ Reader Pro in-place continuity
       const originalName = originalFileName || file?.name;
       const outFileName = originalName || getFileNameFn(title, mergedChapters.length, isInc);
-      const folderOpts = folderOptions || this.getNovelFolderOptions({ id: uuid, title, sourceUrl });
-      const safeFolderOpts = { ...folderOpts, suppressModal: true };
+      const targetFileUri = fileUri || file?.fileUri || folderOptions?.fileUri || '';
+      const targetDisplayPath = displayPath || file?.displayPath || folderOptions?.displayPath || '';
+      const folderOpts = folderOptions || this.getNovelFolderOptions({ id: uuid, title, sourceUrl, fileUri: targetFileUri, displayPath: targetDisplayPath });
+      const safeFolderOpts = {
+        ...folderOpts,
+        fileUri: targetFileUri || folderOpts?.fileUri || '',
+        displayPath: targetDisplayPath || folderOpts?.displayPath || '',
+        suppressModal: true
+      };
 
       if (typeof window.saveUniversalBlob === 'function') {
         await window.saveUniversalBlob(epubBlob, outFileName, 'application/epub+zip', false, safeFolderOpts);
@@ -664,7 +679,9 @@
         newFetchedCount: newFetchedChapters.length,
         isInc,
         outFileName,
-        folderOpts,
+        folderOpts: safeFolderOpts,
+        fileUri: safeFolderOpts.fileUri,
+        displayPath: safeFolderOpts.displayPath,
         totalChapterCount: Math.max(mergedChapters.length, totalOnlineCount || mergedChapters.length)
       };
     },
@@ -735,11 +752,17 @@
 
         const novelId = existingNovel?.id || ('novel_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
         const detectedSource = existingNovel?.sourceUrl || epub.sourceUrl || '';
-        const fOpts = this.getNovelFolderOptions({ id: novelId, uuid: epub.uuid, title: cleanTitle, sourceUrl: detectedSource });
+        const targetFileUri = options.fileUri || file.fileUri || existingNovel?.fileUri || '';
+        const targetDisplayPath = options.displayPath || file.displayPath || existingNovel?.displayPath || '';
+        const fOpts = this.getNovelFolderOptions({ id: novelId, uuid: epub.uuid, title: cleanTitle, sourceUrl: detectedSource, fileUri: targetFileUri, displayPath: targetDisplayPath });
         if (existingNovel?.folderTreeUri && !fOpts.treeUri) {
           fOpts.treeUri = existingNovel.folderTreeUri;
           fOpts.folderTreeUri = existingNovel.folderTreeUri;
           fOpts.folderPath = existingNovel.folderPath || fOpts.folderPath;
+        }
+        if (targetFileUri) {
+          fOpts.fileUri = targetFileUri;
+          fOpts.displayPath = targetDisplayPath;
         }
 
         const modalState = {
@@ -747,6 +770,8 @@
           novelId,
           novelItem: existingNovel || null,
           file,
+          fileUri: targetFileUri,
+          displayPath: targetDisplayPath,
           originalFileName: existingNovel?.fileName || file.name,
           originalTitle: epub.title || file.name.replace(/\.epub$/i, ''),
           title: cleanTitle,
@@ -843,13 +868,21 @@
         const highestStoryChapter = this.detectHighestChapterNumber(chs);
         const suggestedStart = (highestStoryChapter > 0 ? highestStoryChapter : existingCount) + 1;
         const detectedSource = epubMeta?.sourceUrl || full.sourceUrl || full.url || '';
-        const fOpts = this.getNovelFolderOptions(full || novelItem);
+        const targetFileUri = options.fileUri || full.fileUri || novelItem.fileUri || '';
+        const targetDisplayPath = options.displayPath || full.displayPath || novelItem.displayPath || '';
+        const fOpts = this.getNovelFolderOptions({ ...(full || novelItem), fileUri: targetFileUri, displayPath: targetDisplayPath });
+        if (targetFileUri) {
+          fOpts.fileUri = targetFileUri;
+          fOpts.displayPath = targetDisplayPath;
+        }
 
         const modalState = {
           isOpen: true,
           novelId: full.id || novelItem.id || '',
           novelItem: full || novelItem,
           file: full.epubBlob || null,
+          fileUri: targetFileUri,
+          displayPath: targetDisplayPath,
           originalFileName: full.fileName || (full.title ? `${full.title}.epub` : 'Novel.epub'),
           originalTitle: epubMeta?.title || full.title || 'Novel',
           title: cleanTitle,
@@ -1290,7 +1323,10 @@
         const onSearch = callbacks.handleSearchContinuationSources || callbacks.onSearchSources || ((q) => this.handleSearchContinuationSources(q, options, callbacks));
         const onScan = callbacks.handleScanContinuationToc || callbacks.onScanToc || ((u, count) => this.handleScanContinuationToc(u, { ...options, existingCount: count }, callbacks));
 
-        const modalState = await MoonReaderEngine.inspectOngoingEpubFile(file, { readEpub }, {
+        const fileUri = options.fileUri || file.fileUri || '';
+        const displayPath = options.displayPath || file.displayPath || '';
+
+        const modalState = await MoonReaderEngine.inspectOngoingEpubFile(file, { readEpub, fileUri, displayPath, ...options }, {
           toast,
           onModalState: setOngoingEpubModal,
           onSearchSources: onSearch,
@@ -1589,7 +1625,9 @@
               fileName: result?.outFileName || (ongoingEpubModal.originalFileName || `${title}.epub`),
               folderOptions: folderOpts,
               folderPath: folderOpts?.folderPath || '',
-              folderTreeUri: folderOpts?.treeUri || ''
+              folderTreeUri: folderOpts?.treeUri || '',
+              fileUri: ongoingEpubModal.fileUri || folderOpts?.fileUri || result?.fileUri || '',
+              displayPath: ongoingEpubModal.displayPath || folderOpts?.displayPath || result?.displayPath || ''
             });
           }
 

@@ -254,9 +254,12 @@
       const cleanBookAuthorFn = window.cleanBookAuthor || ((a) => a || 'Gemini Translator');
 
       const rawBaseTitle = title || (chaptersToExport.length === 1 && !this.isGenericTitle(chaptersToExport[0].title) ? chaptersToExport[0].title.trim() : null);
+      const isActuallyTranslated = options.isTranslated === true;
       const docTitle = rawBaseTitle
-        ? (rawBaseTitle.includes('(Translated)') ? rawBaseTitle : `${rawBaseTitle} (Translated)`)
-        : `Translated Novel (${tgtLang})`;
+        ? (isActuallyTranslated
+            ? (rawBaseTitle.includes('(Translated)') ? rawBaseTitle : `${rawBaseTitle} (Translated)`)
+            : rawBaseTitle.replace(/\s*\((?:Translated|Raw)\)/gi, '').trim())
+        : (isActuallyTranslated ? `Translated Novel (${tgtLang})` : 'Novel');
       
       const cleanDocTitle = cleanBookTitleFn(docTitle, chaptersToExport).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
       const cleanAuthor = cleanBookAuthorFn(author).replace(/\s*[-|]\s*Lnori\s*$/i, '').trim();
@@ -569,6 +572,7 @@
           currentIsEpub,
           currentOriginalZip,
           coverUrl: cover,
+          isTranslated: options.isTranslated,
           onProgress: (status, pct, elapsed) => {
             setEpubPackagingModal({ title: baseTitle || 'EPUB Packaging', status, pct, elapsed });
           }
@@ -709,6 +713,7 @@
           currentIsEpub: options.currentIsEpub,
           currentOriginalZip: options.currentOriginalZip,
           resolvedCover,
+          isTranslated: options.isTranslated,
           callbacks: {
             setDownloadingEpub: cbs.setDownloadingEpub,
             setEpubPackagingModal: cbs.setEpubPackagingModal,

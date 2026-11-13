@@ -349,30 +349,42 @@
             gap: 14
           }
         },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 } },
-            h('div', {
-              style: {
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.06)',
-                color: (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? '#10b981' : 'var(--paper)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }
-            }, ic('Folder', 18)),
-            h('div', { style: { minWidth: 0 } },
-              h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)' } }, 'Save Location:'),
-              h('div', { style: { fontSize: 12, color: (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? '#10b981' : 'var(--slate)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 } },
-                ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.displayPath || (ongoingEpubModal.folderOptions?.treeUri ? 'Designated Device Folder' : 'Default Downloads Folder')
-              ),
-              h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2 } },
-                'Designated folder on device for Moon+ Reader continuity'
+          (() => {
+            const hasFileUri = !!(ongoingEpubModal.fileUri || ongoingEpubModal.folderOptions?.fileUri);
+            const hasFolder = !!(ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri);
+            const isDesignated = hasFileUri || hasFolder;
+            const locationText = hasFileUri
+              ? (ongoingEpubModal.displayPath || ongoingEpubModal.folderOptions?.displayPath || ongoingEpubModal.originalFileName || 'Original File Location (Direct Overwrite)')
+              : (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.displayPath || (ongoingEpubModal.folderOptions?.treeUri ? 'Designated Device Folder' : 'Default Downloads Folder'));
+            const subText = hasFileUri
+              ? 'Directly updates original file in-place; keeps all Moon+ Reader highlights & notes intact'
+              : 'Designated folder on device for Moon+ Reader continuity';
+
+            return h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 } },
+              h('div', {
+                style: {
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: isDesignated ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.06)',
+                  color: isDesignated ? '#10b981' : 'var(--paper)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }
+              }, ic(hasFileUri ? 'FileCheck' : 'Folder', 18)),
+              h('div', { style: { minWidth: 0 } },
+                h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)' } }, hasFileUri ? 'Save Location (In-Place Overwrite):' : 'Save Location:'),
+                h('div', { style: { fontSize: 12, color: isDesignated ? '#10b981' : 'var(--slate)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 } },
+                  locationText
+                ),
+                h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 2 } },
+                  subText
+                )
               )
-            )
-          ),
+            );
+          })(),
           h('button', {
             type: 'button',
             className: 'mini-btn',

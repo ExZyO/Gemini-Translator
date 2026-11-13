@@ -1619,13 +1619,30 @@
           menuRow('Download', 'Download / Export EPUB', 'Export novel as clean, packaged EPUB ebook with latest translations', async () => {
             const full = loadFullNovel ? await loadFullNovel(item) : null;
             if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+
+            // If the novel already has an authoritative unedited EPUB blob, export it directly!
+            // This preserves 100% byte fidelity, UUID, and avoids re-generating or appending "(Translated)".
+            if (full.epubBlob && !full.isEdited) {
+              const targetFileName = full.fileName || ((full.title || item.title || 'Novel').replace(/\.epub$/i, '') + '.epub');
+              const folderOpts = window.MoonReaderEngine ? window.MoonReaderEngine.getNovelFolderOptions(full) : {};
+              if (full.fileUri && !folderOpts.fileUri) folderOpts.fileUri = full.fileUri;
+              if (full.displayPath && !folderOpts.displayPath) folderOpts.displayPath = full.displayPath;
+              if (typeof window.saveUniversalBlob === 'function') {
+                await window.saveUniversalBlob(full.epubBlob, targetFileName, 'application/epub+zip', false, folderOpts);
+                toast(`Downloaded "${targetFileName}"!`, 'success');
+                return;
+              }
+            }
+
             const chs = (full.translatedChapters && full.translatedChapters.length > 0) ? full.translatedChapters : (full.chapters || []);
+            const isTranslatedNovel = !!(full.isTranslated || (full.translatedChapters && full.translatedChapters.length > 0));
             const exportOpts = {
               chaptersToExport: chs,
               rawBaseTitle: full.title || item.title,
               author: full.author || item.author,
               resolvedCover: full.cover || item.cover,
-              fileName: full.title || item.title
+              fileName: full.title || item.title,
+              isTranslated: isTranslatedNovel
             };
             if (typeof props.handleDownloadEPUB === 'function') {
               props.handleDownloadEPUB(chs, exportOpts);

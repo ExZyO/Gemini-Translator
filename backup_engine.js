@@ -1035,7 +1035,9 @@
           url: n.sourceUrl || n.url || '',
           sources: Array.isArray(n.sources) && n.sources.length > 0 ? n.sources : (n.sourceUrl ? [{ url: n.sourceUrl, label: 'Source 1', active: true }] : []),
           folderTreeUri: n.folderTreeUri || '',
-          folderPath: n.folderPath || ''
+          folderPath: n.folderPath || '',
+          fileUri: n.fileUri || '',
+          displayPath: n.displayPath || ''
         }));
         if (setters.setWebImportHistory) setters.setWebImportHistory(synthesizedMeta);
         try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(synthesizedMeta)); } catch (e) {}

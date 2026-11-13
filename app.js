@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.40';
+    let VERSION = '8.22.41';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -444,9 +444,9 @@
         }
       };
 
-      const handleSelectOngoingEpubFile = async (file) => {
+      const handleSelectOngoingEpubFile = async (file, extraOptions = {}) => {
         if (window.MoonReaderEngine?.Continuation?.handleSelectOngoingEpubFile) {
-          return window.MoonReaderEngine.Continuation.handleSelectOngoingEpubFile(file, { readEpub }, {
+          return window.MoonReaderEngine.Continuation.handleSelectOngoingEpubFile(file, { readEpub, ...extraOptions }, {
             toast,
             setOngoingEpubModal,
             handleSearchContinuationSources,
@@ -662,7 +662,6 @@
         window.addEventListener('load-extracted-text', handleLoadExtractedText);
         return () => window.removeEventListener('load-extracted-text', handleLoadExtractedText);
       }, []);
-
 
       const handleInstallPWA = async () => {
         const promptEvent = deferredPrompt || globalDeferredPrompt;
@@ -2946,34 +2945,30 @@
 
           // QA Report Modal
           qaModalOpen, setQaModalOpen, qaAuditResult, qaFilterCategory, setQaFilterCategory,
-          qaCheckGaps, setQaCheckGaps, qaCheckCorrupt, setQaCheckCorrupt, qaCheckCjk,
-          setQaCheckCjk, qaCheckAntiMtl, setQaCheckAntiMtl, qaCheckLoops, setQaCheckLoops,
-          qaCheckDuplicates, setQaCheckDuplicates, qaAuditNovelRef, runNovelHealthAudit,
-          onInspectChapterInReader: handleInspectChapterInReader,
+          qaCheckGaps, setQaCheckGaps, qaCheckCorrupt, setQaCheckCorrupt, qaCheckCjk, setQaCheckCjk,
+          qaCheckAntiMtl, setQaCheckAntiMtl, qaCheckLoops, setQaCheckLoops, qaCheckDuplicates, setQaCheckDuplicates,
+          qaAuditNovelRef, runNovelHealthAudit, onInspectChapterInReader: handleInspectChapterInReader,
 
           // Translation Diff & Revision History Modal
           diffModalOpen, setDiffModalOpen, activeDiffData, selectedDiffSnapId,
           handleSelectDiffSnapshot, diffSnapshotsList, handleManualSnapshot, handleRollbackDiffSnapshot,
 
           // Auto-Glossary Modal
-          autoGlossaryModalOpen, setAutoGlossaryModalOpen, autoGlossaryTargetNovel,
-          setAutoGlossaryTargetNovel, chapters, activeNovelRecord, autoGlossaryChapterCount,
-          setAutoGlossaryChapterCount, isExtractingGlossary, handleExtractGlossary,
-          extractedTerms, setExtractedTerms, handleApplyExtractedTerms,
+          autoGlossaryModalOpen, setAutoGlossaryModalOpen, autoGlossaryTargetNovel, setAutoGlossaryTargetNovel,
+          chapters, activeNovelRecord, autoGlossaryChapterCount, setAutoGlossaryChapterCount,
+          isExtractingGlossary, handleExtractGlossary, extractedTerms, setExtractedTerms, handleApplyExtractedTerms,
 
           // Name Consistency Modal
-          consistencyModalOpen, setConsistencyModalOpen, consistencyAuditResults,
-          handleBatchFixDrift, isAuditingConsistency,
+          consistencyModalOpen, setConsistencyModalOpen, consistencyAuditResults, handleBatchFixDrift, isAuditingConsistency,
 
           // Google Drive Config Modal
           gdriveConfigModalOpen, setGdriveConfigModalOpen, gdriveClientId, setGdriveClientId,
           gdriveManualToken, setGdriveManualToken, setGdriveConnected, testGoogleDriveConnection,
 
           // SwiftAudio Player & Batch Downloader
-          audioPlayerState, amoledMode, isFullPlayerOpen, setIsFullPlayerOpen,
-          isPlayerFullscreen, setIsPlayerFullscreen, isAudiobookInLibrary, saveAudiobookToLibrary,
-          removeAudiobookFromLibrary, handleOpenAudioDownload, downloadingTrackId,
-          setDownloadingTrackId, audioDownloadModal, setAudioDownloadModal, handleExecuteAudioBatchDownload,
+          audioPlayerState, amoledMode, isFullPlayerOpen, setIsFullPlayerOpen, isPlayerFullscreen, setIsPlayerFullscreen,
+          isAudiobookInLibrary, saveAudiobookToLibrary, removeAudiobookFromLibrary, handleOpenAudioDownload,
+          downloadingTrackId, setDownloadingTrackId, audioDownloadModal, setAudioDownloadModal, handleExecuteAudioBatchDownload,
 
           // Novel Rename Modal
           renameModalNovel, newNovelTitleInput, handleSaveNovelRename,
@@ -2982,11 +2977,10 @@
           assignWebsiteModalNovel, setAssignWebsiteModalNovel, newNovelWebsiteUrlInput, setNewNovelWebsiteUrlInput, handleSaveNovelWebsite,
 
           // Source Extensions Modal
-          sourcePluginsModalOpen, setSourcePluginsModalOpen, pluginSelectedTab,
-          setPluginSelectedTab, pluginCatalog, isCatalogLoading, pluginSearchQuery,
-          setPluginSearchQuery, pluginSelectedLangFilter, setPluginSelectedLangFilter,
-          installingPluginId, handleUninstallPlugin, handleInstallPlugin,
-          customPluginUrl, setCustomPluginUrl, handleInstallCustomPluginUrl,
+          sourcePluginsModalOpen, setSourcePluginsModalOpen, pluginSelectedTab, setPluginSelectedTab,
+          pluginCatalog, isCatalogLoading, pluginSearchQuery, setPluginSearchQuery,
+          pluginSelectedLangFilter, setPluginSelectedLangFilter, installingPluginId,
+          handleUninstallPlugin, handleInstallPlugin, customPluginUrl, setCustomPluginUrl, handleInstallCustomPluginUrl,
 
           // Cost Estimator Modal
           costEstimatorModalOpen, setCostEstimatorModalOpen, costEstimatorData, handleStartTranslation,
@@ -2999,7 +2993,6 @@
         })
       );
     }
-
 
     const root = document.getElementById('root');
     if (root) ReactDOM.createRoot(root).render(h(ErrorBoundary, null, h(App)));

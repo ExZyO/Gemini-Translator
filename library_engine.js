@@ -505,6 +505,8 @@
       const folderOpts = window.MoonReaderEngine ? window.MoonReaderEngine.getNovelFolderOptions(novelData) : {};
       const folderTreeUri = novelData.folderTreeUri || folderOpts.treeUri || existingMeta?.folderTreeUri || '';
       const folderPath = novelData.folderPath || folderOpts.folderPath || existingMeta?.folderPath || '';
+      const fileUri = novelData.fileUri || folderOpts.fileUri || existingMeta?.fileUri || '';
+      const displayPath = novelData.displayPath || folderOpts.displayPath || existingMeta?.displayPath || '';
 
       let coverArt = novelData.cover || existingMeta?.cover || '';
       if (!coverArt && novelData.title) {
@@ -656,7 +658,9 @@
           : (cleanChapters && isTranslated ? cleanChapters : null),
         targetLang: novelData.targetLang || (isTranslated ? 'en' : null),
         folderTreeUri,
-        folderPath
+        folderPath,
+        fileUri,
+        displayPath
       };
 
       if (window.GeminiNovelDB) {
@@ -690,7 +694,9 @@
         sourceUrl: novelRecord.sourceUrl,
         sources: detectedSources,
         folderTreeUri: novelRecord.folderTreeUri,
-        folderPath: novelRecord.folderPath
+        folderPath: novelRecord.folderPath,
+        fileUri: novelRecord.fileUri,
+        displayPath: novelRecord.displayPath
       };
 
       let updatedList = [];
@@ -1213,6 +1219,8 @@
               const isInc = updatedNovel.isIncomplete || (updatedNovel.totalChapterCount && chs.length < updatedNovel.totalChapterCount);
               const epubFileName = opts.fixedFilename || this.getEpubFileName(bookTitle, chs.length, isInc);
               const folderOpts = window.MoonReaderEngine ? window.MoonReaderEngine.getNovelFolderOptions(updatedNovel) : {};
+              if (targetItem.fileUri && !folderOpts.fileUri) folderOpts.fileUri = targetItem.fileUri;
+              if (targetItem.displayPath && !folderOpts.displayPath) folderOpts.displayPath = targetItem.displayPath;
               if (typeof window.saveUniversalBlob === 'function') {
                 await window.saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, folderOpts);
                 if (typeof callbacks.toast === 'function') {

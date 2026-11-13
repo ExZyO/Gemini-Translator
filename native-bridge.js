@@ -705,7 +705,8 @@
                             mimeType,
                             openChooser,
                             subDir: options?.subDir || options?.folderPath || '',
-                            treeUri: options?.treeUri || options?.folderTreeUri || ''
+                            treeUri: options?.treeUri || options?.folderTreeUri || '',
+                            fileUri: options?.fileUri || options?.documentUri || ''
                         });
 
                         if (isLast) return result;
@@ -921,6 +922,42 @@
             } catch (e) {
                 console.warn('[NativeBridge] addNativeAudioListener error:', e);
             }
+        },
+
+        pickEpubFile: async () => {
+            const bridge = getBridge();
+            if (bridge && bridge.pickEpubFile) {
+                try {
+                    const res = await bridge.pickEpubFile();
+                    if (res && res.fileUri) {
+                        let blob = null;
+                        if (res.base64) {
+                            const bin = atob(res.base64);
+                            const bytes = new Uint8Array(bin.length);
+                            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                            blob = new Blob([bytes], { type: 'application/epub+zip' });
+                        } else if (res.cachePath && window.Capacitor?.convertFileSrc) {
+                            try {
+                                const fileUrl = window.Capacitor.convertFileSrc(res.cachePath);
+                                const r = await fetch(fileUrl);
+                                blob = await r.blob();
+                            } catch (fetchErr) {
+                                console.warn('Capacitor convertFileSrc fetch failed:', fetchErr);
+                            }
+                        }
+                        if (blob) {
+                            const file = new File([blob], res.fileName, { type: 'application/epub+zip', lastModified: Date.now() });
+                            file.fileUri = res.fileUri;
+                            file.displayPath = res.displayPath;
+                            return { file, fileUri: res.fileUri, fileName: res.fileName, displayPath: res.displayPath };
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Native pickEpubFile error/canceled:', e);
+                    throw e;
+                }
+            }
+            return null;
         },
 
         chooseFolder: async () => {
