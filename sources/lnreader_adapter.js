@@ -532,9 +532,13 @@
       try {
         const u = new URL(url);
         const s = new URL(this.site);
-        return u.hostname === s.hostname || u.hostname.endsWith('.' + s.hostname);
+        if (u.hostname === s.hostname || u.hostname.endsWith('.' + s.hostname)) return true;
+        // Known mirrors and domain spelling variants (e.g. fenrirrealm.com vs fenrirealm.com)
+        if (s.hostname.includes('fenrirealm') && u.hostname.includes('fenrirrealm')) return true;
+        if (s.hostname.includes('fenrirrealm') && u.hostname.includes('fenrirealm')) return true;
+        return false;
       } catch (_) {
-        return url.includes(this.site);
+        return url.includes(this.site) || (this.site.includes('fenrirealm') && url.includes('fenrirrealm'));
       }
     }
 
@@ -606,8 +610,14 @@
 
     async getNovelDetails(url) {
       let path = url;
-      if (url.startsWith(this.site)) {
-        path = url.substring(this.site.length);
+      // Strip any origin prefix (supports alternative domains/mirrors)
+      if (/^https?:\/\/[^\/]+/i.test(path)) {
+        path = path.replace(/^https?:\/\/[^\/]+/i, '');
+      }
+      // For Fenrir Realm and similar API plugins expecting bare series slug
+      if (this.id === 'fenrir' || this.site?.includes('fenrirealm') || this.site?.includes('fenrirrealm')) {
+        path = path.replace(/^\/?series\//i, '').replace(/^\/+|\/+$/g, '');
+      } else {
         if (!path.startsWith('/')) path = '/' + path;
       }
       const raw = await this.plugin.parseNovel(path);
@@ -642,7 +652,15 @@
 
     async getChapter(chapterUrl, options = {}) {
       let path = chapterUrl;
-      if (chapterUrl.startsWith(this.site)) {
+      // Strip origin if full URL was passed
+      if (/^https?:\/\/[^\/]+/i.test(path)) {
+        path = path.replace(/^https?:\/\/[^\/]+/i, '');
+        if (this.id === 'fenrir' || this.site?.includes('fenrirealm') || this.site?.includes('fenrirrealm')) {
+          path = path.replace(/^\/?series\//i, '').replace(/^\/+/, '');
+        } else if (!path.startsWith('/')) {
+          path = '/' + path;
+        }
+      } else if (chapterUrl.startsWith(this.site)) {
         path = chapterUrl.substring(this.site.length);
         if (!path.startsWith('/')) path = '/' + path;
       }
@@ -664,7 +682,10 @@
   function loadLNReaderPlugin(pluginJsCode, fetcherOverride = null) {
     const defaultFetchApi = async (url, init = {}) => {
       const fetchFn = fetcherOverride || (typeof window !== 'undefined' && window.WebNovelImporter && window.WebNovelImporter.fetchHtml) || null;
-      const targetUrl = typeof url === 'string' ? url : (url?.url || '');
+      let targetUrl = typeof url === 'string' ? url : (url?.url || '');
+      // Automatically redirect fenrirrealm.com (two 'r's) to the active API host fenrirealm.com (one 'r')
+      targetUrl = targetUrl.replace(/https?:\/\/(?:www\.)?fenrirrealm\.com/gi, 'https://fenrirealm.com');
+
       let rawText = '';
       if (fetchFn) {
         rawText = await fetchFn(targetUrl, init);
@@ -672,17 +693,31 @@
         const res = await fetch(targetUrl, init);
         rawText = await res.text();
       }
+
+      // Check if response is HTML
+      const isHtml = typeof rawText === 'string' && /^\s*</.test(rawText);
+      const isApiEndpoint = targetUrl.includes('/api/') || targetUrl.includes('__data.json');
+      const isCf = isHtml && (rawText.includes('cf-turnstile') || rawText.includes('challenges.cloudflare.com') || rawText.includes('Attention Required! | Cloudflare') || rawText.includes('Just a moment...'));
+
+      // If an API endpoint returns an HTML page, it's an error (404, 403, or 503)
+      const simulatedStatus = isCf ? 403 : (isHtml && isApiEndpoint ? 404 : 200);
+      const simulatedOk = simulatedStatus >= 200 && simulatedStatus < 300;
+
       return {
-        ok: true,
-        status: 200,
-        statusText: 'OK',
+        ok: simulatedOk,
+        status: simulatedStatus,
+        statusText: simulatedOk ? 'OK' : (simulatedStatus === 403 ? 'Cloudflare Challenge' : 'Not Found'),
         url: targetUrl,
         headers: {
           get: (headerName) => {
-            if (headerName && headerName.toLowerCase() === 'content-type') return 'text/html';
+            if (headerName && headerName.toLowerCase() === 'content-type') {
+              return isHtml ? 'text/html' : 'application/json';
+            }
             return null;
           },
-          has: () => false,
+          has: (headerName) => {
+            return headerName && headerName.toLowerCase() === 'content-type';
+          },
           entries: () => []
         },
         text: async () => rawText,
@@ -690,13 +725,21 @@
           try {
             return JSON.parse(rawText);
           } catch (jsonErr) {
-            if (typeof rawText === 'string' && rawText.trim().startsWith('<')) {
-              throw new Error(`The website returned an HTML page instead of chapter data (Cloudflare challenge or maintenance page).`);
+            if (isHtml) {
+              if (isCf) {
+                throw new Error('Cloudflare verification is required by this website. Please solve the challenge in the in-app browser.');
+              }
+              const titleM = rawText.match(/<title[^>]*>([^<]+)<\/title>/i);
+              const pageTitle = titleM ? titleM[1].trim() : '';
+              if (pageTitle.toLowerCase().includes('not found') || rawText.includes('could not be found')) {
+                throw new Error('Novel or chapter not found on remote website (404). Please verify the story URL.');
+              }
+              throw new Error('The website returned a webpage instead of chapter data (Cloudflare challenge or server maintenance).');
             }
-            throw jsonErr;
+            throw new Error(`Invalid data received from server: ${jsonErr.message}`);
           }
         },
-        blob: async () => new Blob([rawText], { type: 'text/html' })
+        blob: async () => new Blob([rawText], { type: isHtml ? 'text/html' : 'application/json' })
       };
     };
 

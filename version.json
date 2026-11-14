@@ -1,11 +1,11 @@
 {
-  "version": "8.22.44",
-  "versionCode": 8555,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.44/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.44/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.44/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.44",
+  "version": "8.22.45",
+  "versionCode": 8556,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.45/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.45/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.45/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.45",
   "releaseDate": "2026-11-14",
-  "releaseNotes": "v8.22.44: Support Royal Road redesign embedded window.chapters ToC to correctly extract all chapters across volumes, plus fast-path continuation ToC scanning.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.44"
+  "releaseNotes": "v8.22.45: Fix Fenrir Realm series URL slug parsing and domain normalization, resolve HTML error response handling, and prevent Unexpected token JSON crashes.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.45"
 }
