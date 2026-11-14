@@ -3934,12 +3934,11 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     }
                 }
 
-                try { cacheFile.delete(); } catch (Exception ignored) {}
-
                 final boolean isSaf = safSaved;
                 final String finalSub = (subDir != null && !subDir.trim().isEmpty()) ? subDir : "Download/GeminiTranslator";
+                final String toastFileName = fileName;
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    Toast.makeText(context, " Saved: " + fileName + "\n " + (isSaf ? "Novel Folder" : finalSub), Toast.LENGTH_LONG).show();
+                    Toast.makeText(context, "Saved: " + toastFileName + "\n" + (isSaf ? "Novel Folder" : finalSub), Toast.LENGTH_LONG).show();
                 });
 
                 if (openChooser) {
@@ -3952,6 +3951,8 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         context.startActivity(chooser);
                     } catch (Exception e) {}
+                } else {
+                    try { cacheFile.delete(); } catch (Exception ignored) {}
                 }
 
                 JSObject ret = new JSObject();
