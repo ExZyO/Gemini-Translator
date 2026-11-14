@@ -34,5 +34,6 @@ Other/
 GEMINI.md
 AGENTS.md
 *.keystore
+!android/app/debug.keystore
 keystore.properties
 skills-lock.json

@@ -56,17 +56,16 @@ jobs:
 
       - name: Build Release and Debug APKs
         run: |
-          mkdir -p ~/.android ~/.config/.android
-          keytool -genkeypair -alias androiddebugkey -keypass android -keystore ~/.android/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000 || true
-          cp -f ~/.android/debug.keystore ~/.config/.android/debug.keystore || true
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease assembleDebug --no-daemon --build-cache --parallel
 
-      - name: Verify Release APK Signature
+      - name: Verify APK Signatures
         run: |
-          echo "Verifying APK signing certificate..."
+          echo "Verifying Release APK signing certificate..."
           keytool -printcert -jarfile android/app/build/outputs/apk/release/app-release.apk
+          echo "Verifying Debug APK signing certificate..."
+          keytool -printcert -jarfile android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Prepare APKs for Direct Download
         run: |

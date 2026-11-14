@@ -1,11 +1,11 @@
 {
-  "version": "8.22.42",
-  "versionCode": 8553,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.42/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.42/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.42/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.42",
+  "version": "8.22.43",
+  "versionCode": 8554,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.43/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.43/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.43/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.43",
   "releaseDate": "2026-11-14",
-  "releaseNotes": "v8.22.42: Fixed crawl pool range fallback to prevent downloading early chapters when source lacks requested range, added source chapter shortage warning, updated file timestamps and MediaScanner for Moon+ Reader cache detection.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.42"
+  "releaseNotes": "v8.22.43: Permanent fixed debug keystore for seamless debug updates without uninstalling, debug vs release in-app update routing parity, and source chapter shortage enforcement.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.43"
 }

@@ -221,16 +221,51 @@
                 } catch (e) {}
             }
         },
-        installApk: async (url = "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk") => {
+        getAppInfo: async () => {
+            try {
+                const bridge = getBridge();
+                if (bridge && bridge.getAppInfo) {
+                    return await bridge.getAppInfo();
+                }
+            } catch (_) {}
+            const isDbg = typeof window !== 'undefined' && Boolean(
+                window.location.href.includes('debug') ||
+                (typeof VERSION !== 'undefined' && String(VERSION).toLowerCase().includes('debug'))
+            );
+            return {
+                packageName: isDbg ? 'com.exzyo.geminitranslator.debug' : 'com.exzyo.geminitranslator',
+                isDebug: isDbg
+            };
+        },
+
+        installApk: async (url = null) => {
             const bridge = getBridge();
+            let isDebug = false;
+            if (bridge && bridge.getAppInfo) {
+                try {
+                    const info = await bridge.getAppInfo();
+                    if (info?.isDebug || info?.packageName?.endsWith('.debug')) isDebug = true;
+                } catch (_) {}
+            }
+            if (!isDebug && typeof window !== 'undefined') {
+                isDebug = Boolean(window.location.href.includes('debug') || (typeof VERSION !== 'undefined' && String(VERSION).toLowerCase().includes('debug')));
+            }
+
+            let finalUrl = url;
+            if (!finalUrl) {
+                finalUrl = isDebug
+                    ? "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTLD-Debug.apk"
+                    : "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
+            }
+
             if (bridge && bridge.installApk) {
-                return await bridge.installApk({ url });
+                return await bridge.installApk({ url: finalUrl });
             } else {
                 // Browser fallback: trigger direct APK file download without opening blank webpage
                 try {
                     const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'GeminiTranslator.apk';
+                    a.href = finalUrl;
+                    a.download = isDebug ? 'GeminiTLD-Debug.apk' : 'GeminiTranslator.apk';
                     a.target = '_blank';
                     a.rel = 'noopener noreferrer';
                     document.body.appendChild(a);
@@ -240,7 +275,7 @@
                     }, 1000);
                     return { success: true, message: 'Downloading APK via browser' };
                 } catch (e) {
-                    window.open(url, '_blank');
+                    window.open(finalUrl, '_blank');
                     return { success: true };
                 }
             }
@@ -248,6 +283,22 @@
 
         checkForUpdate: async (currentVersion) => {
             try {
+                let isDebug = false;
+                try {
+                    const bridge = getBridge();
+                    if (bridge && bridge.getAppInfo) {
+                        const appInfo = await bridge.getAppInfo();
+                        if (appInfo && typeof appInfo.isDebug === 'boolean') {
+                            isDebug = appInfo.isDebug;
+                        } else if (appInfo?.packageName?.endsWith('.debug')) {
+                            isDebug = true;
+                        }
+                    }
+                } catch (_) {}
+                if (!isDebug && typeof window !== 'undefined') {
+                    isDebug = Boolean(window.location.href.includes('debug') || (typeof VERSION !== 'undefined' && String(VERSION).toLowerCase().includes('debug')));
+                }
+
                 const parseVer = (v) => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
                 let releaseNotes = '';
                 let discoveredApkUrl = null;
@@ -265,7 +316,15 @@
                         const m = (d.name || '').match(/v?(\d+\.\d+\.\d+)/i) || (d.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
                         if (m) candidateVersions.push(m[1]);
                         if (Array.isArray(d.assets)) {
-                            const apkAsset = d.assets.find(a => a.name && a.name.toLowerCase().endsWith('.apk'));
+                            let apkAsset = null;
+                            if (isDebug) {
+                                apkAsset = d.assets.find(a => a.name && (a.name.toLowerCase().includes('debug') || a.name.toLowerCase() === 'app-debug.apk'));
+                            } else {
+                                apkAsset = d.assets.find(a => a.name && (a.name.toLowerCase().includes('geminitranslator.apk') || a.name.toLowerCase() === 'app-release.apk'));
+                            }
+                            if (!apkAsset) {
+                                apkAsset = d.assets.find(a => a.name && a.name.toLowerCase().endsWith('.apk'));
+                            }
                             if (apkAsset && apkAsset.browser_download_url) {
                                 discoveredApkUrl = apkAsset.browser_download_url;
                             }
@@ -278,7 +337,10 @@
                         if (r.ok) {
                             const d = await r.json();
                             if (d && d.version) candidateVersions.push(d.version);
-                            if (d && (d.apkUrl || d.downloadUrl)) discoveredApkUrl = d.apkUrl || d.downloadUrl;
+                            if (d) {
+                                if (isDebug && d.debugApkUrl) discoveredApkUrl = d.debugApkUrl;
+                                else if (!isDebug && (d.apkUrl || d.downloadUrl)) discoveredApkUrl = d.apkUrl || d.downloadUrl;
+                            }
                         }
                     }).catch(() => {});
 
@@ -295,7 +357,10 @@
                         if (r.ok) {
                             const d = await r.json();
                             if (d && d.version) candidateVersions.push(d.version);
-                            if (d && (d.apkUrl || d.downloadUrl) && !discoveredApkUrl) discoveredApkUrl = d.apkUrl || d.downloadUrl;
+                            if (d && !discoveredApkUrl) {
+                                if (isDebug && d.debugApkUrl) discoveredApkUrl = d.debugApkUrl;
+                                else if (d.apkUrl || d.downloadUrl) discoveredApkUrl = d.apkUrl || d.downloadUrl;
+                            }
                         }
                     }).catch(() => {});
 
@@ -322,14 +387,16 @@
                 else if (rMajor === cMajor && rMinor === cMinor && rPatch > cPatch) isNewer = true;
 
                 const latestTag = 'v' + [rMajor, rMinor, rPatch].join('.');
-                const isApkUploaded = Boolean(discoveredApkUrl && discoveredApkUrl.includes(latestTag));
-                const targetApkUrl = isApkUploaded
-                    ? discoveredApkUrl
+                const defaultTargetApk = isDebug
+                    ? `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTLD-Debug.apk`
                     : `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`;
+                const isApkUploaded = Boolean(discoveredApkUrl && discoveredApkUrl.includes(latestTag));
+                const targetApkUrl = isApkUploaded ? discoveredApkUrl : defaultTargetApk;
                 const targetReleasePage = `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`;
 
                 return {
                     isNewer,
+                    isDebug,
                     isBuilding: false,
                     latestVersion: latestTag,
                     currentVersion: 'v' + [cMajor, cMinor, cPatch].join('.'),

@@ -996,6 +996,17 @@
         }
         if (!update || !update.latestVersion) {
           // Web fallback: query GitHub releases and version manifest concurrently
+          let isDebug = false;
+          try {
+            if (window.NativeBridge?.getAppInfo) {
+              const info = await window.NativeBridge.getAppInfo();
+              if (info?.isDebug || info?.packageName?.endsWith('.debug')) isDebug = true;
+            }
+          } catch (_) {}
+          if (!isDebug && typeof window !== 'undefined') {
+            isDebug = Boolean(window.location.href.includes('debug') || (typeof VERSION !== 'undefined' && String(VERSION).toLowerCase().includes('debug')));
+          }
+
           const candidates = [];
           let discoveredApk = null;
           let buildStatus = null;
@@ -1005,7 +1016,13 @@
               const m = (d.name || '').match(/v?(\d+\.\d+\.\d+)/i) || (d.tag_name || '').match(/v?(\d+\.\d+\.\d+)/i);
               if (m) candidates.push(m[1]);
               if (Array.isArray(d.assets)) {
-                const a = d.assets.find(x => x.name && x.name.toLowerCase().endsWith('.apk'));
+                let a = null;
+                if (isDebug) {
+                  a = d.assets.find(x => x.name && (x.name.toLowerCase().includes('debug') || x.name.toLowerCase() === 'app-debug.apk'));
+                } else {
+                  a = d.assets.find(x => x.name && (x.name.toLowerCase().includes('geminitranslator.apk') || x.name.toLowerCase() === 'app-release.apk'));
+                }
+                if (!a) a = d.assets.find(x => x.name && x.name.toLowerCase().endsWith('.apk'));
                 if (a?.browser_download_url) discoveredApk = a.browser_download_url;
               }
             }
@@ -1014,7 +1031,10 @@
             if (r.ok) {
               const d = await r.json();
               if (d?.version) candidates.push(d.version);
-              if (d?.apkUrl || d?.downloadUrl) discoveredApk = d.apkUrl || d.downloadUrl;
+              if (d) {
+                if (isDebug && d.debugApkUrl) discoveredApk = d.debugApkUrl;
+                else if (!isDebug && (d.apkUrl || d.downloadUrl)) discoveredApk = d.apkUrl || d.downloadUrl;
+              }
             }
           }).catch(() => {});
           const q3 = AppUpdate.checkBuildStatus().then(bs => { buildStatus = bs; }).catch(() => {});
@@ -1033,16 +1053,18 @@
             const [cMaj=0, cMin=0, cPat=0] = parseV(currentVersion);
             const isNewer = (rMaj > cMaj) || (rMaj === cMaj && rMin > cMin) || (rMaj === cMaj && rMin === cMin && rPat > cPat);
             const latestTag = `v${[rMaj, rMin, rPat].join('.')}`;
+            const defaultTargetApk = isDebug
+              ? `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTLD-Debug.apk`
+              : `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`;
             const isApkReady = !!(discoveredApk && discoveredApk.includes(latestTag));
             update = {
               isNewer,
+              isDebug,
               isBuilding: isNewer && Boolean(buildStatus?.isBuilding),
               buildStatus,
               latestVersion: latestTag,
               currentVersion: 'v' + [cMaj, cMin, cPat].join('.'),
-              apkUrl: isApkReady
-                ? discoveredApk
-                : `https://github.com/ExZyO/Gemini-Translator/releases/download/${latestTag}/GeminiTranslator.apk`,
+              apkUrl: isApkReady ? discoveredApk : defaultTargetApk,
               releasePage: `https://github.com/ExZyO/Gemini-Translator/releases/tag/${latestTag}`,
               actionsUrl: buildStatus?.htmlUrl || 'https://github.com/ExZyO/Gemini-Translator/actions'
             };
@@ -1092,9 +1114,13 @@
 
     async installUpdate(availableUpdate, callbacks = {}) {
       if (typeof callbacks.onStart === 'function') callbacks.onStart();
-      if (typeof callbacks.toast === 'function') callbacks.toast('⬇️ Starting update download...', 'info');
+      if (typeof callbacks.toast === 'function') callbacks.toast('Starting update download...', 'info');
       try {
-        const apkUrl = availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
+        const isDebug = Boolean(availableUpdate?.isDebug);
+        const defaultApk = isDebug
+          ? "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTLD-Debug.apk"
+          : "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
+        const apkUrl = availableUpdate?.apkUrl || defaultApk;
         const installResult = (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.installApk === 'function')
           ? await window.NativeBridge.installApk(apkUrl)
           : null;

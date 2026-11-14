@@ -2368,9 +2368,55 @@ public class NativeAndroidBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getAppInfo(PluginCall call) {
+        try {
+            Context context = getContext();
+            PackageManager pm = context.getPackageManager();
+            PackageInfo pInfo = pm.getPackageInfo(context.getPackageName(), 0);
+            String packageName = context.getPackageName();
+            boolean isDebug = packageName.endsWith(".debug") || (context.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+            JSObject ret = new JSObject();
+            ret.put("packageName", packageName);
+            ret.put("versionName", pInfo.versionName);
+            ret.put("versionCode", Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? pInfo.getLongVersionCode() : pInfo.versionCode);
+            ret.put("isDebug", isDebug);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to get app info: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void installApk(PluginCall call) {
-        String downloadUrl = call.getString("url", "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk");
         Context context = getContext();
+        String packageName = context.getPackageName();
+        boolean isDebug = packageName.endsWith(".debug") || (context.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+
+        String defaultUrl = isDebug
+            ? "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTLD-Debug.apk"
+            : "https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk";
+        String downloadUrl = call.getString("url", defaultUrl);
+
+        // Sanitize URL to ensure debug app updates to debug APK, and release app updates to release APK
+        if (isDebug) {
+            if (downloadUrl == null || downloadUrl.endsWith("GeminiTranslator.apk") || downloadUrl.endsWith("app-release.apk")) {
+                if (downloadUrl != null && downloadUrl.contains("/download/v")) {
+                    downloadUrl = downloadUrl.replaceAll("/(GeminiTranslator|app-release)\\.apk", "/GeminiTLD-Debug.apk");
+                } else {
+                    downloadUrl = defaultUrl;
+                }
+            }
+        } else {
+            if (downloadUrl != null && (downloadUrl.endsWith("GeminiTLD-Debug.apk") || downloadUrl.endsWith("GeminiTranslator-Debug.apk") || downloadUrl.endsWith("app-debug.apk"))) {
+                if (downloadUrl.contains("/download/v")) {
+                    downloadUrl = downloadUrl.replaceAll("/(GeminiTLD-Debug|GeminiTranslator-Debug|app-debug)\\.apk", "/GeminiTranslator.apk");
+                } else {
+                    downloadUrl = defaultUrl;
+                }
+            }
+        }
+
+        final String finalDownloadUrl = downloadUrl;
 
         new Thread(() -> {
             try {
@@ -2396,8 +2442,10 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 if (downloadDir == null || !downloadDir.exists()) {
                     downloadDir = context.getCacheDir();
                 }
-                File targetFile = new File(downloadDir, "GeminiTranslator_update.apk");
-                File tempFile = new File(downloadDir, "GeminiTranslator_update.tmp");
+                String apkFileName = isDebug ? "GeminiTLD-Debug_update.apk" : "GeminiTranslator_update.apk";
+                String tmpFileName = isDebug ? "GeminiTLD-Debug_update.tmp" : "GeminiTranslator_update.tmp";
+                File targetFile = new File(downloadDir, apkFileName);
+                File tempFile = new File(downloadDir, tmpFileName);
 
                 // 2. Check if a valid APK was already downloaded recently (< 30 min old) AND is newer than installed app
                 PackageManager pm = context.getPackageManager();
@@ -2408,7 +2456,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         PackageInfo currentAppInfo = pm.getPackageInfo(context.getPackageName(), 0);
                         long currentVerCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? currentAppInfo.getLongVersionCode() : currentAppInfo.versionCode;
                         long cachedVerCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? existingInfo.getLongVersionCode() : existingInfo.versionCode;
-                        if (existingInfo != null && existingInfo.packageName != null && cachedVerCode > currentVerCode) {
+                        if (existingInfo != null && existingInfo.packageName != null && existingInfo.packageName.equals(context.getPackageName()) && cachedVerCode > currentVerCode) {
                             hasValidCachedApk = true;
                         }
                     } catch (Exception ignored) {}
@@ -2419,14 +2467,17 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     if (tempFile.exists()) tempFile.delete();
 
                     List<String> candidateUrls = new ArrayList<>();
-                    if (downloadUrl != null && !downloadUrl.trim().isEmpty()) {
-                        candidateUrls.add(downloadUrl.trim());
-                        if (downloadUrl.contains("/download/") && downloadUrl.endsWith("GeminiTranslator.apk")) {
-                            candidateUrls.add(downloadUrl.replace("GeminiTranslator.apk", "app-release.apk"));
-                        }
+                    if (finalDownloadUrl != null && !finalDownloadUrl.trim().isEmpty()) {
+                        candidateUrls.add(finalDownloadUrl.trim());
                     }
-                    candidateUrls.add("https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk");
-                    candidateUrls.add("https://github.com/ExZyO/Gemini-Translator/releases/latest/download/app-release.apk");
+                    if (isDebug) {
+                        candidateUrls.add("https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTLD-Debug.apk");
+                        candidateUrls.add("https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator-Debug.apk");
+                        candidateUrls.add("https://github.com/ExZyO/Gemini-Translator/releases/latest/download/app-debug.apk");
+                    } else {
+                        candidateUrls.add("https://github.com/ExZyO/Gemini-Translator/releases/latest/download/GeminiTranslator.apk");
+                        candidateUrls.add("https://github.com/ExZyO/Gemini-Translator/releases/latest/download/app-release.apk");
+                    }
 
                     boolean downloadSuccess = false;
                     String lastError = null;
@@ -2489,7 +2540,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                                 if (tempFile.length() > 2000000) {
                                     PackageInfo info = pm.getPackageArchiveInfo(tempFile.getAbsolutePath(), 0);
-                                    if (info != null && info.packageName != null) {
+                                    if (info != null && info.packageName != null && info.packageName.equals(context.getPackageName())) {
                                         downloadSuccess = true;
                                         break;
                                     }
