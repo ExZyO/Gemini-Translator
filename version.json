@@ -1,11 +1,11 @@
 {
-  "version": "8.22.46",
-  "versionCode": 8557,
+  "version": "8.22.47",
+  "versionCode": 8558,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.46/GeminiTranslator.apk",
   "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.46/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.46/app-release.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.47/app-release.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.46",
   "releaseDate": "2026-11-14",
-  "releaseNotes": "v8.22.46: Moon+ Reader pointer-based zero-waste storage architecture, on-demand EPUB reading from disk, 3-layer safety net with automatic .bak pre-update snapshot, mid-fetch resume memory, and same-name file collision auto-numbering.",
+  "releaseNotes": "v8.22.47: Chimanew performance optimizations - 15-min update queue recovery, distinct chapter deduplication, 0ms reader lookahead buffer, high-contrast badges, zero-blocking context hub with instant read and haptics, anti-bot Client Hints.",
   "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.46"
 }

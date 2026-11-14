@@ -487,5 +487,5 @@ ${tuNodes}
     module.exports = TMDiffEngine;
   }
 
-  console.log('⚡ [tm_diff_engine] Translation Memory Bank & Snapshots Suite v8.11.3 initialized.');
+  console.log('[tm_diff_engine] Translation Memory Bank & Snapshots Suite v8.11.3 initialized.');
 })(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));

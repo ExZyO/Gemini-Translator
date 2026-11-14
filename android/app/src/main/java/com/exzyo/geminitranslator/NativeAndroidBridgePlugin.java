@@ -115,7 +115,11 @@ public class NativeAndroidBridgePlugin extends Plugin {
         try {
             Context ctx = getContext();
             if (ctx != null) {
-                return android.webkit.WebSettings.getDefaultUserAgent(ctx);
+                String ua = android.webkit.WebSettings.getDefaultUserAgent(ctx);
+                if (ua != null) {
+                    // Chimanew section 6.4: Strip WebView identifiers to prevent anti-bot blocking
+                    return ua.replace("; wv", "");
+                }
             }
         } catch (Throwable ignored) {}
         return DEFAULT_UA;
@@ -1792,7 +1796,14 @@ public class NativeAndroidBridgePlugin extends Plugin {
                 }
 
                 String userAgent = call.getString("userAgent", getDefaultUserAgent());
+                if (userAgent != null) userAgent = userAgent.replace("; wv", "");
                 JSObject customHeaders = call.getObject("headers");
+
+                // High-Capacity Connection Pooling (Chimanew section 6.1 Parity: 30 connections)
+                try {
+                    System.setProperty("http.keepAlive", "true");
+                    System.setProperty("http.maxConnections", "30");
+                } catch (Throwable ignored) {}
 
                 String currentUrl = targetUrl;
                 HttpURLConnection conn = null;
@@ -1831,11 +1842,21 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     conn.setReadTimeout(35000);
                     conn.setInstanceFollowRedirects(false);
 
-                    conn.setRequestProperty("User-Agent", userAgent);
+                    conn.setRequestProperty("User-Agent", userAgent != null ? userAgent : getDefaultUserAgent());
                     conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
                     conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,zh-CN,zh;q=0.8,ja;q=0.7");
                     conn.setRequestProperty("Cache-Control", "no-cache");
                     conn.setRequestProperty("Pragma", "no-cache");
+
+                    // Anti-bot Chromium Client Hints (Chimanew section 6.4 Parity)
+                    conn.setRequestProperty("Sec-CH-UA", "\"Not A(Brand\";v=\"8\", \"Chromium\";v=\"132\", \"Google Chrome\";v=\"132\"");
+                    conn.setRequestProperty("Sec-CH-UA-Mobile", "?1");
+                    conn.setRequestProperty("Sec-CH-UA-Platform", "\"Android\"");
+                    conn.setRequestProperty("Sec-Fetch-Dest", "document");
+                    conn.setRequestProperty("Sec-Fetch-Mode", "navigate");
+                    conn.setRequestProperty("Sec-Fetch-Site", "none");
+                    conn.setRequestProperty("Sec-Fetch-User", "?1");
+                    conn.setRequestProperty("Upgrade-Insecure-Requests", "1");
 
                     if (!cookies.isEmpty()) {
                         conn.setRequestProperty("Cookie", cookies);

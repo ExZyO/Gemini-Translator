@@ -1211,7 +1211,9 @@
     useEffect(() => {
       if (!safeChapters || safeChapters.length === 0) return;
       const prefetch = () => {
-        [activeIdx + 1, activeIdx - 1].forEach(targetIdx => {
+        // Dynamic Rolling Lookahead Buffer (Chimanew section 8.1 & 8.2 Parity)
+        // Aggressively pre-parses next 2 chapters and previous chapter in idle background
+        [activeIdx + 1, activeIdx + 2, activeIdx - 1].forEach(targetIdx => {
           if (targetIdx >= 0 && targetIdx < safeChapters.length) {
             const chap = safeChapters[targetIdx];
             if (chap && (chap.text || chap.content)) {

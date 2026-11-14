@@ -98,16 +98,18 @@
             background: '#2563eb',
             color: '#FFFFFF',
             fontSize: 10,
-            fontWeight: 700,
-            padding: '2px 6px',
-            borderRadius: 4,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+            fontWeight: 800,
+            padding: '2px 7px',
+            borderRadius: 6,
+            border: '1px solid rgba(255, 255, 255, 0.45)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.6)',
+            letterSpacing: '0.02em',
             zIndex: 5
           }
         }, `+${newCount} ${unit}`)
       ),
-      h('div', { className: 'shelf-book-title', title: item.title }, item.title || 'Untitled Book'),
-      h('div', { className: 'shelf-book-author' }, item.author || `${item.chapterCount || 0} chapters`),
+      h('div', { className: 'shelf-book-title', title: (window.cleanLabel ? window.cleanLabel(item.title) : item.title) }, (window.cleanLabel ? window.cleanLabel(item.title, 'Untitled Book') : item.title || 'Untitled Book')),
+      h('div', { className: 'shelf-book-author' }, (window.cleanLabel && window.cleanLabel(item.author)) || `${item.chapterCount || 0} ${unit === 'ep' ? 'episodes' : 'chapters'}`),
       newCount > 0 && h('div', {
         style: {
           display: 'flex',
@@ -404,12 +406,17 @@
       timerRefs.current[id] = setTimeout(() => {
         longPressTriggered.current[id] = true;
         lastLongPressTimeRef.current = Date.now();
+        if (typeof window !== 'undefined' && window.NativeBridge && typeof window.NativeBridge.vibrate === 'function') {
+          try { window.NativeBridge.vibrate(25); } catch (_) {}
+        } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate(25); } catch (_) {}
+        }
         if (isSelectMode) {
           toggleSelectBook(item.id || item.title);
         } else {
           setActiveBookMenuNovel(item);
         }
-      }, 500);
+      }, 450);
     };
 
     const handleCardTouchMove = (item, e) => {

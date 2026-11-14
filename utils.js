@@ -29,6 +29,18 @@ function sanitizeFilename(name) {
 
 const sanitize = sanitizeFilename;
 
+// Defensive String Sanitization (Chimanew section 4.5 Parity)
+// Rejects literal "null", "undefined", "N/A", or empty strings to prevent broken UI labels
+function cleanLabel(val, fallback = '') {
+    if (val === null || val === undefined) return fallback;
+    const s = String(val).trim();
+    if (!s || s.toLowerCase() === 'null' || s.toLowerCase() === 'undefined' || s.toUpperCase() === 'N/A' || s === 'None') {
+        return fallback;
+    }
+    return s;
+}
+window.cleanLabel = cleanLabel;
+
 function setSmartTitle(opfDoc, title) {
     let dcTitle = opfDoc.getElementsByTagName("dc:title")[0] || opfDoc.getElementsByTagNameNS("http://purl.org/dc/elements/1.1/", "title")[0];
     if (dcTitle) {
@@ -111,7 +123,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
                 window.__setDownloadModal({ fileName, path: res?.path || (folderName + '/' + fileName), mimeType });
             }
             if (typeof showToast === 'function') {
-                showToast(` Saved "${fileName}"!`, 'success');
+                showToast(`Saved "${fileName}"!`, 'success');
             }
             try {
                 window.NativeBridge?.showCompletionNotification?.('File Saved!', `Saved "${fileName}".`);
@@ -127,7 +139,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
                 await writable.write(blob);
                 await writable.close();
                 if (typeof showToast === 'function') {
-                    showToast(` Saved "${fileName}" to ${options.folderPath || 'folder'}!`, 'success');
+                    showToast(`Saved "${fileName}" to ${options.folderPath || 'folder'}!`, 'success');
                 }
                 return;
             } catch (err) {
@@ -150,7 +162,7 @@ async function saveUniversalBlob(blob, fileName, mimeType = 'application/epub+zi
                 await writable.write(blob);
                 await writable.close();
                 if (typeof showToast === 'function') {
-                    showToast(` Saved "${fileName}"!`, 'success');
+                    showToast(`Saved "${fileName}"!`, 'success');
                 }
                 try {
                     window.NativeBridge?.showCompletionNotification?.('File Saved!', `Saved "${fileName}".`);
@@ -2210,6 +2222,7 @@ if (typeof module !== 'undefined' && module.exports) {
         decodeThumbHashToBuffer,
         thumbHashToDataUrl,
         stripInvisibleTrapsAndWatermarks,
+        cleanLabel,
         safeQuerySelectorAll,
         safeQuerySelector,
         safeMatches,

@@ -1847,12 +1847,24 @@
       const CONCURRENCY = Math.min(2, webNovels.length);
       let nextIndex = 0;
 
+      // Cancelled Update Queue Recovery (15-Minute Grace Window - Chimanew section 10.2 Parity)
+      const GRACE_PERIOD_MS = 15 * 60 * 1000;
+      if (!this._lastCheckedNovelTimestamps) {
+        this._lastCheckedNovelTimestamps = new Map();
+      }
+
       const worker = async () => {
         while (nextIndex < webNovels.length) {
           if (signal?.aborted) break;
           const i = nextIndex++;
           const b = webNovels[i];
           if (!b) break;
+
+          const novelKey = b.id || b.title;
+          const lastTs = this._lastCheckedNovelTimestamps.get(novelKey);
+          if (lastTs && (Date.now() - lastTs < GRACE_PERIOD_MS) && !callbacks.forceAll) {
+            continue;
+          }
 
           if (typeof callbacks.onNovelCheckingStart === 'function') {
             callbacks.onNovelCheckingStart(b.id);
@@ -1869,6 +1881,7 @@
 
             if (signal?.aborted) break;
             const res = await importer?.checkNovelUpdates(targetB);
+            this._lastCheckedNovelTimestamps.set(novelKey, Date.now());
             if (res && res.hasUpdates) {
               updatesFound++;
               if (typeof callbacks.onBadgeUpdate === 'function') {

@@ -566,5 +566,5 @@
     module.exports = QAEngine;
   }
 
-  console.log('⚡ [qa_engine] Unified Novel Health & Translation QA Suite v8.11.2 initialized.');
+  console.log('[qa_engine] Unified Novel Health & Translation QA Suite v8.11.2 initialized.');
 })(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));

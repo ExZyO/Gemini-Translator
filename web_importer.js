@@ -2307,16 +2307,39 @@
                     };
                 }
 
+                // Distinct Chapter Deduplication (Chimanew section 10.1 Parity)
+                // Deduplicates incoming chapters by recognized chapter number, canonical URL, or normalized title
+                const getDistinctKey = (ch, idx) => {
+                    if (!ch) return `idx_${idx}`;
+                    const t = String(ch.title || ch.name || '').trim();
+                    const numMatch = t.match(/(?:chapter|ch\.?|episode|ep\.?|section)\s*([0-9]+(?:\.[0-9]+)?)/i) || t.match(/^([0-9]+(?:\.[0-9]+)?)/);
+                    if (numMatch) return `num_${parseFloat(numMatch[1])}`;
+                    if (ch.url) {
+                        try {
+                            const u = ch.url.split('#')[0].split('?')[0].replace(/\/+$/, '').toLowerCase();
+                            if (u) return `url_${u}`;
+                        } catch (_) {}
+                    }
+                    const cleanT = t.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    return cleanT ? `name_${cleanT}` : `idx_${idx}`;
+                };
+
                 const localChapters = novelRecord.rawChapters || novelRecord.chapters || [];
-                const localCount = novelRecord.chapterCount || localChapters.length;
-                const hasUpdates = remoteCount > localCount;
-                const newCount = Math.max(0, remoteCount - localCount);
+                const localDistinctKeys = new Set(localChapters.map((c, idx) => getDistinctKey(c, idx)));
+                const remoteList = remote.chapterList || remote.chapters || [];
+                const remoteDistinctKeys = new Set(remoteList.map((c, idx) => getDistinctKey(c, idx)));
+
+                const localCount = localDistinctKeys.size > 0 ? localDistinctKeys.size : (novelRecord.chapterCount || localChapters.length);
+                const effectiveRemoteCount = remoteDistinctKeys.size > 0 ? remoteDistinctKeys.size : remoteCount;
+
+                const hasUpdates = effectiveRemoteCount > localCount;
+                const newCount = Math.max(0, effectiveRemoteCount - localCount);
                 return {
                     hasUpdates,
                     isVolumeBased: false,
                     newCount,
                     localCount,
-                    remoteCount,
+                    remoteCount: effectiveRemoteCount,
                     remoteChapterList: remote.chapterList || [],
                     remoteTitle: remote.title || novelRecord.title
                 };

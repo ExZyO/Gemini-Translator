@@ -49,7 +49,7 @@
                 const cid = data.web?.client_id || data.installed?.client_id || data.client_id;
                 if (cid && !this.clientId) {
                     this.setClientId(cid);
-                    console.log('✅ Auto-loaded Google OAuth Client ID from local client_secrets.json');
+                    console.log('[GDriveSync] Auto-loaded Google OAuth Client ID from local client_secrets.json');
                 }
             } catch(e) {}
         }
@@ -68,7 +68,7 @@
                     if (window.history && window.history.replaceState) {
                         window.history.replaceState(null, '', window.location.pathname + window.location.search);
                     }
-                    console.log('✅ Google Drive OAuth Token extracted from redirect hash.');
+                    console.log('[GDriveSync] Google Drive OAuth Token extracted from redirect hash.');
                 }
             } catch (e) {
                 console.warn('OAuth Hash Token check error:', e);
@@ -404,5 +404,5 @@
     }
 
     window.GoogleDriveSync = new GoogleDriveSyncEngine();
-    console.log('✅ Google Drive Cloud Sync Engine Initialized.');
+    console.log('[GDriveSync] Google Drive Cloud Sync Engine Initialized.');
 })(window);

@@ -1432,7 +1432,7 @@
         const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
         const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
-            console.log(`⚡ [NovelBin] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            console.log(`[NovelBin] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
         } else {
             // First check if novel has AJAX chapter archive (NovelBin backend)
@@ -1953,10 +1953,10 @@
         const allowReuseTOC = !options.tocOnly && !activeCrawlController?.tocOnly && !options.refreshToc && !activeCrawlController?.refreshToc && !options.isUpdate && !activeCrawlController?.isUpdate && (options.reuseToc || activeCrawlController?.reuseToc);
         const existingTOC = allowReuseTOC ? (options.chapterList || activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
-            console.log(`⚡ [NovelBuddy] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            console.log(`[NovelBuddy] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
         } else if (options.chapterList && Array.isArray(options.chapterList) && options.chapterList.length > 0 && (options.isUpdate || activeCrawlController?.isUpdate)) {
-            console.log(`⚡ [NovelBuddy] Using verified update TOC (${options.chapterList.length} chapters).`);
+            console.log(`[NovelBuddy] Using verified update TOC (${options.chapterList.length} chapters).`);
             chapterLinks = [...options.chapterList];
         } else if (mangaId) {
             // First fetch complete chapter index via official REST API
@@ -2519,7 +2519,7 @@
         const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
         const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
-            console.log(`⚡ [WuxiaBox] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            console.log(`[WuxiaBox] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
         } else {
             const seen = new Set();
@@ -2592,7 +2592,7 @@
         const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
         const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
-            console.log(`⚡ [WTR-LAB] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            console.log(`[WTR-LAB] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
         } else if (rawId) {
             try {
@@ -2687,7 +2687,7 @@
         const allowReuseTOC = !activeCrawlController?.tocOnly && !activeCrawlController?.refreshToc && !activeCrawlController?.isUpdate && activeCrawlController?.reuseToc;
         const existingTOC = allowReuseTOC ? (activeCrawlController?.chapterList || activeCrawlController?.novelMeta?.chapterList) : null;
         if (existingTOC && Array.isArray(existingTOC) && existingTOC.length > 5) {
-            console.log(`⚡ [FuckNovelPia] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
+            console.log(`[FuckNovelPia] Reusing pre-indexed TOC (${existingTOC.length} chapters) for resume session.`);
             chapterLinks = [...existingTOC];
         } else {
             const seen = new Set();

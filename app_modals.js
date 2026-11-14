@@ -1384,7 +1384,13 @@
       confirmAction,
       deleteNovelFromHistory,
       handleTranslateSingleChapter,
-      setWebImportHistory
+      setWebImportHistory,
+      setReaderNovelId,
+      setReaderNovelTitle,
+      setReaderChapterIdx,
+      setReaderChapters,
+      setReaderOpen,
+      setActiveNovelRecord
     } = props;
     if (!novel) return null;
     const h = getH();
@@ -1472,13 +1478,31 @@
               ? h('img', { src: item.cover, style: { width: 32, height: 42, objectFit: 'cover', borderRadius: 4, flexShrink: 0 } })
               : h('span', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 42, background: 'rgba(255,255,255,0.05)', borderRadius: 4, flexShrink: 0, color: 'var(--iris)' } }, ic('BookOpen', 18)),
             h('div', { style: { minWidth: 0, flex: 1 } },
-              h('div', { style: { fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, item.title || 'Novel Options'),
-              h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, `${item.chapterCount || 0} chapters · ${item.author || 'Author'}`)
+              h('div', { style: { fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, (window.cleanLabel ? window.cleanLabel(item.title, 'Novel Options') : item.title || 'Novel Options')),
+              h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, `${item.chapterCount || 0} chapters · ${(window.cleanLabel && window.cleanLabel(item.author)) || 'Author'}`)
             )
           ),
           h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: handleOverlayClick, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '14px 16px' } },
+          menuRow('BookOpen', 'Continue Reading', 'Open novel in reader at last saved reading position', async () => {
+            const full = loadFullNovel ? await loadFullNovel(item) : null;
+            if (!full) { toast('Novel data not found in local store.', 'error'); return; }
+            const chs = (full.translatedChapters && full.translatedChapters.length > 0) ? full.translatedChapters : (full.chapters || []);
+            if (!chs || chs.length === 0) { toast('No chapters available to read.', 'warning'); return; }
+            if (typeof setActiveNovelRecord === 'function') setActiveNovelRecord(full);
+            if (typeof setReaderNovelId === 'function') setReaderNovelId(full.id || full.title);
+            if (typeof setReaderNovelTitle === 'function') setReaderNovelTitle(full.title);
+            if (typeof setReaderChapters === 'function') setReaderChapters(chs);
+            const prog = window.getReadingProgress ? window.getReadingProgress(full.id || full.title) : null;
+            const resumeIdx = (prog && typeof prog.chapterIdx === 'number' && prog.chapterIdx >= 0 && prog.chapterIdx < chs.length) ? prog.chapterIdx : 0;
+            if (typeof setReaderChapterIdx === 'function') setReaderChapterIdx(resumeIdx);
+            if (typeof setReaderOpen === 'function') setReaderOpen(true);
+            toast(`Resuming "${item.title}" at Chapter ${resumeIdx + 1}!`, 'success');
+          }),
+          (item.fileUri || item.displayPath || item.folderPath) && menuRow('HardDrive', 'Storage Pointer Details', `Linked to: ${item.displayPath || item.folderPath || 'Device Storage'}`, () => {
+            toast(`Zero-Waste Pointer: Linked to ${item.displayPath || item.folderPath || 'device storage'}. Internal DB uses ~15 KB.`, 'info');
+          }),
           (() => {
             const badges = props.novelUpdateBadges;
             const badge = badges ? (badges[item.id] || badges[item.sourceUrl] || badges[item.title]) : null;
@@ -2058,7 +2082,13 @@
         confirmAction: props.confirmAction,
         deleteNovelFromHistory: props.deleteNovelFromHistory,
         handleTranslateSingleChapter: props.handleTranslateSingleChapter,
-        setWebImportHistory: props.setWebImportHistory
+        setWebImportHistory: props.setWebImportHistory,
+        setReaderNovelId: props.setReaderNovelId,
+        setReaderNovelTitle: props.setReaderNovelTitle,
+        setReaderChapterIdx: props.setReaderChapterIdx,
+        setReaderChapters: props.setReaderChapters,
+        setReaderOpen: props.setReaderOpen,
+        setActiveNovelRecord: props.setActiveNovelRecord
       }),
 
       // 11. Ongoing EPUB Continuation Modal
