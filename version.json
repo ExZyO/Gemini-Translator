@@ -1,11 +1,11 @@
 {
-  "version": "8.22.43",
-  "versionCode": 8554,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.43/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.43/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.43/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.43",
+  "version": "8.22.44",
+  "versionCode": 8555,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.44/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.44/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.44/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.44",
   "releaseDate": "2026-11-14",
-  "releaseNotes": "v8.22.43: Permanent fixed debug keystore for seamless debug updates without uninstalling, debug vs release in-app update routing parity, and source chapter shortage enforcement.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.43"
+  "releaseNotes": "v8.22.44: Support Royal Road redesign embedded window.chapters ToC to correctly extract all chapters across volumes, plus fast-path continuation ToC scanning.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.44"
 }

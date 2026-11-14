@@ -970,23 +970,51 @@
 
         const chapterLinks = [];
         const seenUrls = new Set();
-        // Target chapter title link: td:not(.text-right) a[href*="/chapter/"] to avoid matching date columns (<time>7 years ago</time>)
-        doc.querySelectorAll('table#chapters tbody tr, tr.chapter-row').forEach(tr => {
-            const a = tr.querySelector('td:not(.text-right) a[href*="/chapter/"]') || tr.querySelector('a[href*="/chapter/"]');
-            const dataUrl = tr.getAttribute('data-url');
-            const href = a?.getAttribute('href') || dataUrl;
-            if (!href) return;
-            const fullUrl = href.startsWith('http') ? href : new URL(href, 'https://www.royalroad.com').href;
-            if (seenUrls.has(fullUrl)) return;
 
-            let linkText = a?.textContent?.trim() || tr.querySelector('td:not(.text-right)')?.textContent?.trim() || '';
-            if (/^\d+\s+(?:years?|months?|weeks?|days?|hours?|mins?|minutes?|seconds?)\s+ago$/i.test(linkText)) {
-                return;
+        // 1. Check for Royal Road redesign window.chapters script (contains complete TOC across all volumes)
+        const scriptMatch = html.match(/(?:window\.)?chapters\s*=\s*(\[\s*\{[\s\S]*?\}\s*\])\s*(?:;|<\/script>|\n)/i) ||
+                            html.match(/(?:window\.)?chapters\s*=\s*(\[\s*\{[\s\S]*?\}\s*\])/i);
+        if (scriptMatch) {
+            try {
+                const parsed = JSON.parse(scriptMatch[1]);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    parsed.forEach((c, idx) => {
+                        if (!c || !c.url) return;
+                        if (c.subscriptionTiers && c.subscriptionTiers.length > 0 && !c.isUnlocked) return;
+                        const fullUrl = c.url.startsWith('http') ? c.url : ('https://www.royalroad.com' + (c.url.startsWith('/') ? '' : '/') + c.url);
+                        if (seenUrls.has(fullUrl)) return;
+                        seenUrls.add(fullUrl);
+                        chapterLinks.push({
+                            title: (c.title ? c.title.trim() : `Chapter ${idx + 1}`),
+                            url: fullUrl
+                        });
+                    });
+                }
+            } catch (e) {
+                console.warn('[RoyalRoad] Failed to parse embedded window.chapters JSON:', e);
             }
-            if (!linkText) linkText = `Chapter ${chapterLinks.length + 1}`;
-            seenUrls.add(fullUrl);
-            chapterLinks.push({ url: fullUrl, title: linkText });
-        });
+        }
+
+        // 2. Fallback to DOM table parsing if window.chapters is absent
+        if (chapterLinks.length === 0) {
+            // Target chapter title link: td:not(.text-right) a[href*="/chapter/"] to avoid matching date columns (<time>7 years ago</time>)
+            doc.querySelectorAll('table#chapters tbody tr, tr.chapter-row').forEach(tr => {
+                const a = tr.querySelector('td:not(.text-right) a[href*="/chapter/"]') || tr.querySelector('a[href*="/chapter/"]');
+                const dataUrl = tr.getAttribute('data-url');
+                const href = a?.getAttribute('href') || dataUrl;
+                if (!href) return;
+                const fullUrl = href.startsWith('http') ? href : new URL(href, 'https://www.royalroad.com').href;
+                if (seenUrls.has(fullUrl)) return;
+
+                let linkText = a?.textContent?.trim() || tr.querySelector('td:not(.text-right)')?.textContent?.trim() || '';
+                if (/^\d+\s+(?:years?|months?|weeks?|days?|hours?|mins?|minutes?|seconds?)\s+ago$/i.test(linkText)) {
+                    return;
+                }
+                if (!linkText) linkText = `Chapter ${chapterLinks.length + 1}`;
+                seenUrls.add(fullUrl);
+                chapterLinks.push({ url: fullUrl, title: linkText });
+            });
+        }
 
         // Fallback for non-table RoyalRoad themes
         if (chapterLinks.length === 0) {
@@ -1005,6 +1033,22 @@
 
         if (chapterLinks.length === 0) {
             chapterLinks.push({ url, title: 'Chapter 1' });
+        }
+
+        // Fast-path: Return TOC metadata immediately without crawling full chapter pool
+        if (options.tocOnly || activeCrawlController?.tocOnly) {
+            return {
+                title,
+                author,
+                summary,
+                cover,
+                tags,
+                chapters: [],
+                chapterList: chapterLinks,
+                totalChapterCount: chapterLinks.length,
+                isEpub: false,
+                sourceUrl: url
+            };
         }
 
         progressCb?.(`Found ${chapterLinks.length} chapters on RoyalRoad! Fetching in parallel...`, 25);

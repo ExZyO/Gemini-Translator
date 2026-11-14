@@ -35,27 +35,60 @@
       const summary = this.decodeHtml(doc.querySelector('.description, .fiction-info .description')?.textContent || '');
 
       const chapters = [];
-      const rows = doc.querySelectorAll('#chapters tbody tr, .chapter-row');
+      const seenUrls = new Set();
 
-      rows.forEach((row, idx) => {
-        const a = row.querySelector('a[href*="/chapter/"]');
-        if (!a) return;
-        const href = a.getAttribute('href') || '';
-        const fullUrl = href.startsWith('http') ? href : 'https://www.royalroad.com' + href;
-        const chapterTitle = this.decodeHtml(a.textContent.trim());
+      // 1. Royal Road redesign: full Table of Contents embedded in window.chapters script
+      const scriptMatch = html.match(/(?:window\.)?chapters\s*=\s*(\[\s*\{[\s\S]*?\}\s*\])\s*(?:;|<\/script>|\n)/i) ||
+                          html.match(/(?:window\.)?chapters\s*=\s*(\[\s*\{[\s\S]*?\}\s*\])/i);
+      if (scriptMatch) {
+        try {
+          const parsed = JSON.parse(scriptMatch[1]);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            parsed.forEach((c, idx) => {
+              if (!c || !c.url) return;
+              if (c.subscriptionTiers && c.subscriptionTiers.length > 0 && !c.isUnlocked) return;
+              const fullUrl = c.url.startsWith('http') ? c.url : ('https://www.royalroad.com' + (c.url.startsWith('/') ? '' : '/') + c.url);
+              if (seenUrls.has(fullUrl)) return;
+              seenUrls.add(fullUrl);
+              const chapterTitle = this.decodeHtml((c.title || `Chapter ${idx + 1}`).trim());
+              chapters.push({
+                title: chapterTitle || `Chapter ${idx + 1}`,
+                url: fullUrl,
+                volume: c.volumeId ? String(c.volumeId) : '',
+                order: idx + 1
+              });
+            });
+          }
+        } catch (e) {
+          console.warn('[RoyalRoad] Failed to parse embedded window.chapters JSON:', e);
+        }
+      }
 
-        // Volume / Arc detection
-        let volume = '';
-        const volumeHeader = row.closest('.volume-container')?.querySelector('.volume-header');
-        if (volumeHeader) volume = volumeHeader.textContent.trim();
+      // 2. Fallback: Parse server-rendered HTML table rows if script not found or yielded 0 chapters
+      if (chapters.length === 0) {
+        const rows = doc.querySelectorAll('#chapters tbody tr, .chapter-row');
+        rows.forEach((row, idx) => {
+          const a = row.querySelector('a[href*="/chapter/"]');
+          if (!a) return;
+          const href = a.getAttribute('href') || '';
+          const fullUrl = href.startsWith('http') ? href : 'https://www.royalroad.com' + href;
+          if (seenUrls.has(fullUrl)) return;
+          seenUrls.add(fullUrl);
+          const chapterTitle = this.decodeHtml(a.textContent.trim());
 
-        chapters.push({
-          title: chapterTitle || `Chapter ${idx + 1}`,
-          url: fullUrl,
-          volume,
-          order: idx + 1
+          // Volume / Arc detection
+          let volume = '';
+          const volumeHeader = row.closest('.volume-container')?.querySelector('.volume-header');
+          if (volumeHeader) volume = volumeHeader.textContent.trim();
+
+          chapters.push({
+            title: chapterTitle || `Chapter ${idx + 1}`,
+            url: fullUrl,
+            volume,
+            order: idx + 1
+          });
         });
-      });
+      }
 
       // Single chapter fallback
       if (chapters.length === 0) {
