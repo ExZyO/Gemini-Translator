@@ -783,7 +783,7 @@
           ),
 
           // Scan confirmation badge
-          ongoingEpubModal.totalOnlineCount > 0 && h('div', {
+          ongoingEpubModal.totalOnlineCount > 0 && !ongoingEpubModal.sourceLacksChapters && h('div', {
             style: {
               padding: '10px 14px',
               borderRadius: 10,
@@ -796,7 +796,28 @@
               alignItems: 'center',
               gap: 6
             }
-          }, ic('Check', 13), `Found ${ongoingEpubModal.totalOnlineCount} chapters online (${Math.max(0, ongoingEpubModal.totalOnlineCount - ongoingEpubModal.existingCount)} new chapters ready to fetch)`)
+          }, ic('Check', 13), `Found ${ongoingEpubModal.totalOnlineCount} chapters online (${Math.max(0, ongoingEpubModal.totalOnlineCount - ongoingEpubModal.existingCount)} new chapters ready to fetch)`),
+
+          ongoingEpubModal.sourceLacksChapters && h('div', {
+            style: {
+              padding: '12px 14px',
+              borderRadius: 12,
+              background: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              color: '#fbbf24',
+              fontSize: 12.5,
+              lineHeight: 1.5,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 8
+            }
+          },
+            ic('AlertTriangle', 16, 'shrink-0 mt-0.5 text-amber-400'),
+            h('div', null,
+              h('div', { style: { fontWeight: 700, marginBottom: 2 } }, 'Website Lacks New Chapters'),
+              `This source only has ${ongoingEpubModal.totalOnlineCount} chapters, but your EPUB already has ${ongoingEpubModal.highestStoryChapter || ongoingEpubModal.existingCount} chapters. Tap "Change Website" above to pick or paste a source with Chapter ${(ongoingEpubModal.highestStoryChapter || ongoingEpubModal.existingCount) + 1}+.`
+            )
+          )
         ),
 
         // 3. Chapter Range Selector (Apple Touch Form)
@@ -1582,31 +1603,47 @@
             },
             onClick: handleClose
           }, 'Cancel'),
-          h('button', {
-            type: 'button',
-            style: {
-              flex: 1,
-              background: 'linear-gradient(90deg, #10b981, #059669)',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: 15,
-              height: 48,
-              borderRadius: 12,
-              border: 'none',
-              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-              cursor: (ongoingEpubModal.isFetching || !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isScanningToc) ? 'not-allowed' : 'pointer',
-              opacity: (ongoingEpubModal.isFetching || !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isScanningToc) ? 0.6 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8
-            },
-            disabled: ongoingEpubModal.isFetching || !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isScanningToc,
-            onClick: (e) => {
-              if (ongoingEpubModal.isFetching || ongoingEpubModal.isScanningToc) return;
-              if (handleExecuteContinuation) handleExecuteContinuation();
+          (() => {
+            const isBlocked = ongoingEpubModal.isFetching || !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isScanningToc || ongoingEpubModal.sourceLacksChapters;
+            const btnBg = ongoingEpubModal.sourceLacksChapters
+              ? 'rgba(245, 158, 11, 0.2)'
+              : 'linear-gradient(90deg, #10b981, #059669)';
+            const btnColor = ongoingEpubModal.sourceLacksChapters ? '#fbbf24' : '#fff';
+            const btnBorder = ongoingEpubModal.sourceLacksChapters ? '1px solid rgba(245, 158, 11, 0.4)' : 'none';
+
+            let btnLabel = [ic('Play', 14), ` Fetch Ch. ${ongoingEpubModal.startChapter}–${ongoingEpubModal.endChapter} & Update EPUB`];
+            if (ongoingEpubModal.isFetching) {
+              btnLabel = 'Fetching & Merging…';
+            } else if (ongoingEpubModal.sourceLacksChapters) {
+              btnLabel = [ic('AlertTriangle', 14), ` Source Lacks Chapters (Only ${ongoingEpubModal.totalOnlineCount} Online)`];
             }
-          }, ongoingEpubModal.isFetching ? 'Fetching & Merging…' : [ic('Play', 14), ` Fetch Ch. ${ongoingEpubModal.startChapter}–${ongoingEpubModal.endChapter} & Update EPUB`])
+
+            return h('button', {
+              type: 'button',
+              style: {
+                flex: 1,
+                background: btnBg,
+                color: btnColor,
+                fontWeight: 700,
+                fontSize: 15,
+                height: 48,
+                borderRadius: 12,
+                border: btnBorder,
+                boxShadow: ongoingEpubModal.sourceLacksChapters ? 'none' : '0 4px 14px rgba(16, 185, 129, 0.35)',
+                cursor: isBlocked ? 'not-allowed' : 'pointer',
+                opacity: (isBlocked && !ongoingEpubModal.sourceLacksChapters) ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8
+              },
+              disabled: isBlocked,
+              onClick: (e) => {
+                if (isBlocked) return;
+                if (handleExecuteContinuation) handleExecuteContinuation();
+              }
+            }, btnLabel);
+          })()
         )
       )
     );

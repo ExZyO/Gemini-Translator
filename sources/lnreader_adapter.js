@@ -686,7 +686,16 @@
           entries: () => []
         },
         text: async () => rawText,
-        json: async () => JSON.parse(rawText),
+        json: async () => {
+          try {
+            return JSON.parse(rawText);
+          } catch (jsonErr) {
+            if (typeof rawText === 'string' && rawText.trim().startsWith('<')) {
+              throw new Error(`The website returned an HTML page instead of chapter data (Cloudflare challenge or maintenance page).`);
+            }
+            throw jsonErr;
+          }
+        },
         blob: async () => new Blob([rawText], { type: 'text/html' })
       };
     };

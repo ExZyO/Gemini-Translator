@@ -551,6 +551,9 @@
       if (start > end) {
         throw new Error('Start chapter cannot be greater than end chapter.');
       }
+      if (totalOnlineCount > 0 && start > totalOnlineCount) {
+        throw new Error(`The selected source only has ${totalOnlineCount} chapters online. Chapter ${start} is not yet available on this source. Please switch to a source with newer chapters.`);
+      }
 
       const startTime = Date.now();
       const getElapsed = () => {
@@ -1389,15 +1392,19 @@
             setOngoingEpubModal(prev => {
               if (!prev) return null;
               const curExisting = (prev.highestStoryChapter > 0 ? prev.highestStoryChapter : prev.existingCount) || existingCount || 0;
-              const isUpToDate = curExisting >= totalOnlineCount;
-              const start = isUpToDate ? totalOnlineCount : (curExisting + 1);
+              const hasNewChapters = totalOnlineCount > curExisting;
+              const isBehind = totalOnlineCount < curExisting;
+              const isUpToDate = totalOnlineCount === curExisting;
+              const nextStart = curExisting + 1;
               return {
                 ...prev,
                 isScanningToc: false,
                 onlineToc: chapterList || [],
                 totalOnlineCount,
-                startChapter: Math.max(1, Math.min(start, totalOnlineCount)),
-                endChapter: Math.max(1, totalOnlineCount)
+                sourceLacksChapters: isBehind,
+                isUpToDate,
+                startChapter: hasNewChapters ? nextStart : (isBehind ? nextStart : totalOnlineCount),
+                endChapter: hasNewChapters ? totalOnlineCount : (isBehind ? nextStart : totalOnlineCount)
               };
             });
           }
@@ -1413,10 +1420,13 @@
           }
           if (typeof toast === 'function') {
             const curExisting = (options.ongoingEpubModal?.highestStoryChapter > 0 ? options.ongoingEpubModal.highestStoryChapter : (options.ongoingEpubModal?.existingCount || existingCount)) || 0;
-            if (curExisting >= totalOnlineCount) {
-              toast(`Novel is already up to date! Found ${totalOnlineCount} online chapters.`, 'info');
+            if (totalOnlineCount < curExisting) {
+              toast(`Warning: This source only has ${totalOnlineCount} chapters, but your EPUB already has ${curExisting}! Please switch to a source that has Ch. ${curExisting + 1}+.`, 'warning');
+            } else if (totalOnlineCount === curExisting) {
+              toast(`Your novel is already up to date with this source (${totalOnlineCount} chapters).`, 'info');
             } else {
-              toast(`Discovered ${totalOnlineCount} chapters online! (Ready to fetch from Ch. ${curExisting + 1})`, 'success');
+              const diff = totalOnlineCount - curExisting;
+              toast(`Discovered ${totalOnlineCount} chapters online! Ready to fetch ${diff} new chapter${diff === 1 ? '' : 's'} (Ch. ${curExisting + 1}–${totalOnlineCount}).`, 'success');
             }
           }
           return { totalOnlineCount, chapterList };
@@ -1639,7 +1649,8 @@
               title,
               newChaptersCount: newFetchedCount,
               totalChaptersCount: totalChapterCount,
-              isContinuation: true
+              isContinuation: true,
+              path: folderOpts?.fileUri || ongoingEpubModal.fileUri || folderOpts?.displayPath || ongoingEpubModal.displayPath || result?.savedPath || ''
             });
           }
 

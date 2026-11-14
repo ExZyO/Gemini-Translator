@@ -1249,16 +1249,58 @@
         let isPreSliced = false;
 
         if (hasRange) {
-            if ((chapterRange.start - 1) >= chapterList.length) {
-                console.log(`[Crawl Pool] Chapter list has ${chapterList.length} items for requested range ${chapterRange.start}–${chapterRange.end || 'end'} (pre-filtered). Processing all supplied items.`);
+            const isExplicitlyPreFiltered = !!(poolOptions.isPreFiltered || poolOptions.isPreSliced || ctrl.isPreFiltered || ctrl.isPreSliced);
+            if (isExplicitlyPreFiltered) {
+                console.log(`[Crawl Pool] Processing explicitly pre-filtered chapter list (${chapterList.length} items).`);
                 isPreSliced = true;
                 rangeStart = 0;
                 rangeEnd = chapterList.length - 1;
             } else {
-                rangeStart = Math.max(0, chapterRange.start - 1);
-                rangeEnd = (typeof chapterRange.end === 'number' && chapterRange.end > 0)
-                    ? Math.min(chapterList.length - 1, chapterRange.end - 1)
-                    : (chapterList.length - 1);
+                // Defensive chapter number parser
+                const extractChNumber = (item) => {
+                    if (!item) return null;
+                    const t = item.title || '';
+                    const m = t.match(/(?:chapter|ch\.?|ep\.?|episode|part)\s*(\d+(?:\.\d+)?)/i)
+                           || t.match(/第\s*(\d+)\s*[章话話集]/)
+                           || t.match(/^(\d+(?:\.\d+)?)\b/);
+                    return m ? Math.floor(parseFloat(m[1])) : null;
+                };
+
+                let matchedStartIndex = -1;
+                let matchedEndIndex = -1;
+                let highestDetected = 0;
+
+                for (let i = 0; i < chapterList.length; i++) {
+                    const num = extractChNumber(chapterList[i]);
+                    if (num !== null) {
+                        if (num > highestDetected) highestDetected = num;
+                        if (num === chapterRange.start && matchedStartIndex === -1) {
+                            matchedStartIndex = i;
+                        }
+                        if (typeof chapterRange.end === 'number' && chapterRange.end > 0 && num === chapterRange.end) {
+                            matchedEndIndex = i;
+                        }
+                    }
+                }
+
+                if (matchedStartIndex !== -1) {
+                    rangeStart = matchedStartIndex;
+                    rangeEnd = matchedEndIndex !== -1
+                        ? matchedEndIndex
+                        : (typeof chapterRange.end === 'number' && chapterRange.end > 0
+                            ? Math.min(chapterList.length - 1, rangeStart + (chapterRange.end - chapterRange.start))
+                            : (chapterList.length - 1));
+                    console.log(`[Crawl Pool] Matched chapter range by story number: Ch. ${chapterRange.start} at index ${rangeStart}, Ch. ${chapterRange.end || 'end'} up to index ${rangeEnd}`);
+                } else if ((chapterRange.start - 1) < chapterList.length) {
+                    rangeStart = Math.max(0, chapterRange.start - 1);
+                    rangeEnd = (typeof chapterRange.end === 'number' && chapterRange.end > 0)
+                        ? Math.min(chapterList.length - 1, chapterRange.end - 1)
+                        : (chapterList.length - 1);
+                } else {
+                    const availCount = chapterList.length;
+                    const maxCh = highestDetected || availCount;
+                    throw new Error(`The selected source only has ${availCount} chapters online (highest available: Ch. ${maxCh}). Chapter ${chapterRange.start} is not available on this source. Please switch to a source with newer chapters.`);
+                }
             }
         }
         const targetChapterCount = Math.max(1, rangeEnd - rangeStart + 1);

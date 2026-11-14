@@ -1,11 +1,11 @@
 {
-  "version": "8.22.41",
-  "versionCode": 8552,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.41/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.41/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.41/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.41",
+  "version": "8.22.42",
+  "versionCode": 8553,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.42/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.42/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.42/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.42",
   "releaseDate": "2026-11-14",
-  "releaseNotes": "v8.22.41: Native in-place EPUB document picker with persistent SAF permissions, direct file overwriting without path changes, and untranslated suffix removal.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.41"
+  "releaseNotes": "v8.22.42: Fixed crawl pool range fallback to prevent downloading early chapters when source lacks requested range, added source chapter shortage warning, updated file timestamps and MediaScanner for Moon+ Reader cache detection.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.42"
 }

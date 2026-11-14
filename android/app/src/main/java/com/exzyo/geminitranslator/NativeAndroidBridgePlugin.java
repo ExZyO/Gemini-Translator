@@ -1150,6 +1150,24 @@ public class NativeAndroidBridgePlugin extends Plugin {
             String path = call.getString("path", "");
             String fileName = call.getString("fileName", "book.epub");
 
+            if (path != null && path.startsWith("content://")) {
+                Uri contentUri = Uri.parse(path);
+                Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+                viewIntent.setDataAndType(contentUri, "application/epub+zip");
+                viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                Intent chooser = Intent.createChooser(viewIntent, "Open EPUB with (Moon+ Reader / ReadEra)...");
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(chooser);
+
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("uri", contentUri.toString());
+                call.resolve(ret);
+                return;
+            }
+
             File targetFile = null;
             if (path != null && !path.isEmpty()) {
                 targetFile = new File(path);
@@ -3599,6 +3617,47 @@ public class NativeAndroidBridgePlugin extends Plugin {
                                 safSaved = true;
                                 savedPath = "Overwritten in-place: " + fileName;
                                 Log.i(TAG, "Direct in-place overwrite successful for: " + fileUri);
+
+                                // 1. Broadcast scan intent for the Content URI
+                                try {
+                                    Intent scanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+                                    scanIntent.setData(targetUri);
+                                    context.sendBroadcast(scanIntent);
+                                } catch (Throwable ignored) {}
+
+                                // 2. Touch underlying disk file & notify MediaScanner so Moon+ Reader detects modification
+                                try {
+                                    String candidatePath = null;
+                                    String rawId = null;
+                                    try {
+                                        rawId = DocumentsContract.getDocumentId(targetUri);
+                                    } catch (Throwable ignored) {
+                                        rawId = targetUri.getLastPathSegment();
+                                    }
+                                    if (rawId != null && rawId.contains(":")) {
+                                        String sub = rawId.substring(rawId.indexOf(":") + 1);
+                                        File f1 = new File("/storage/emulated/0", sub);
+                                        if (f1.exists()) candidatePath = f1.getAbsolutePath();
+                                        if (candidatePath == null) {
+                                            String vol = rawId.substring(0, rawId.indexOf(":"));
+                                            File f2 = new File("/storage/" + vol, sub);
+                                            if (f2.exists()) candidatePath = f2.getAbsolutePath();
+                                        }
+                                    }
+                                    if (candidatePath == null && subDir != null && !subDir.trim().isEmpty()) {
+                                        String cleanSub = subDir.trim().replaceAll("^[\\\\/]+", "");
+                                        File f3 = new File("/storage/emulated/0", cleanSub + "/" + fileName);
+                                        if (f3.exists()) candidatePath = f3.getAbsolutePath();
+                                    }
+                                    if (candidatePath != null) {
+                                        File f = new File(candidatePath);
+                                        if (f.exists()) {
+                                            f.setLastModified(System.currentTimeMillis());
+                                            MediaScannerConnection.scanFile(context, new String[]{f.getAbsolutePath()}, new String[]{mimeType}, null);
+                                            Log.i(TAG, "Refreshed disk file timestamp & MediaScanner for: " + candidatePath);
+                                        }
+                                    }
+                                } catch (Throwable ignored) {}
                             }
                         }
                     } catch (Exception fileUriErr) {
