@@ -614,11 +614,13 @@ public class NativeAndroidBridgePlugin extends Plugin {
         new Thread(() -> {
             Bitmap decoded = null;
             try {
+                BitmapFactory.Options opts = new BitmapFactory.Options();
+                opts.inPreferredConfig = Bitmap.Config.RGB_565; // Chimanew section 3.1: 50% RAM savings, 16-bit color
                 if (cleanUrl.startsWith("data:image/")) {
                     int commaIdx = cleanUrl.indexOf(',');
                     if (commaIdx > 0) {
                         byte[] decodedBytes = Base64.decode(cleanUrl.substring(commaIdx + 1), Base64.DEFAULT);
-                        decoded = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+                        decoded = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length, opts);
                     }
                 } else if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
                     URL url = new URL(cleanUrl);
@@ -629,7 +631,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     conn.connect();
                     if (conn.getResponseCode() == 200) {
                         try (InputStream is = conn.getInputStream()) {
-                            decoded = BitmapFactory.decodeStream(is);
+                            decoded = BitmapFactory.decodeStream(is, null, opts);
                         }
                     }
                     conn.disconnect();
@@ -637,7 +639,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                     String path = cleanUrl.startsWith("file://") ? cleanUrl.substring(7) : cleanUrl;
                     File f = new File(path);
                     if (f.exists()) {
-                        decoded = BitmapFactory.decodeFile(f.getAbsolutePath());
+                        decoded = BitmapFactory.decodeFile(f.getAbsolutePath(), opts);
                     }
                 }
 

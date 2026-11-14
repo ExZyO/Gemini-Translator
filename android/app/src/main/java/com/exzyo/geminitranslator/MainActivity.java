@@ -32,7 +32,11 @@ public class MainActivity extends BridgeActivity {
         try {
             if (bridge != null && bridge.getWebView() != null) {
                 bridge.getWebView().setBackgroundColor(android.graphics.Color.parseColor("#090A0F"));
-                bridge.getWebView().getSettings().setMediaPlaybackRequiresUserGesture(false);
+                android.webkit.WebSettings webSettings = bridge.getWebView().getSettings();
+                webSettings.setMediaPlaybackRequiresUserGesture(false);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    webSettings.setOffscreenPreRaster(true);
+                }
                 bridge.getWebView().setVerticalScrollBarEnabled(false);
                 bridge.getWebView().setHorizontalScrollBarEnabled(false);
                 bridge.getWebView().setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);

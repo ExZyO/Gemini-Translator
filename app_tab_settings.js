@@ -199,6 +199,9 @@
     const [pointerMode, setPointerMode] = (React.useState || window.React.useState)(() => {
       try { return localStorage.getItem('gemini_storage_pointer_mode') !== 'false'; } catch(e) { return true; }
     });
+    const [updateGraceWindow, setUpdateGraceWindow] = (React.useState || window.React.useState)(() => {
+      try { return localStorage.getItem('gemini_update_grace_window') === 'true'; } catch(e) { return false; }
+    });
     const [optimizingStorage, setOptimizingStorage] = (React.useState || window.React.useState)(false);
 
     const handleOptimizeStorage = async () => {
@@ -1738,6 +1741,11 @@
                   setPointerMode(v);
                   localStorage.setItem('gemini_storage_pointer_mode', String(v));
                   toast(v ? 'Pointer Mode: ON (links directly to disk files to save 99% storage)' : 'Pointer Mode: OFF (stores full text in app database)', 'info');
+                }),
+                switchRow('Smart Update Cache (Skip books verified in last 15 min)', updateGraceWindow, (v) => {
+                  setUpdateGraceWindow(v);
+                  localStorage.setItem('gemini_update_grace_window', String(v));
+                  toast(v ? 'Smart Update Cache: ON (skips checking books checked within last 15 min)' : 'Smart Update Cache: OFF (always checks every book freshly)', 'info');
                 }),
                 h('div', { className: 'set-row', style: { padding: '8px 0', borderTop: '1px solid var(--hairline)', marginTop: 6 } },
                   h('div', { style: { minWidth: 0, flex: 1, paddingRight: 8 } },
