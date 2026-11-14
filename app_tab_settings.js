@@ -206,14 +206,41 @@
 
     const handleOptimizeStorage = async () => {
       if (!window.GeminiNovelDB) return;
+      if (!window.NativeBridge || !window.NativeBridge.readEpubFile) {
+        toast('Storage optimization to disk pointers is only supported on Android with active file access.', 'info');
+        return;
+      }
       setOptimizingStorage(true);
       try {
         const all = await window.GeminiNovelDB.getAllNovels();
         let count = 0;
+        let skipped = 0;
         for (const novel of (all || [])) {
-          const hasDiskLink = Boolean(novel.fileUri || novel.displayPath || novel.folderPath || novel.folderTreeUri);
+          const uri = novel.fileUri || novel.folderOptions?.fileUri;
+          const path = novel.displayPath || novel.folderOptions?.displayPath;
+          const hasDiskPath = Boolean((uri && uri.trim().length > 5) || (path && path.trim().length > 5));
           const hasFullChapters = Array.isArray(novel.chapters) && novel.chapters.some(c => c && (c.text || c.content));
-          if (hasDiskLink && hasFullChapters && !novel.isEdited) {
+          if (hasDiskPath && hasFullChapters && !novel.isEdited) {
+            // Verify file actually exists and can be read on disk before discarding internal text
+            let verifiedOnDisk = false;
+            try {
+              const testBlob = await window.NativeBridge.readEpubFile({
+                fileUri: uri,
+                displayPath: path,
+                fileName: novel.fileName || ''
+              });
+              if (testBlob && testBlob.size > 2000) {
+                verifiedOnDisk = true;
+              }
+            } catch (_) {
+              verifiedOnDisk = false;
+            }
+
+            if (!verifiedOnDisk) {
+              skipped++;
+              continue;
+            }
+
             const lightweight = novel.chapters.map(c => ({
               idx: c.idx !== undefined ? c.idx : 0,
               title: c.title || 'Chapter',
@@ -231,7 +258,13 @@
           }
         }
         if (typeof refreshStorageDiag === 'function') refreshStorageDiag();
-        toast(`Storage optimized! Converted ${count} linked book${count === 1 ? '' : 's'} to lightweight pointers.`, 'success');
+        if (count > 0) {
+          toast(`Storage optimized! Converted ${count} verified book${count === 1 ? '' : 's'} to lightweight pointers.${skipped > 0 ? ` (${skipped} books kept full text safely)` : ''}`, 'success');
+        } else if (skipped > 0) {
+          toast(`Kept ${skipped} book${skipped === 1 ? '' : 's'} fully stored to prevent data loss (disk files not found).`, 'info');
+        } else {
+          toast('All books are already optimized or safely stored.', 'info');
+        }
       } catch (err) {
         toast('Optimization error: ' + err.message, 'error');
       } finally {

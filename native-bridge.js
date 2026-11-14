@@ -1035,7 +1035,8 @@
                 try {
                     const res = await bridge.readEpubFile({
                         fileUri: options.fileUri || '',
-                        displayPath: options.displayPath || options.path || ''
+                        displayPath: options.displayPath || options.path || '',
+                        fileName: options.fileName || ''
                     });
                     if (res && res.base64) {
                         const bin = atob(res.base64);

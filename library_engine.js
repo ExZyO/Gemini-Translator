@@ -767,10 +767,11 @@
       const loadFromDiskPointer = async (targetRec) => {
         const uri = targetRec?.fileUri || meta?.fileUri || targetRec?.folderOptions?.fileUri;
         const path = targetRec?.displayPath || targetRec?.folderPath || meta?.displayPath;
+        const fname = targetRec?.fileName || meta?.fileName || '';
         if (!uri && !path) return null;
         if (window.NativeBridge && window.NativeBridge.readEpubFile) {
           try {
-            const blob = await window.NativeBridge.readEpubFile({ fileUri: uri, displayPath: path });
+            const blob = await window.NativeBridge.readEpubFile({ fileUri: uri, displayPath: path, fileName: fname });
             if (blob) {
               const readFn = (typeof window.readEpub === 'function') ? window.readEpub : (window.FileParserEngine?.readEpub);
               if (readFn) {
@@ -801,9 +802,21 @@
           const full = await window.GeminiNovelDB.getNovel(meta.id);
           if (full) {
             const hasText = (full.chapters || []).some(c => c && (c.text || c.content)) || (full.rawChapters || []).some(c => c && (c.text || c.content));
-            if (hasText || full.epubBlob) return normalizeRecord(full);
+            if (hasText) return normalizeRecord(full);
+            if (full.epubBlob) {
+              const readFn = (typeof window.readEpub === 'function') ? window.readEpub : (window.FileParserEngine?.readEpub);
+              if (readFn) {
+                try {
+                  const parsed = await readFn(full.epubBlob);
+                  if (parsed && parsed.chapters && parsed.chapters.length > 0) {
+                    return normalizeRecord({ ...full, chapters: parsed.chapters, rawChapters: parsed.chapters });
+                  }
+                } catch (_) {}
+              }
+            }
             const fromDisk = await loadFromDiskPointer(full);
             if (fromDisk) return fromDisk;
+            if (full.epubBlob) return normalizeRecord(full);
           }
         } catch(e) {}
       }
@@ -824,9 +837,21 @@
           }
           if (match) {
             const hasText = (match.chapters || []).some(c => c && (c.text || c.content)) || (match.rawChapters || []).some(c => c && (c.text || c.content));
-            if (hasText || match.epubBlob) return normalizeRecord(match);
+            if (hasText) return normalizeRecord(match);
+            if (match.epubBlob) {
+              const readFn = (typeof window.readEpub === 'function') ? window.readEpub : (window.FileParserEngine?.readEpub);
+              if (readFn) {
+                try {
+                  const parsed = await readFn(match.epubBlob);
+                  if (parsed && parsed.chapters && parsed.chapters.length > 0) {
+                    return normalizeRecord({ ...match, chapters: parsed.chapters, rawChapters: parsed.chapters });
+                  }
+                } catch (_) {}
+              }
+            }
             const fromDisk = await loadFromDiskPointer(match);
             if (fromDisk) return fromDisk;
+            if (match.epubBlob) return normalizeRecord(match);
           }
         } catch(e) {}
       }
@@ -1122,30 +1147,46 @@
         ? targetItem.rawChapters
         : (targetItem.chapters && targetItem.chapters.length > 0 ? targetItem.chapters : []);
 
-      // CRITICAL FIX: If existingRaw is empty but we have an epubBlob or chapterList,
-      // recover existing chapters so we don't re-download everything from scratch
-      if (existingRaw.length === 0 && targetItem.epubBlob) {
-        try {
-          const readEpubFn = (typeof window !== 'undefined') ? (window.readEpub || window.DocumentParser?.readEpub || (window.MoonReaderEngine && window.MoonReaderEngine.readEpub)) : null;
-          if (typeof readEpubFn === 'function') {
-            const epubMeta = await readEpubFn(targetItem.epubBlob);
+      const readEpubFn = (typeof window !== 'undefined') ? (window.readEpub || window.DocumentParser?.readEpub || (window.MoonReaderEngine && window.MoonReaderEngine.readEpub)) : null;
+      const rawHasText = existingRaw.some(c => c && (c.text || c.content) && (c.text || c.content).length > 20);
+
+      // If existing chapters have no text (pointer mode or empty), recover from epubBlob or disk file
+      if (!rawHasText) {
+        let sourceBlob = targetItem.epubBlob || options.originalFile || null;
+        if (!sourceBlob && (targetItem.fileUri || targetItem.displayPath) && window.NativeBridge && window.NativeBridge.readEpubFile) {
+          try {
+            sourceBlob = await window.NativeBridge.readEpubFile({
+              fileUri: targetItem.fileUri,
+              displayPath: targetItem.displayPath,
+              fileName: targetItem.fileName || ''
+            });
+            if (sourceBlob) {
+              targetItem.epubBlob = sourceBlob;
+            }
+          } catch (diskErr) {
+            console.warn('[LibraryEngine] Could not read disk file for chapter recovery:', diskErr);
+          }
+        }
+        if (sourceBlob && typeof readEpubFn === 'function') {
+          try {
+            const epubMeta = await readEpubFn(sourceBlob);
             if (epubMeta && epubMeta.chapters && epubMeta.chapters.length > 0) {
               existingRaw = epubMeta.chapters;
-              console.log('[LibraryEngine] Recovered ' + existingRaw.length + ' existing chapters from stored EPUB for incremental update.');
+              console.log('[LibraryEngine] Recovered ' + existingRaw.length + ' chapters with text from EPUB for update.');
             }
+          } catch (epubErr) {
+            console.warn('[LibraryEngine] Could not parse stored EPUB to recover chapters:', epubErr);
           }
-        } catch (epubErr) {
-          console.warn('[LibraryEngine] Could not parse stored epubBlob to recover chapters:', epubErr);
         }
       }
+
       if (existingRaw.length === 0 && targetItem.chapterList && targetItem.chapterList.length > 0 && targetItem.chapterCount > 0) {
         // Use chapterList length as prevCount reference so the crawler starts after existing chapters
-        // Create lightweight placeholder entries so crawlChapterPool can match by URL and skip them
         existingRaw = targetItem.chapterList.slice(0, targetItem.chapterCount).map((cl, i) => ({
+          idx: i,
           url: cl.url || '',
           title: cl.title || ('Chapter ' + (i + 1)),
-          text: '[Previously downloaded]',
-          isPlaceholder: true
+          text: '[Previously downloaded]'
         }));
         console.log('[LibraryEngine] Built ' + existingRaw.length + ' placeholder chapters from chapterList for incremental update.');
       }
@@ -1256,7 +1297,16 @@
             if (extraMeta.uuid && !opts.uuid) opts.uuid = extraMeta.uuid;
 
             let blob = null;
-            const origSource = targetItem.epubBlob || options.originalFile;
+            let origSource = targetItem.epubBlob || options.originalFile;
+            if (!origSource && (targetItem.fileUri || targetItem.displayPath) && window.NativeBridge && window.NativeBridge.readEpubFile) {
+              try {
+                origSource = await window.NativeBridge.readEpubFile({
+                  fileUri: targetItem.fileUri,
+                  displayPath: targetItem.displayPath,
+                  fileName: targetItem.fileName || ''
+                });
+              } catch (_) {}
+            }
             if (window.appendChaptersToExistingEpub && origSource && prevCount > 0 && fetchedChapters.length > prevCount) {
               const newChaptersToAppend = fetchedChapters.slice(prevCount);
               blob = await window.appendChaptersToExistingEpub(origSource, newChaptersToAppend, opts, (status, pct) => {

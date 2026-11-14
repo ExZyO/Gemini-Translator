@@ -1488,8 +1488,38 @@
           menuRow('BookOpen', 'Continue Reading', 'Open novel in reader at last saved reading position', async () => {
             const full = loadFullNovel ? await loadFullNovel(item) : null;
             if (!full) { toast('Novel data not found in local store.', 'error'); return; }
-            const chs = (full.translatedChapters && full.translatedChapters.length > 0) ? full.translatedChapters : (full.chapters || []);
-            if (!chs || chs.length === 0) { toast('No chapters available to read.', 'warning'); return; }
+            let chs = (full.translatedChapters && full.translatedChapters.length > 0) ? full.translatedChapters : (full.chapters || []);
+            const hasText = chs.some(c => c && (c.text || c.content) && (c.text || c.content).trim().length > 0);
+            if (!hasText) {
+              let blob = full.epubBlob || item.epubBlob || null;
+              if (!blob && (full.fileUri || full.displayPath || item.fileUri || item.displayPath) && window.NativeBridge && window.NativeBridge.readEpubFile) {
+                try {
+                  blob = await window.NativeBridge.readEpubFile({
+                    fileUri: full.fileUri || item.fileUri || '',
+                    displayPath: full.displayPath || item.displayPath || '',
+                    fileName: full.fileName || item.fileName || ''
+                  });
+                } catch (_) {}
+              }
+              if (blob) {
+                try {
+                  const readFn = (typeof window.readEpub === 'function') ? window.readEpub : (window.DocumentParser?.parseFile || window.DocumentParser?.readEpub);
+                  if (readFn) {
+                    const parsed = await readFn(blob);
+                    if (parsed && parsed.chapters && parsed.chapters.length > 0) {
+                      chs = parsed.chapters;
+                      if (full.id && window.GeminiNovelDB) {
+                        window.GeminiNovelDB.updateNovel(full.id, { rawChapters: parsed.chapters, chapters: parsed.chapters, epubBlob: blob }).catch(() => {});
+                      }
+                    }
+                  }
+                } catch (_) {}
+              }
+            }
+            if (!chs || chs.length === 0 || !chs.some(c => c && (c.text || c.content) && (c.text || c.content).trim().length > 0)) {
+              toast('No chapter text available. Tap "Continue Fetching Online" to retrieve chapters.', 'warning');
+              return;
+            }
             if (typeof setActiveNovelRecord === 'function') setActiveNovelRecord(full);
             if (typeof setReaderNovelId === 'function') setReaderNovelId(full.id || full.title);
             if (typeof setReaderNovelTitle === 'function') setReaderNovelTitle(full.title);

@@ -475,22 +475,44 @@
             ? full.chapters
             : (full.translatedChapters || []));
       }
-      if (chs.length === 0 && (full.epubBlob || item.epubBlob)) {
-        try {
-          toast('Unpacking book for reader...', 'info');
-          const blob = full.epubBlob || item.epubBlob;
-          const parsed = await window.DocumentParser.parseFile(blob);
-          if (parsed && parsed.chapters && parsed.chapters.length > 0) {
-            chs = parsed.chapters;
-            if (full.id && window.GeminiNovelDB) {
-              window.GeminiNovelDB.updateNovel(full.id, { rawChapters: parsed.chapters }).catch(() => {});
+      const hasAnyText = chs.some(c => c && (c.text || c.content) && (c.text || c.content).trim().length > 0);
+      if (!hasAnyText) {
+        let blob = full.epubBlob || item.epubBlob || null;
+        if (!blob && (full.fileUri || full.displayPath || item.fileUri || item.displayPath) && window.NativeBridge && window.NativeBridge.readEpubFile) {
+          try {
+            blob = await window.NativeBridge.readEpubFile({
+              fileUri: full.fileUri || item.fileUri || '',
+              displayPath: full.displayPath || item.displayPath || '',
+              fileName: full.fileName || item.fileName || ''
+            });
+          } catch (_) {}
+        }
+        if (blob) {
+          try {
+            toast('Loading book contents...', 'info');
+            const readFn = (typeof window.readEpub === 'function') ? window.readEpub : (window.DocumentParser?.parseFile || window.DocumentParser?.readEpub);
+            if (readFn) {
+              const parsed = await readFn(blob);
+              if (parsed && parsed.chapters && parsed.chapters.length > 0) {
+                chs = parsed.chapters;
+                if (full.id && window.GeminiNovelDB) {
+                  window.GeminiNovelDB.updateNovel(full.id, {
+                    rawChapters: parsed.chapters,
+                    chapters: parsed.chapters,
+                    epubBlob: blob
+                  }).catch(() => {});
+                }
+              }
             }
+          } catch (err) {
+            console.error('Failed to unpack EPUB for reader:', err);
           }
-        } catch(err) {
-          console.error('Failed to unpack EPUB for reader:', err);
         }
       }
-      if (chs.length === 0) { toast('No chapters available to read.', 'warning'); return; }
+      if (chs.length === 0 || !chs.some(c => c && (c.text || c.content) && (c.text || c.content).trim().length > 0)) {
+        toast('No chapter text available. Tap the book menu and choose "Continue Fetching Online" to refresh.', 'warning');
+        return;
+      }
       const cleanCh = (c) => {
         const stripFn = (typeof window !== 'undefined' && window.stripLeadingTitleFromContent) ? window.stripLeadingTitleFromContent : null;
         const raw = c?.text || c?.content || '';

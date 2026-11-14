@@ -1319,10 +1319,19 @@
                           (exactItemTitle && existingByExactTitle.get(exactItemTitle)) ||
                           (normItemTitle && existingByNormTitle.get(normItemTitle));
 
-            const isPlaceholder = match && (match.isPlaceholder === true || 
-                                           (match.text && (match.text.includes('could not be retrieved from remote source') || match.text.includes('Network error') || match.text.includes('Chapter download failed') || match.text.includes('All proxies exhausted'))));
+            const isPlaceholder = match && (
+                (match.isPlaceholder === true && !ctrl.isUpdate && !poolOptions.isUpdate) || 
+                (match.text && (match.text.includes('could not be retrieved from remote source') || match.text.includes('Network error') || match.text.includes('Chapter download failed') || match.text.includes('All proxies exhausted')))
+            );
 
-            if (match && !isPlaceholder && (match.text || match.content) && (match.text || match.content).length > 20) {
+            const hasText = match && (match.text || match.content) && (match.text || match.content).length > 20;
+            const isIncrementalUpdateMatch = match && (ctrl.isUpdate || poolOptions.isUpdate) && (
+                (typeof match.idx === 'number' && match.idx < (ctrl.initialChapters ? ctrl.initialChapters.length : chapterList.length)) ||
+                (i < (ctrl.initialChapters ? ctrl.initialChapters.length : chapterList.length)) ||
+                Boolean(match.isPointerOnly)
+            );
+
+            if (match && !isPlaceholder && (hasText || isIncrementalUpdateMatch)) {
                 completedIndices.add(i);
                 chapters.push({
                     ...match,

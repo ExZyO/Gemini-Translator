@@ -2229,7 +2229,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                         if (targetDocUri != null) {
                             try {
-                                out = context.getContentResolver().openOutputStream(targetDocUri, "rwt");
+                                out = context.getContentResolver().openOutputStream(targetDocUri, "wt");
                             } catch (Throwable modeErr) {
                                 out = context.getContentResolver().openOutputStream(targetDocUri, "w");
                             }
@@ -3693,7 +3693,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                         OutputStream out = null;
                         try {
-                            out = context.getContentResolver().openOutputStream(targetUri, "rwt");
+                            out = context.getContentResolver().openOutputStream(targetUri, "wt");
                         } catch (Throwable modeErr) {
                             out = context.getContentResolver().openOutputStream(targetUri, "w");
                         }
@@ -3838,7 +3838,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             OutputStream out = null;
                             try {
                                 try {
-                                    out = context.getContentResolver().openOutputStream(targetDocUri, "rwt");
+                                    out = context.getContentResolver().openOutputStream(targetDocUri, "wt");
                                 } catch (Throwable modeErr) {
                                     out = context.getContentResolver().openOutputStream(targetDocUri, "w");
                                 }
@@ -4333,6 +4333,28 @@ public class NativeAndroidBridgePlugin extends Plugin {
             }
 
             if (in == null) {
+                String fileName = call.getString("fileName", "");
+                if (fileName == null || fileName.trim().isEmpty()) {
+                    if (displayPath != null && !displayPath.trim().isEmpty()) {
+                        fileName = new File(displayPath).getName();
+                    }
+                }
+                if (fileName != null && !fileName.trim().isEmpty()) {
+                    File backupDir = new File(context.getExternalFilesDir(null), "backups");
+                    File bakFile = new File(backupDir, fileName + ".bak");
+                    if (!bakFile.exists() && fileName.endsWith(".epub")) {
+                        bakFile = new File(backupDir, fileName.substring(0, fileName.length() - 5) + ".bak");
+                    }
+                    if (bakFile.exists() && bakFile.length() > 0) {
+                        try {
+                            in = new FileInputStream(bakFile);
+                            Log.i(TAG, "readEpubFile: Successfully fell back to snapshot backup (.bak) for: " + fileName);
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+
+            if (in == null) {
                 call.reject("Could not open EPUB file stream from provided URI or path");
                 return;
             }
@@ -4421,17 +4443,24 @@ public class NativeAndroidBridgePlugin extends Plugin {
             boolean restored = false;
             if (fileUriStr != null && !fileUriStr.trim().isEmpty()) {
                 Uri targetUri = Uri.parse(fileUriStr);
-                try (InputStream in = new FileInputStream(bakFile);
-                     OutputStream out = context.getContentResolver().openOutputStream(targetUri, "rwt")) {
-                    if (out != null) {
+                OutputStream out = null;
+                try {
+                    out = context.getContentResolver().openOutputStream(targetUri, "wt");
+                } catch (Throwable modeErr) {
+                    out = context.getContentResolver().openOutputStream(targetUri, "w");
+                }
+                if (out != null) {
+                    try (InputStream in = new FileInputStream(bakFile)) {
                         byte[] buf = new byte[65536];
                         int len;
                         while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
                         out.flush();
                         restored = true;
+                    } catch (Exception e) {
+                        Log.w(TAG, "Restore to fileUri failed: " + e.getMessage());
+                    } finally {
+                        try { out.close(); } catch (Exception ignored) {}
                     }
-                } catch (Exception e) {
-                    Log.w(TAG, "Restore to fileUri failed: " + e.getMessage());
                 }
             }
 
