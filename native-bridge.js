@@ -773,7 +773,9 @@
                             openChooser,
                             subDir: options?.subDir || options?.folderPath || '',
                             treeUri: options?.treeUri || options?.folderTreeUri || '',
-                            fileUri: options?.fileUri || options?.documentUri || ''
+                            fileUri: options?.fileUri || options?.documentUri || '',
+                            allowOverwrite: options?.allowOverwrite || options?.isContinuation || false,
+                            isContinuation: options?.isContinuation || false
                         });
 
                         if (isLast) return result;
@@ -1025,6 +1027,60 @@
                 }
             }
             return null;
+        },
+
+        readEpubFile: async (options = {}) => {
+            const bridge = getBridge();
+            if (bridge && bridge.readEpubFile) {
+                try {
+                    const res = await bridge.readEpubFile({
+                        fileUri: options.fileUri || '',
+                        displayPath: options.displayPath || options.path || ''
+                    });
+                    if (res && res.base64) {
+                        const bin = atob(res.base64);
+                        const bytes = new Uint8Array(bin.length);
+                        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                        return new Blob([bytes], { type: 'application/epub+zip' });
+                    } else if (res && res.cachePath && window.Capacitor?.convertFileSrc) {
+                        const fileUrl = window.Capacitor.convertFileSrc(res.cachePath);
+                        const r = await fetch(fileUrl);
+                        return await r.blob();
+                    }
+                } catch (e) {
+                    console.warn('Native readEpubFile error:', e);
+                    throw e;
+                }
+            }
+            return null;
+        },
+
+        hasFileBackup: async (fileName) => {
+            const bridge = getBridge();
+            if (bridge && bridge.hasFileBackup) {
+                try {
+                    return await bridge.hasFileBackup({ fileName });
+                } catch (e) {
+                    return { exists: false };
+                }
+            }
+            return { exists: false };
+        },
+
+        restoreFileBackup: async (options = {}) => {
+            const bridge = getBridge();
+            if (bridge && bridge.restoreFileBackup) {
+                try {
+                    return await bridge.restoreFileBackup({
+                        fileName: options.fileName || '',
+                        fileUri: options.fileUri || ''
+                    });
+                } catch (e) {
+                    console.warn('Native restoreFileBackup error:', e);
+                    throw e;
+                }
+            }
+            return { success: false };
         },
 
         chooseFolder: async () => {

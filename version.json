@@ -1,11 +1,11 @@
 {
-  "version": "8.22.45",
-  "versionCode": 8556,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.45/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.45/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.45/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.45",
+  "version": "8.22.46",
+  "versionCode": 8557,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.46/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.46/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.46/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.46",
   "releaseDate": "2026-11-14",
-  "releaseNotes": "v8.22.45: Fix Fenrir Realm series URL slug parsing and domain normalization, resolve HTML error response handling, and prevent Unexpected token JSON crashes.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.45"
+  "releaseNotes": "v8.22.46: Moon+ Reader pointer-based zero-waste storage architecture, on-demand EPUB reading from disk, 3-layer safety net with automatic .bak pre-update snapshot, mid-fetch resume memory, and same-name file collision auto-numbering.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.46"
 }

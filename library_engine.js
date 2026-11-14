@@ -622,6 +622,20 @@
         }
       }
 
+      const isPointerMode = (typeof localStorage !== 'undefined' && localStorage.getItem('gemini_storage_pointer_mode') !== 'false');
+      const hasDiskLink = Boolean(fileUri || displayPath || folderPath || folderTreeUri || novelData.fileUri || novelData.displayPath);
+      const shouldStorePointerOnly = isPointerMode && hasDiskLink && !novelData.isEdited;
+      const storedChapters = shouldStorePointerOnly
+        ? cleanChapters.map(c => ({
+            idx: c.idx !== undefined ? c.idx : 0,
+            title: c.title || 'Chapter',
+            url: c.url || '',
+            volume: c.volume || '',
+            arc: c.arc || '',
+            words: c.words || 0
+          }))
+        : cleanChapters;
+
       const novelRecord = {
         id: novelId,
         uuid: novelData.uuid || existingMeta?.uuid || '',
@@ -643,19 +657,20 @@
         wordCount: totalWords,
         timestamp: new Date().toISOString(),
         isEpub: !!novelData.isEpub,
-        epubBlob: novelData.isEpub
+        isPointerOnly: shouldStorePointerOnly,
+        epubBlob: shouldStorePointerOnly ? undefined : (novelData.isEpub
           ? ((novelData.isEdited || existingMeta?.isEdited) ? (novelData.epubBlob || undefined) : (novelData.epubBlob || existingMeta?.epubBlob || undefined))
-          : (isTranslated ? (novelData.epubBlob || existingMeta?.epubBlob || undefined) : undefined),
+          : (isTranslated ? (novelData.epubBlob || existingMeta?.epubBlob || undefined) : undefined)),
         sourceUrl: detectedSourceUrl,
         sources: detectedSources,
         chapterList: novelData.chapterList || [],
-        chapters: cleanChapters,
-        rawChapters: cleanChapters,
-        originalChapters: cleanOriginalChapters,
-        originalText: novelData.originalText || '',
-        translatedChapters: (Array.isArray(novelData.translatedChapters) && novelData.translatedChapters.length > 0)
+        chapters: storedChapters,
+        rawChapters: storedChapters,
+        originalChapters: shouldStorePointerOnly ? null : cleanOriginalChapters,
+        originalText: shouldStorePointerOnly ? '' : (novelData.originalText || ''),
+        translatedChapters: shouldStorePointerOnly ? null : ((Array.isArray(novelData.translatedChapters) && novelData.translatedChapters.length > 0)
           ? novelData.translatedChapters
-          : (cleanChapters && isTranslated ? cleanChapters : null),
+          : (cleanChapters && isTranslated ? cleanChapters : null)),
         targetLang: novelData.targetLang || (isTranslated ? 'en' : null),
         folderTreeUri,
         folderPath,
@@ -748,12 +763,47 @@
         };
       };
 
+      // Helper to load on-demand from disk file pointer (Moon+ Reader architecture)
+      const loadFromDiskPointer = async (targetRec) => {
+        const uri = targetRec?.fileUri || meta?.fileUri || targetRec?.folderOptions?.fileUri;
+        const path = targetRec?.displayPath || targetRec?.folderPath || meta?.displayPath;
+        if (!uri && !path) return null;
+        if (window.NativeBridge && window.NativeBridge.readEpubFile) {
+          try {
+            const blob = await window.NativeBridge.readEpubFile({ fileUri: uri, displayPath: path });
+            if (blob) {
+              const readFn = (typeof window.readEpub === 'function') ? window.readEpub : (window.FileParserEngine?.readEpub);
+              if (readFn) {
+                const parsed = await readFn(blob);
+                if (parsed && parsed.chapters && parsed.chapters.length > 0) {
+                  return normalizeRecord({
+                    ...targetRec,
+                    title: targetRec.title || parsed.title,
+                    author: targetRec.author || parsed.author,
+                    cover: targetRec.cover || parsed.cover,
+                    chapters: parsed.chapters,
+                    rawChapters: parsed.chapters,
+                    isPointerOnly: true
+                  });
+                }
+              }
+            }
+          } catch (readErr) {
+            console.warn('[LibraryEngine] loadFromDiskPointer error:', readErr);
+          }
+        }
+        return null;
+      };
+
       // 1. Try IndexedDB by meta.id
       if (window.GeminiNovelDB && meta.id) {
         try {
           const full = await window.GeminiNovelDB.getNovel(meta.id);
-          if (full && (full.rawChapters?.length > 0 || full.chapters?.length > 0 || full.translatedChapters?.length > 0 || full.epubBlob)) {
-            return normalizeRecord(full);
+          if (full) {
+            const hasText = (full.chapters || []).some(c => c && (c.text || c.content)) || (full.rawChapters || []).some(c => c && (c.text || c.content));
+            if (hasText || full.epubBlob) return normalizeRecord(full);
+            const fromDisk = await loadFromDiskPointer(full);
+            if (fromDisk) return fromDisk;
           }
         } catch(e) {}
       }
@@ -772,8 +822,11 @@
             const targetClean = normalizeTitleKey(meta.title);
             match = (all || []).find(n => n.id === meta.id || n.title === meta.title || (n.title && normalizeTitleKey(n.title) === targetClean));
           }
-          if (match && (match.rawChapters?.length > 0 || match.chapters?.length > 0 || match.translatedChapters?.length > 0 || match.epubBlob)) {
-            return normalizeRecord(match);
+          if (match) {
+            const hasText = (match.chapters || []).some(c => c && (c.text || c.content)) || (match.rawChapters || []).some(c => c && (c.text || c.content));
+            if (hasText || match.epubBlob) return normalizeRecord(match);
+            const fromDisk = await loadFromDiskPointer(match);
+            if (fromDisk) return fromDisk;
           }
         } catch(e) {}
       }
@@ -790,6 +843,10 @@
           return normalizeRecord({ title: found.title, author: found.author, chapters: loadedChs, rawChapters: loadedChs, originalChapters: found.originalChapters || null });
         }
       } catch (e) {}
+
+      const directDisk = await loadFromDiskPointer(meta);
+      if (directDisk) return directDisk;
+
       return meta.chapters?.length > 0 ? normalizeRecord(meta) : null;
     },
 

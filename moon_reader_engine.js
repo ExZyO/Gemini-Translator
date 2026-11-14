@@ -555,6 +555,34 @@
         throw new Error(`The selected source only has ${totalOnlineCount} chapters online. Chapter ${start} is not yet available on this source. Please switch to a source with newer chapters.`);
       }
 
+      // Check persistent continuation resume memory for previously fetched valid chapters
+      const resumeKey = 'gemini_continuation_resume_' + (uuid || title || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      let previousPartial = [];
+      try {
+        const raw = localStorage.getItem(resumeKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Strict chapter verification: must have non-empty title and substantial body text (>= 80 chars)
+            previousPartial = parsed.filter(c => {
+              if (!c || !c.title) return false;
+              const txt = String(c.text || c.content || '').trim();
+              return txt.length >= 80 && !c.isPlaceholder && !/<!doctype html|failed to load|unexpected token/i.test(txt.slice(0, 120));
+            });
+          }
+        }
+      } catch (e) {}
+
+      let actualFetchStart = start;
+      if (previousPartial.length > 0) {
+        const highestInPartial = this.detectHighestChapterNumber(previousPartial);
+        if (highestInPartial >= start) {
+          actualFetchStart = highestInPartial + 1;
+        } else {
+          actualFetchStart = start + previousPartial.length;
+        }
+      }
+
       const startTime = Date.now();
       const getElapsed = () => {
         const sec = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
@@ -563,25 +591,72 @@
         return (m > 0 ? `${m}m ` : '') + `${s}s`;
       };
 
-      if (callbacks.onProgress) callbacks.onProgress('Connecting to online source…', 5, '0s');
-
-      // 1. Fetch only requested chapter range
-      const baseSourceUrl = (sourceUrl || '').trim().replace(/\/chapter[-_/\d].*$/i, '').replace(/\/chapters\/?$/i, '');
-      const remoteResult = await window.WebNovelImporter.importUrl(baseSourceUrl || sourceUrl, (msg, pct) => {
-        if (callbacks.onProgress) {
-          callbacks.onProgress(msg || 'Downloading new chapters…', pct || 20, getElapsed());
+      if (callbacks.onProgress) {
+        if (actualFetchStart > start) {
+          callbacks.onProgress(`Resuming fetch at Chapter ${actualFetchStart} (${previousPartial.length} chapters loaded from resume memory)…`, 10, '0s');
+        } else {
+          callbacks.onProgress('Connecting to online source…', 5, '0s');
         }
-      }, {
-        chapterRange: { start, end }
-      });
+      }
 
-      const newFetchedChapters = (remoteResult?.chapters && remoteResult.chapters.length > 0)
-        ? remoteResult.chapters
-        : ((remoteResult?.downloadedChapters && remoteResult.downloadedChapters.length > 0)
-          ? remoteResult.downloadedChapters
-          : (remoteResult?.rawChapters || []));
+      // 1. Fetch requested chapter range (or remaining chapters if resuming)
+      let newlyFetched = [];
+      if (actualFetchStart <= end) {
+        const baseSourceUrl = (sourceUrl || '').trim().replace(/\/chapter[-_/\d].*$/i, '').replace(/\/chapters\/?$/i, '');
+        const currentAccumulator = [...previousPartial];
+
+        const remoteResult = await window.WebNovelImporter.importUrl(baseSourceUrl || sourceUrl, (msg, pct) => {
+          if (callbacks.onProgress) {
+            callbacks.onProgress(msg || 'Downloading new chapters…', pct || 20, getElapsed());
+          }
+        }, {
+          chapterRange: { start: actualFetchStart, end },
+          onChapterDone: (chObj) => {
+            if (chObj && chObj.title) {
+              const txt = String(chObj.text || chObj.content || '').trim();
+              if (txt.length >= 80 && !chObj.isPlaceholder && !/<!doctype html|failed to load|unexpected token/i.test(txt.slice(0, 120))) {
+                const exIdx = currentAccumulator.findIndex(c => c.title === chObj.title || (c.idx !== undefined && c.idx === chObj.idx));
+                if (exIdx >= 0) {
+                  currentAccumulator[exIdx] = chObj;
+                } else {
+                  currentAccumulator.push(chObj);
+                }
+                try {
+                  localStorage.setItem(resumeKey, JSON.stringify(currentAccumulator));
+                } catch (e) {}
+              }
+            }
+          }
+        });
+
+        newlyFetched = (remoteResult?.chapters && remoteResult.chapters.length > 0)
+          ? remoteResult.chapters
+          : ((remoteResult?.downloadedChapters && remoteResult.downloadedChapters.length > 0)
+            ? remoteResult.downloadedChapters
+            : (remoteResult?.rawChapters || []));
+      }
+
+      // Combine previous resume chapters + newly fetched chapters
+      const combinedFetchedMap = new Map();
+      [...previousPartial, ...newlyFetched].forEach(c => {
+        if (!c || !c.title) return;
+        const txt = String(c.text || c.content || '').trim();
+        if (txt.length >= 80 && !c.isPlaceholder && !/<!doctype html|failed to load|unexpected token/i.test(txt.slice(0, 120))) {
+          const key = (c.idx !== undefined ? `idx_${c.idx}` : c.title.toLowerCase().trim());
+          combinedFetchedMap.set(key, c);
+        }
+      });
+      const newFetchedChapters = Array.from(combinedFetchedMap.values());
+
       if (newFetchedChapters.length === 0) {
-        throw new Error('No new chapters could be retrieved from the source.');
+        throw new Error('No valid chapters could be retrieved from the source. Disk file was not modified.');
+      }
+
+      // Strict Chapter Verification: Ensure every requested chapter is complete before touching disk
+      const expectedCount = Math.max(1, end - start + 1);
+      if (newFetchedChapters.length < expectedCount) {
+        try { localStorage.setItem(resumeKey, JSON.stringify(newFetchedChapters)); } catch(e) {}
+        throw new Error(`Fetched ${newFetchedChapters.length} of ${expectedCount} chapters. Partial chapters have been preserved in resume memory. Tap Resume Fetch to pick up right where it left off. Disk file was kept safe and untouched.`);
       }
 
       // 2. Merge original chapters with newly fetched chapters based on story chapter numbers
@@ -669,12 +744,19 @@
         ...folderOpts,
         fileUri: targetFileUri || folderOpts?.fileUri || '',
         displayPath: targetDisplayPath || folderOpts?.displayPath || '',
-        suppressModal: true
+        suppressModal: true,
+        allowOverwrite: true,
+        isContinuation: true
       };
 
       if (typeof window.saveUniversalBlob === 'function') {
         await window.saveUniversalBlob(epubBlob, outFileName, 'application/epub+zip', false, safeFolderOpts);
       }
+
+      // Successful write: clear continuation resume memory for this novel
+      try {
+        localStorage.removeItem(resumeKey);
+      } catch (e) {}
 
       return {
         epubBlob,
@@ -687,6 +769,84 @@
         displayPath: safeFolderOpts.displayPath,
         totalChapterCount: Math.max(mergedChapters.length, totalOnlineCount || mergedChapters.length)
       };
+    },
+
+    /**
+     * Retrieves resume memory state for a novel if a previous continuation fetch was interrupted
+     */
+    getContinuationResumeInfo(novelOrKey) {
+      const key = typeof novelOrKey === 'string' ? novelOrKey : (novelOrKey?.uuid || novelOrKey?.title || '');
+      if (!key) return null;
+      const resumeKey = 'gemini_continuation_resume_' + key.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      try {
+        const raw = localStorage.getItem(resumeKey);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter(c => c && c.title && String(c.text || c.content || '').trim().length >= 80);
+          if (valid.length > 0) {
+            const highest = this.detectHighestChapterNumber(valid);
+            return {
+              count: valid.length,
+              highestChapter: highest,
+              nextChapter: highest > 0 ? highest + 1 : valid.length + 1,
+              chapters: valid
+            };
+          }
+        }
+      } catch (e) {}
+      return null;
+    },
+
+    /**
+     * Clears resume memory state for a novel
+     */
+    clearContinuationResume(novelOrKey) {
+      const key = typeof novelOrKey === 'string' ? novelOrKey : (novelOrKey?.uuid || novelOrKey?.title || '');
+      if (!key) return;
+      const resumeKey = 'gemini_continuation_resume_' + key.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      try { localStorage.removeItem(resumeKey); } catch (e) {}
+    },
+
+    /**
+     * Checks if a safety snapshot backup (.bak) exists on disk for this novel
+     */
+    async hasPreviousBackup(novelOrFileName) {
+      const fileName = typeof novelOrFileName === 'string'
+        ? novelOrFileName
+        : (novelOrFileName?.fileName || (novelOrFileName?.title ? `${novelOrFileName.title}.epub` : ''));
+      if (!fileName) return { exists: false };
+      if (window.NativeBridge && window.NativeBridge.hasFileBackup) {
+        try {
+          return await window.NativeBridge.hasFileBackup(fileName);
+        } catch (e) {
+          return { exists: false };
+        }
+      }
+      return { exists: false };
+    },
+
+    /**
+     * Restores the previous safety snapshot (.bak) over the active file on disk
+     */
+    async restorePreviousBackup(novelOrFileName, callbacks = {}) {
+      const fileName = typeof novelOrFileName === 'string'
+        ? novelOrFileName
+        : (novelOrFileName?.fileName || (novelOrFileName?.title ? `${novelOrFileName.title}.epub` : ''));
+      const fileUri = typeof novelOrFileName === 'object'
+        ? (novelOrFileName?.fileUri || novelOrFileName?.folderOptions?.fileUri || '')
+        : '';
+      if (!fileName) throw new Error('File name is required to restore backup.');
+      if (window.NativeBridge && window.NativeBridge.restoreFileBackup) {
+        const res = await window.NativeBridge.restoreFileBackup({ fileName, fileUri });
+        if (res && res.success) {
+          if (typeof callbacks.toast === 'function') {
+            callbacks.toast(`Restored previous backup (.bak) for "${fileName}"!`, 'success');
+          }
+          return res;
+        }
+      }
+      throw new Error('Backup restore is only supported on native device storage.');
     },
 
     /**
@@ -768,6 +928,12 @@
           fOpts.displayPath = targetDisplayPath;
         }
 
+        const resumeInfo = this.getContinuationResumeInfo({ uuid: epub.uuid, title: cleanTitle });
+        const hasBackup = await this.hasPreviousBackup(existingNovel?.fileName || file.name);
+        const effectiveStart = (resumeInfo && resumeInfo.nextChapter && resumeInfo.nextChapter >= suggestedStart)
+          ? resumeInfo.nextChapter
+          : suggestedStart;
+
         const modalState = {
           isOpen: true,
           novelId,
@@ -796,8 +962,12 @@
           onlineToc: null,
           totalOnlineCount: 0,
           isScanningToc: false,
-          startChapter: suggestedStart,
-          endChapter: suggestedStart,
+          resumeInfo: resumeInfo || null,
+          hasBackup: hasBackup?.exists || false,
+          backupInfo: hasBackup || null,
+          startChapter: effectiveStart,
+          endChapter: effectiveStart,
+          initialSuggestedStart: suggestedStart,
           isFetching: false,
           progress: { status: '', pct: 0, elapsed: '' }
         };

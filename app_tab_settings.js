@@ -196,6 +196,45 @@
     } = props;
 
     const [newFallbackModelText, setNewFallbackModelText] = (React.useState || window.React.useState)('');
+    const [pointerMode, setPointerMode] = (React.useState || window.React.useState)(() => {
+      try { return localStorage.getItem('gemini_storage_pointer_mode') !== 'false'; } catch(e) { return true; }
+    });
+    const [optimizingStorage, setOptimizingStorage] = (React.useState || window.React.useState)(false);
+
+    const handleOptimizeStorage = async () => {
+      if (!window.GeminiNovelDB) return;
+      setOptimizingStorage(true);
+      try {
+        const all = await window.GeminiNovelDB.getAllNovels();
+        let count = 0;
+        for (const novel of (all || [])) {
+          const hasDiskLink = Boolean(novel.fileUri || novel.displayPath || novel.folderPath || novel.folderTreeUri);
+          const hasFullChapters = Array.isArray(novel.chapters) && novel.chapters.some(c => c && (c.text || c.content));
+          if (hasDiskLink && hasFullChapters && !novel.isEdited) {
+            const lightweight = novel.chapters.map(c => ({
+              idx: c.idx !== undefined ? c.idx : 0,
+              title: c.title || 'Chapter',
+              url: c.url || '',
+              words: c.words || 0
+            }));
+            await window.GeminiNovelDB.saveNovel({
+              ...novel,
+              isPointerOnly: true,
+              chapters: lightweight,
+              rawChapters: lightweight,
+              epubBlob: undefined
+            });
+            count++;
+          }
+        }
+        if (typeof refreshStorageDiag === 'function') refreshStorageDiag();
+        toast(`Storage optimized! Converted ${count} linked book${count === 1 ? '' : 's'} to lightweight pointers.`, 'success');
+      } catch (err) {
+        toast('Optimization error: ' + err.message, 'error');
+      } finally {
+        setOptimizingStorage(false);
+      }
+    };
 
     const handleAddFallbackModel = (modelName) => {
       const clean = (modelName || '').trim();
@@ -1694,6 +1733,24 @@
                       }
                     }
                   }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RotateCcw', 12), 'Clear Session Cache'))
+                ),
+                switchRow('Pointer Mode: Zero-Waste Storage (Moon+ Reader standard)', pointerMode, (v) => {
+                  setPointerMode(v);
+                  localStorage.setItem('gemini_storage_pointer_mode', String(v));
+                  toast(v ? 'Pointer Mode: ON (links directly to disk files to save 99% storage)' : 'Pointer Mode: OFF (stores full text in app database)', 'info');
+                }),
+                h('div', { className: 'set-row', style: { padding: '8px 0', borderTop: '1px solid var(--hairline)', marginTop: 6 } },
+                  h('div', { style: { minWidth: 0, flex: 1, paddingRight: 8 } },
+                    h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--paper)' } }, 'Clean Up Internal Storage'),
+                    h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } }, 'Converts already-exported books into lightweight file pointers, freeing up device database storage.')
+                  ),
+                  h('button', {
+                    type: 'button',
+                    className: 'chip-act',
+                    disabled: optimizingStorage,
+                    onClick: handleOptimizeStorage,
+                    style: { flexShrink: 0 }
+                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Zap', 13), optimizingStorage ? 'Optimizing…' : 'Optimize Now'))
                 )
               ),
               h('div', { className: 'settings-grouped-card' },

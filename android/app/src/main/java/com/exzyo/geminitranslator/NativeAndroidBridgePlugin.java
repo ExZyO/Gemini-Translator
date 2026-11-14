@@ -3641,11 +3641,33 @@ public class NativeAndroidBridgePlugin extends Plugin {
 
                 boolean safSaved = false;
                 String savedPath = "/storage/emulated/0/Download/GeminiTranslator/" + fileName;
+                boolean allowOverwrite = Boolean.TRUE.equals(call.getBoolean("allowOverwrite", false));
+                boolean isContinuation = Boolean.TRUE.equals(call.getBoolean("isContinuation", false));
 
                 // 0. Direct In-Place Document Overwrite (Picked EPUB File URI)
                 if (fileUri != null && !fileUri.trim().isEmpty()) {
                     try {
                         Uri targetUri = Uri.parse(fileUri);
+
+                        // Safety Net Layer 2: Pre-update snapshot backup (.bak) before in-place overwrite
+                        try {
+                            File backupDir = new File(context.getExternalFilesDir(null), "backups");
+                            if (!backupDir.exists()) backupDir.mkdirs();
+                            File bakFile = new File(backupDir, fileName + ".bak");
+                            try (InputStream bakIn = context.getContentResolver().openInputStream(targetUri);
+                                 FileOutputStream bakOut = new FileOutputStream(bakFile)) {
+                                if (bakIn != null) {
+                                    byte[] bBuf = new byte[65536];
+                                    int bLen;
+                                    while ((bLen = bakIn.read(bBuf)) > 0) bakOut.write(bBuf, 0, bLen);
+                                    bakOut.flush();
+                                    Log.i(TAG, "Created pre-update snapshot backup (.bak) at: " + bakFile.getAbsolutePath());
+                                }
+                            }
+                        } catch (Exception bakErr) {
+                            Log.w(TAG, "Pre-update backup warning: " + bakErr.getMessage());
+                        }
+
                         OutputStream out = null;
                         try {
                             out = context.getContentResolver().openOutputStream(targetUri, "rwt");
@@ -3726,6 +3748,7 @@ public class NativeAndroidBridgePlugin extends Plugin {
                         String treeDocId = DocumentsContract.getTreeDocumentId(parsedTree);
                         Uri parentDocUri = DocumentsContract.buildDocumentUriUsingTree(parsedTree, treeDocId);
                         Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parsedTree, treeDocId);
+                        java.util.HashSet<String> existingNames = new java.util.HashSet<>();
 
                         try (Cursor cursor = context.getContentResolver().query(
                                 childrenUri,
@@ -3736,10 +3759,12 @@ public class NativeAndroidBridgePlugin extends Plugin {
                                 int nameIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
                                 while (cursor.moveToNext()) {
                                     String name = cursor.getString(nameIdx);
-                                    if (fileName.equalsIgnoreCase(name)) {
-                                        String docId = cursor.getString(idIdx);
-                                        targetDocUri = DocumentsContract.buildDocumentUriUsingTree(parsedTree, docId);
-                                        break;
+                                    if (name != null) {
+                                        existingNames.add(name.toLowerCase());
+                                        if (fileName.equalsIgnoreCase(name)) {
+                                            String docId = cursor.getString(idIdx);
+                                            targetDocUri = DocumentsContract.buildDocumentUriUsingTree(parsedTree, docId);
+                                        }
                                     }
                                 }
                             }
@@ -3747,9 +3772,43 @@ public class NativeAndroidBridgePlugin extends Plugin {
                             Log.w(TAG, "SAF children query warning: " + queryErr.getMessage());
                         }
 
+                        // Same-Name Collision Protection: If a file with the same name exists,
+                        // but this is a brand new download (not a continuation/overwrite),
+                        // safely number the new file instead of blindly overwriting.
+                        if (targetDocUri != null && !isContinuation && !allowOverwrite && (fileUri == null || fileUri.trim().isEmpty())) {
+                            targetDocUri = null;
+                            String baseName = fileName.toLowerCase().endsWith(".epub") ? fileName.substring(0, fileName.length() - 5) : fileName;
+                            for (int counter = 1; counter <= 99; counter++) {
+                                String candidate = baseName + " (" + counter + ").epub";
+                                if (!existingNames.contains(candidate.toLowerCase())) {
+                                    fileName = candidate;
+                                    break;
+                                }
+                            }
+                        }
+
                         if (targetDocUri == null) {
                             targetDocUri = DocumentsContract.createDocument(context.getContentResolver(), parentDocUri, mimeType, fileName);
                             wasNewlyCreated = (targetDocUri != null);
+                        } else {
+                            // Pre-update snapshot backup (.bak) for existing tree document
+                            try {
+                                File backupDir = new File(context.getExternalFilesDir(null), "backups");
+                                if (!backupDir.exists()) backupDir.mkdirs();
+                                File bakFile = new File(backupDir, fileName + ".bak");
+                                try (InputStream bakIn = context.getContentResolver().openInputStream(targetDocUri);
+                                     FileOutputStream bakOut = new FileOutputStream(bakFile)) {
+                                    if (bakIn != null) {
+                                        byte[] bBuf = new byte[65536];
+                                        int bLen;
+                                        while ((bLen = bakIn.read(bBuf)) > 0) bakOut.write(bBuf, 0, bLen);
+                                        bakOut.flush();
+                                        Log.i(TAG, "Created pre-update tree backup (.bak) at: " + bakFile.getAbsolutePath());
+                                    }
+                                }
+                            } catch (Exception bakErr) {
+                                Log.w(TAG, "Tree pre-update backup warning: " + bakErr.getMessage());
+                            }
                         }
 
                         if (targetDocUri != null) {
@@ -4208,6 +4267,163 @@ public class NativeAndroidBridgePlugin extends Plugin {
         } catch (Exception e) {
             Log.e(TAG, "epubFilePickerCallback error: " + e.getMessage(), e);
             call.reject("File selection error: " + e.getMessage());
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // POINTER MODE: READ EPUB DIRECTLY FROM DISK (MOON+ READER PARITY)
+    // ══════════════════════════════════════════════════════════════════════
+    @PluginMethod
+    public void readEpubFile(PluginCall call) {
+        try {
+            Context context = getContext();
+            String fileUriStr = call.getString("fileUri", "");
+            String displayPath = call.getString("displayPath", "");
+            if ((fileUriStr == null || fileUriStr.trim().isEmpty()) && (displayPath == null || displayPath.trim().isEmpty())) {
+                call.reject("Neither fileUri nor displayPath provided");
+                return;
+            }
+
+            InputStream in = null;
+            if (fileUriStr != null && !fileUriStr.trim().isEmpty()) {
+                try {
+                    Uri uri = Uri.parse(fileUriStr);
+                    in = context.getContentResolver().openInputStream(uri);
+                } catch (Exception uriErr) {
+                    Log.w(TAG, "Failed to open fileUri stream, attempting displayPath fallback: " + uriErr.getMessage());
+                }
+            }
+
+            if (in == null && displayPath != null && !displayPath.trim().isEmpty()) {
+                File directFile = null;
+                if (displayPath.startsWith("/storage/")) {
+                    directFile = new File(displayPath);
+                } else if (displayPath.startsWith("/")) {
+                    directFile = new File("/storage/emulated/0" + displayPath);
+                } else {
+                    directFile = new File("/storage/emulated/0/" + displayPath);
+                }
+                if (directFile != null && directFile.exists() && directFile.isFile()) {
+                    in = new FileInputStream(directFile);
+                }
+            }
+
+            if (in == null) {
+                call.reject("Could not open EPUB file stream from provided URI or path");
+                return;
+            }
+
+            File cacheFile = new File(context.getCacheDir(), "read_pointer_epub.epub");
+            if (cacheFile.exists()) cacheFile.delete();
+            try (OutputStream out = new FileOutputStream(cacheFile)) {
+                byte[] buf = new byte[65536];
+                int len;
+                while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                out.flush();
+            } finally {
+                try { in.close(); } catch (Exception ignored) {}
+            }
+
+            long fileSize = cacheFile.length();
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("fileSize", fileSize);
+            ret.put("cachePath", cacheFile.getAbsolutePath());
+
+            if (fileSize <= 30 * 1024 * 1024) {
+                byte[] bytes = new byte[(int) fileSize];
+                try (FileInputStream fis = new FileInputStream(cacheFile)) {
+                    int readTotal = 0;
+                    while (readTotal < fileSize) {
+                        int r = fis.read(bytes, readTotal, (int) fileSize - readTotal);
+                        if (r <= 0) break;
+                        readTotal += r;
+                    }
+                }
+                ret.put("base64", Base64.encodeToString(bytes, Base64.NO_WRAP));
+            }
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "readEpubFile error: " + e.getMessage(), e);
+            call.reject("Read EPUB error: " + e.getMessage());
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // SAFETY NET: SNAPSHOT BACKUP VERIFICATION & 1-TAP ROLLBACK
+    // ══════════════════════════════════════════════════════════════════════
+    @PluginMethod
+    public void hasFileBackup(PluginCall call) {
+        try {
+            Context context = getContext();
+            String fileName = call.getString("fileName", "");
+            if (fileName == null || fileName.trim().isEmpty()) {
+                call.reject("fileName required");
+                return;
+            }
+            File backupDir = new File(context.getExternalFilesDir(null), "backups");
+            File bakFile = new File(backupDir, fileName + ".bak");
+            JSObject ret = new JSObject();
+            boolean exists = bakFile.exists() && bakFile.length() > 0;
+            ret.put("exists", exists);
+            ret.put("fileName", fileName);
+            if (exists) {
+                ret.put("size", bakFile.length());
+                ret.put("lastModified", bakFile.lastModified());
+            }
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("hasFileBackup error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void restoreFileBackup(PluginCall call) {
+        try {
+            Context context = getContext();
+            String fileName = call.getString("fileName", "");
+            String fileUriStr = call.getString("fileUri", "");
+            if (fileName == null || fileName.trim().isEmpty()) {
+                call.reject("fileName required");
+                return;
+            }
+            File backupDir = new File(context.getExternalFilesDir(null), "backups");
+            File bakFile = new File(backupDir, fileName + ".bak");
+            if (!bakFile.exists() || bakFile.length() <= 0) {
+                call.reject("No valid backup found for " + fileName);
+                return;
+            }
+
+            boolean restored = false;
+            if (fileUriStr != null && !fileUriStr.trim().isEmpty()) {
+                Uri targetUri = Uri.parse(fileUriStr);
+                try (InputStream in = new FileInputStream(bakFile);
+                     OutputStream out = context.getContentResolver().openOutputStream(targetUri, "rwt")) {
+                    if (out != null) {
+                        byte[] buf = new byte[65536];
+                        int len;
+                        while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                        out.flush();
+                        restored = true;
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Restore to fileUri failed: " + e.getMessage());
+                }
+            }
+
+            if (!restored) {
+                call.reject("Failed to restore backup to target location");
+                return;
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("fileName", fileName);
+            ret.put("restoredSize", bakFile.length());
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "restoreFileBackup error: " + e.getMessage(), e);
+            call.reject("restoreFileBackup error: " + e.getMessage());
         }
     }
 

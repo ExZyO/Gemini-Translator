@@ -441,6 +441,133 @@
           }, (ongoingEpubModal.folderOptions?.folderPath || ongoingEpubModal.folderOptions?.treeUri) ? [ic('Folder', 14), ' Change Location'] : [ic('Folder', 14), ' Select Location'])
         ),
 
+        // 1d. Resume Memory Card (Preserved Chapters from Interrupted Fetch)
+        ongoingEpubModal.resumeInfo && h('div', {
+          style: {
+            background: 'rgba(99, 102, 241, 0.08)',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            borderRadius: 16,
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 14
+          }
+        },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 } },
+            h('div', {
+              style: {
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: 'var(--iris)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }
+            }, ic('Clock', 18)),
+            h('div', { style: { minWidth: 0 } },
+              h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)' } },
+                `Resume Memory Active (${ongoingEpubModal.resumeInfo.count} chapters saved)`
+              ),
+              h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } },
+                `Chapters up to Ch. ${ongoingEpubModal.resumeInfo.highestChapter} are complete in memory. Fetch will resume right at Chapter ${ongoingEpubModal.resumeInfo.nextChapter}.`
+              )
+            )
+          ),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn',
+            style: {
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              color: '#f87171',
+              padding: '8px 14px',
+              borderRadius: 10,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              flexShrink: 0
+            },
+            onClick: () => {
+              if (window.MoonReaderEngine?.clearContinuationResume) {
+                window.MoonReaderEngine.clearContinuationResume({ uuid: ongoingEpubModal.uuid, title: ongoingEpubModal.title });
+              }
+              setOngoingEpubModal(prev => prev ? {
+                ...prev,
+                resumeInfo: null,
+                startChapter: prev.initialSuggestedStart || prev.startChapter
+              } : null);
+              toast('Cleared resume memory. Ready for fresh fetch.', 'info');
+            }
+          }, 'Discard Resume')
+        ),
+
+        // 1e. Safety Snapshot Rollback Card (.bak)
+        ongoingEpubModal.hasBackup && h('div', {
+          style: {
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            borderRadius: 16,
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 14
+          }
+        },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 } },
+            h('div', {
+              style: {
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: 'rgba(16, 185, 129, 0.15)',
+                color: '#10b981',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }
+            }, ic('History', 18)),
+            h('div', { style: { minWidth: 0 } },
+              h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)' } },
+                'Pre-Update Safety Snapshot (.bak) Available'
+              ),
+              h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } },
+                'An unedited snapshot of the previous EPUB version is preserved on disk. You can restore it anytime with one tap.'
+              )
+            )
+          ),
+          h('button', {
+            type: 'button',
+            className: 'mini-btn',
+            style: {
+              background: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              color: '#10b981',
+              padding: '8px 14px',
+              borderRadius: 10,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              flexShrink: 0
+            },
+            onClick: async () => {
+              try {
+                if (window.MoonReaderEngine?.restorePreviousBackup) {
+                  await window.MoonReaderEngine.restorePreviousBackup(ongoingEpubModal, { toast });
+                  setOngoingEpubModal(null);
+                }
+              } catch (restoreErr) {
+                toast('Restore failed: ' + restoreErr.message, 'error');
+              }
+            }
+          }, 'Restore Snapshot')
+        ),
+
         // 2. Online Source Management & Switching Card
         h('div', {
           style: {
@@ -1611,7 +1738,9 @@
             const btnColor = ongoingEpubModal.sourceLacksChapters ? '#fbbf24' : '#fff';
             const btnBorder = ongoingEpubModal.sourceLacksChapters ? '1px solid rgba(245, 158, 11, 0.4)' : 'none';
 
-            let btnLabel = [ic('Play', 14), ` Fetch Ch. ${ongoingEpubModal.startChapter}–${ongoingEpubModal.endChapter} & Update EPUB`];
+            let btnLabel = ongoingEpubModal.resumeInfo
+              ? [ic('Play', 14), ` Resume Fetch (Ch. ${ongoingEpubModal.startChapter}–${ongoingEpubModal.endChapter}) & Update EPUB`]
+              : [ic('Play', 14), ` Fetch Ch. ${ongoingEpubModal.startChapter}–${ongoingEpubModal.endChapter} & Update EPUB`];
             if (ongoingEpubModal.isFetching) {
               btnLabel = 'Fetching & Merging…';
             } else if (ongoingEpubModal.sourceLacksChapters) {
