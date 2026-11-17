@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.49';
+    let VERSION = '8.22.50';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1602,24 +1602,6 @@
           popTab: () => backActionsRef.current?.popTab?.(),
           toast: (msg, type) => backActionsRef.current?.toast?.(msg, type)
         });
-      }, []);
-
-      const activeTabRef = useRef(activeTab);
-      activeTabRef.current = activeTab;
-
-      useEffect(() => {
-        const engine = window.NavigationEngine || NavigationEngine;
-        if (engine && typeof engine.initPowerampTabGestures === 'function') {
-          return engine.initPowerampTabGestures({
-            tabs: ['history', 'web_importer', 'text', 'studio', 'settings'],
-            getActiveTab: () => activeTabRef.current,
-            onSelectTab: (tab) => {
-              setActiveTab(tab);
-              localStorage.setItem('activeTab', tab);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-          });
-        }
       }, []);
 
       useEffect(() => { document.documentElement.classList.add('dark'); localStorage.setItem('darkMode', 'true'); }, []);

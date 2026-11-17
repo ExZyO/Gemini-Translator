@@ -1,11 +1,11 @@
 {
-  "version": "8.22.49",
-  "versionCode": 8560,
+  "version": "8.22.50",
+  "versionCode": 8561,
   "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.46/GeminiTranslator.apk",
   "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.46/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.49/app-release.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.50/app-release.apk",
   "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.46",
   "releaseDate": "2026-11-14",
-  "releaseNotes": "v8.22.49: SAF write-truncate stream fix (wt), incremental chapter delta crawler lock, and verified disk-pointer storage protection.",
+  "releaseNotes": "v8.22.50: Removed full-screen horizontal tab-swipe gestures to prevent accidental tab jumping; retained bottom navigation bar gliding.",
   "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.46"
 }
