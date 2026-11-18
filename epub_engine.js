@@ -232,6 +232,24 @@
           }
         }
 
+        const renderBqLine = (rawLine) => {
+          let line = (rawLine || '').trim();
+          if (!line) return '';
+          const pureMdImg = line.match(/^!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)$/i);
+          if (pureMdImg) {
+            return `<div class="illustration-wrap"><img src="${pureMdImg[2].trim()}" alt="${escapeXml(pureMdImg[1] || 'Illustration')}" class="illustration"/></div>`;
+          }
+          const pureHtmlImg = line.match(/^<img\s+[^>]*src=["']([^"']+)["'][^>]*>$/i);
+          if (pureHtmlImg) {
+            return `<div class="illustration-wrap"><img src="${pureHtmlImg[1].trim()}" alt="Illustration" class="illustration"/></div>`;
+          }
+          if (/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/i.test(line)) {
+            const processed = line.replace(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/gi, (m, alt, url) => `<img src="${url.trim()}" alt="${escapeXml(alt || 'Illustration')}" class="illustration"/>`);
+            return `<p>${smartFormat(processed, useSmartQuotes)}</p>`;
+          }
+          return `<p>${smartFormat(line, useSmartQuotes)}</p>`;
+        };
+
         // Author Note Blockquote
         if (trimmed.startsWith('> **Author\'s Note:**') || trimmed.startsWith('> Author\'s Note:') || trimmed.startsWith('&gt; **Author\'s Note:**') || trimmed.startsWith('&gt; Author\'s Note:')) {
           hasEncounteredParagraph = true;
@@ -240,7 +258,7 @@
             li++;
             bqLines.push(rawLines[li].trim().replace(/^(?:>|&gt;)\s*/, ''));
           }
-          bodyHtml.push('<blockquote class="author-note">' + bqLines.map(l => `<p>${smartFormat(l, useSmartQuotes)}</p>`).join('\n') + '</blockquote>');
+          bodyHtml.push('<blockquote class="author-note">\n' + bqLines.map(renderBqLine).filter(Boolean).join('\n') + '\n</blockquote>');
           continue;
         }
 
@@ -252,7 +270,7 @@
             li++;
             bqLines.push(rawLines[li].trim().replace(/^(?:>|&gt;)\s*/, '').trim());
           }
-          bodyHtml.push('<blockquote>\n' + bqLines.map(l => `<p>${smartFormat(l, useSmartQuotes)}</p>`).join('\n') + '\n</blockquote>');
+          bodyHtml.push('<blockquote>\n' + bqLines.map(renderBqLine).filter(Boolean).join('\n') + '\n</blockquote>');
           continue;
         }
 
@@ -1789,6 +1807,72 @@ hr {
               }
             }
 
+            const renderBlockquoteLine = (rawLine) => {
+              let line = (rawLine || '').trim();
+              if (!line) return '';
+              if (!useIncludeImages) {
+                line = line.replace(/!\[.*?\]\([^\)]+\)/gi, '').replace(/<img\b[^>]*>/gi, '').trim();
+                if (!line) return '';
+                return `<p>${smartFormat(line)}</p>`;
+              }
+
+              // Pure markdown image line
+              const pureMdImg = line.match(/^!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)$/i);
+              if (pureMdImg) {
+                const altText = pureMdImg[1] || 'Illustration';
+                const rawImgUrl = pureMdImg[2];
+                const imgUrl = rawImgUrl.trim()
+                  .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
+                  .replace(/\s+/g, '')
+                  .replace(/\.jppg$/i, '.jpg');
+                const cached = imageCache.get(imgUrl) || imageCache.get(rawImgUrl) ||
+                               imageCache.get(imgUrl.replace(/&amp;/g, '&')) || imageCache.get(rawImgUrl.replace(/&amp;/g, '&')) ||
+                               imageCache.get(encodeURI(imgUrl)) || imageCache.get(decodeURI(imgUrl)) ||
+                               imageCache.get(imgUrl.split('?')[0]) || imageCache.get(imgUrl.split('#')[0]) ||
+                               imageCache.get(imgUrl.split(/[#?]/)[0]);
+                const src = cached ? cached.localHref : imgUrl;
+                return `<div class="illustration-wrap"><img src="${src}" alt="${escapeXml(altText)}" class="illustration"/></div>`;
+              }
+
+              // Pure HTML img line
+              const pureHtmlImg = line.match(/^<img\s+[^>]*src=["']([^"']+)["'][^>]*>$/i);
+              if (pureHtmlImg) {
+                const srcUrl = pureHtmlImg[1];
+                const cleanUrl = srcUrl.trim()
+                  .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
+                  .replace(/\s+/g, '')
+                  .replace(/\.jppg$/i, '.jpg');
+                const cached = imageCache.get(cleanUrl) || imageCache.get(srcUrl) ||
+                               imageCache.get(cleanUrl.replace(/&amp;/g, '&')) || imageCache.get(srcUrl.replace(/&amp;/g, '&')) ||
+                               imageCache.get(encodeURI(cleanUrl)) || imageCache.get(decodeURI(cleanUrl)) ||
+                               imageCache.get(cleanUrl.split('?')[0]) || imageCache.get(cleanUrl.split('#')[0]) ||
+                               imageCache.get(cleanUrl.split(/[#?]/)[0]);
+                const src = cached ? cached.localHref : cleanUrl;
+                return `<div class="illustration-wrap"><img src="${src}" alt="Illustration" class="illustration"/></div>`;
+              }
+
+              // Inline markdown image(s) within prose line
+              if (/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/i.test(line)) {
+                const processed = line.replace(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/gi, (fullMd, alt, rawImgUrl) => {
+                  const altText = alt || 'Illustration';
+                  const imgUrl = rawImgUrl.trim()
+                    .replace(/^(https?:\/\/)([^/]+)/i, (m, proto, host) => proto + host.replace(/\s+/g, ''))
+                    .replace(/\s+/g, '')
+                    .replace(/\.jppg$/i, '.jpg');
+                  const cached = imageCache.get(imgUrl) || imageCache.get(rawImgUrl) ||
+                                 imageCache.get(imgUrl.replace(/&amp;/g, '&')) || imageCache.get(rawImgUrl.replace(/&amp;/g, '&')) ||
+                                 imageCache.get(encodeURI(imgUrl)) || imageCache.get(decodeURI(imgUrl)) ||
+                                 imageCache.get(imgUrl.split('?')[0]) || imageCache.get(imgUrl.split('#')[0]) ||
+                                 imageCache.get(imgUrl.split(/[#?]/)[0]);
+                  const src = cached ? cached.localHref : imgUrl;
+                  return `<img src="${src}" alt="${escapeXml(altText)}" class="illustration"/>`;
+                });
+                return `<p>${smartFormat(processed)}</p>`;
+              }
+
+              return `<p>${smartFormat(line)}</p>`;
+            };
+
             // Author Note Blockquote
             if (trimmed.startsWith('> **Author\'s Note:**') || trimmed.startsWith('> Author\'s Note:')) {
               hasEncounteredParagraph = true;
@@ -1797,7 +1881,7 @@ hr {
                 li++;
                 bqLines.push(rawLines[li].trim().replace(/^>\s*/, ''));
               }
-              bodyHtml.push('<blockquote class="author-note">' + bqLines.map(l => `<p>${smartFormat(l)}</p>`).join('\n') + '</blockquote>');
+              bodyHtml.push('<blockquote class="author-note">\n' + bqLines.map(renderBlockquoteLine).filter(Boolean).join('\n') + '\n</blockquote>');
               continue;
             }
 
@@ -1809,7 +1893,7 @@ hr {
                 li++;
                 bqLines.push(rawLines[li].trim().replace(/^>\s*/, ''));
               }
-              bodyHtml.push('<blockquote>' + bqLines.map(l => `<p>${smartFormat(l)}</p>`).join('\n') + '</blockquote>');
+              bodyHtml.push('<blockquote>\n' + bqLines.map(renderBlockquoteLine).filter(Boolean).join('\n') + '\n</blockquote>');
               continue;
             }
 

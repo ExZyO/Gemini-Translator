@@ -726,9 +726,13 @@
       } catch (e) {}
 
       if (typeof callbacks.onUpdateHistory === 'function') {
+        const safeMeta = { ...metaRecord };
+        if (safeMeta.cover && safeMeta.cover.startsWith('data:image/') && safeMeta.cover.length > 25000) {
+          safeMeta.cover = '';
+        }
         callbacks.onUpdateHistory(prev => {
           const list = Array.isArray(prev) ? prev : updatedList;
-          return [metaRecord, ...list.filter(n => n.id !== metaRecord.id && (!metaRecord.title || (n.title || '').trim().toLowerCase() !== metaRecord.title.trim().toLowerCase()))].slice(0, 50);
+          return [safeMeta, ...list.filter(n => n && n.id !== safeMeta.id && (!safeMeta.title || (n.title || '').trim().toLowerCase() !== safeMeta.title.trim().toLowerCase()))].slice(0, 50);
         });
       }
 
@@ -897,6 +901,31 @@
         try { await window.GeminiNovelDB.saveNovel(full); } catch(e) {}
       }
 
+      const lightMeta = {
+        id: full.id,
+        uuid: full.uuid,
+        fileName: full.fileName,
+        title: full.title,
+        author: full.author,
+        summary: full.summary,
+        cover: (full.cover && full.cover.startsWith('data:image/') && full.cover.length > 25000) ? '' : (full.cover || ''),
+        tags: full.tags,
+        chapterCount: full.chapterCount || (full.chapters ? full.chapters.length : 0),
+        totalChapterCount: full.totalChapterCount || (full.chapters ? full.chapters.length : (full.chapterCount || 0)),
+        volumeCount: full.volumeCount || 0,
+        isIncomplete: !!full.isIncomplete,
+        isTranslated: !!full.isTranslated,
+        inSavedSpace: newSaved,
+        timestamp: full.timestamp || Date.now(),
+        isEpub: !!full.isEpub,
+        sourceUrl: full.sourceUrl || full.url || '',
+        sources: full.sources || [],
+        folderPath: full.folderPath || '',
+        folderTreeUri: full.folderTreeUri || '',
+        fileUri: full.fileUri || '',
+        displayPath: full.displayPath || ''
+      };
+
       let updatedList = [];
       try {
         const raw = localStorage.getItem('gemini_web_import_history_meta');
@@ -904,10 +933,10 @@
         const exists = list.some(m => (full.id && m.id === full.id) || (m.title && full.title && m.title.trim().toLowerCase() === full.title.trim().toLowerCase()));
         if (exists) {
           updatedList = list.map(m => ((full.id && m.id === full.id) || (m.title && full.title && m.title.trim().toLowerCase() === full.title.trim().toLowerCase()))
-            ? { ...m, inSavedSpace: newSaved, sourceUrl: full.sourceUrl || m.sourceUrl || full.url || m.url, cover: full.cover || m.cover, folderPath: full.folderPath || m.folderPath, folderTreeUri: full.folderTreeUri || m.folderTreeUri }
+            ? { ...m, ...lightMeta }
             : m);
         } else {
-          updatedList = [{ ...full, inSavedSpace: newSaved }, ...list];
+          updatedList = [lightMeta, ...list].slice(0, 50);
         }
         localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(updatedList));
       } catch(e) {}
@@ -918,10 +947,10 @@
           const exists = list.some(m => (full.id && m.id === full.id) || (m.title && full.title && m.title.trim().toLowerCase() === full.title.trim().toLowerCase()));
           if (exists) {
             return list.map(m => ((full.id && m.id === full.id) || (m.title && full.title && m.title.trim().toLowerCase() === full.title.trim().toLowerCase()))
-              ? { ...m, inSavedSpace: newSaved, sourceUrl: full.sourceUrl || m.sourceUrl || full.url || m.url, cover: full.cover || m.cover, folderPath: full.folderPath || m.folderPath, folderTreeUri: full.folderTreeUri || m.folderTreeUri }
+              ? { ...m, ...lightMeta }
               : m);
           }
-          return [{ ...full, inSavedSpace: newSaved }, ...list];
+          return [lightMeta, ...list].slice(0, 50);
         });
       }
 

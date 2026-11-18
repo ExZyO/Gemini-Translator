@@ -516,6 +516,49 @@
         throw new Error('File saver is not available on this device.');
       }
 
+      // Register to in-app Library
+      if (actions.saveNovelToHistory) {
+        const readEpubFn = window.readEpub || window.DocumentParser?.readEpub || window.FileParserEngine?.readEpub;
+        let parsedChapters = [];
+        let parsedMeta = null;
+        if (isEpub && typeof readEpubFn === 'function') {
+          try {
+            parsedMeta = await readEpubFn(file || blob);
+            if (parsedMeta?.chapters?.length > 0) {
+              parsedChapters = parsedMeta.chapters.map((c, i) => ({
+                idx: i,
+                title: c.title || `Chapter ${i + 1}`,
+                text: c.text || c.content || '',
+                content: c.content || c.text || '',
+                volume: c.volume || c.arc || '',
+                arc: c.arc || c.volume || '',
+                images: Array.isArray(c.images) ? c.images : []
+              }));
+            }
+          } catch (_) {}
+        }
+        const bookChs = parsedChapters.length > 0 ? parsedChapters : [{
+          idx: 0,
+          title: book.title || fileName.replace(/\.[^.]+$/, ''),
+          text: `Downloaded from ${book.source || 'Catalog'}`,
+          content: `Downloaded from ${book.source || 'Catalog'}`
+        }];
+        actions.saveNovelToHistory({
+          title: parsedMeta?.title || book.title,
+          author: parsedMeta?.author || book.authors || 'Author',
+          cover: parsedMeta?.cover || book.cover || '',
+          sourceUrl: book.epubUrl || book.downloadUrl || '',
+          source: book.source,
+          chapters: bookChs,
+          rawChapters: bookChs,
+          totalChapterCount: bookChs.length,
+          epubBlob: blob,
+          fileName: fileName,
+          isEpub: isEpub,
+          isIncomplete: false
+        });
+      }
+
       callbacks.onSuccess?.({ fileName });
     } catch (err) {
       console.error('[BookSearchEngine] Save book error:', err);
@@ -554,12 +597,44 @@
 
       // 3. Register to history & database
       if (actions.saveNovelToHistory) {
+        const readEpubFn = window.readEpub || window.DocumentParser?.readEpub || window.FileParserEngine?.readEpub;
+        let parsedChapters = [];
+        let parsedMeta = null;
+        if (isEpub && typeof readEpubFn === 'function') {
+          try {
+            parsedMeta = await readEpubFn(file || blob);
+            if (parsedMeta?.chapters?.length > 0) {
+              parsedChapters = parsedMeta.chapters.map((c, i) => ({
+                idx: i,
+                title: c.title || `Chapter ${i + 1}`,
+                text: c.text || c.content || '',
+                content: c.content || c.text || '',
+                volume: c.volume || c.arc || '',
+                arc: c.arc || c.volume || '',
+                images: Array.isArray(c.images) ? c.images : []
+              }));
+            }
+          } catch (_) {}
+        }
+        const bookChs = parsedChapters.length > 0 ? parsedChapters : [{
+          idx: 0,
+          title: book.title || fileName.replace(/\.[^.]+$/, ''),
+          text: `Downloaded from ${book.source || 'Catalog'}`,
+          content: `Downloaded from ${book.source || 'Catalog'}`
+        }];
         actions.saveNovelToHistory({
-          title: book.title,
-          author: book.authors,
-          cover: book.cover,
+          title: parsedMeta?.title || book.title,
+          author: parsedMeta?.author || book.authors || 'Author',
+          cover: parsedMeta?.cover || book.cover || '',
           sourceUrl: book.epubUrl || book.downloadUrl || '',
-          source: book.source
+          source: book.source,
+          chapters: bookChs,
+          rawChapters: bookChs,
+          totalChapterCount: bookChs.length,
+          epubBlob: blob,
+          fileName: fileName,
+          isEpub: isEpub,
+          isIncomplete: false
         });
       }
 

@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.50';
+    let VERSION = '8.22.51';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -355,6 +355,24 @@
             setTrashCount(0);
           }
         }, 150);
+      }, []);
+
+      useEffect(() => {
+        const handleLibUpdated = (e) => {
+          const meta = e?.detail?.metaRecord;
+          if (meta) {
+            setWebImportHistory(prev => {
+              const list = Array.isArray(prev) ? prev : [];
+              const safeMeta = { ...meta };
+              if (safeMeta.cover && safeMeta.cover.startsWith('data:image/') && safeMeta.cover.length > 25000) {
+                safeMeta.cover = '';
+              }
+              return [safeMeta, ...list.filter(n => n && n.id !== safeMeta.id && (!safeMeta.title || (n.title || '').trim().toLowerCase() !== safeMeta.title.trim().toLowerCase()))].slice(0, 50);
+            });
+          }
+        };
+        window.addEventListener('gemini_library_updated', handleLibUpdated);
+        return () => window.removeEventListener('gemini_library_updated', handleLibUpdated);
       }, []);
 
       const getNovelFolderOptions = (novel) => window.MoonReaderEngine ? window.MoonReaderEngine.getNovelFolderOptions(novel) : {};
@@ -2441,7 +2459,8 @@
         toast,
         setWebImportStatus,
         saveUniversalBlob,
-        getNovelFolderOptions
+        getNovelFolderOptions,
+        saveNovelToHistory
       });
 
       // --- Download Handlers (Delegated to ExportEngine.Controller) ---

@@ -2202,12 +2202,36 @@
       if (/^(?:(?:\*[\s\u00A0]*){3,}|\*{3,}|(?:-[\s\u00A0]*){3,}|-{3,}|(?:_[\s\u00A0]*){3,}|_{3,})$/.test(text.trim())) return null;
       let s = text.replace(/^(\*{1,2}|_{1,2})(&gt;|>)\s*/, '$1')
                   .replace(/^(&gt;|>)\s*(\*{1,2}|_{1,2})/, '$1');
-      const inlineRegex = /(`[^`]+`|\*\*\*[^\n]+?\*\*\*|___[^\n]+?___|\*\*[^\n]+?\*\*|__[^\n]+?__|\*(?:[^*\n\s](?:[^*\n]*?[^*\n\s])?|\S)\*|(?<!\w)_[^_\n]+?_(?!\w)|~~[^~]+~~)/g;
+      const inlineRegex = /(!\[.*?\]\([^\)]+\)|<img\b[^>]*>|`[^`]+`|\*\*\*[^\n]+?\*\*\*|___[^\n]+?___|\*\*[^\n]+?\*\*|__[^\n]+?__|\*(?:[^*\n\s](?:[^*\n]*?[^*\n\s])?|\S)\*|(?<!\w)_[^_\n]+?_(?!\w)|~~[^~]+~~)/g;
       const parts = s.split(inlineRegex);
       if (parts.length === 1) return parts[0];
       return parts.map((part, i) => {
         const k = `${keyPrefix}_${i}`;
         if (!part) return null;
+        const imgMd = part.match(/^!\[(.*?)\]\(([^\)]+)\)$/i);
+        if (imgMd) {
+          const srcUrl = imgMd[2].trim();
+          return h('span', { key: k, className: 'reader-inline-image-wrap', style: { display: 'block', margin: '10px 0', textAlign: 'center' } },
+            h('img', {
+              src: srcUrl,
+              alt: imgMd[1] || 'Illustration',
+              style: { maxWidth: '100%', height: 'auto', borderRadius: 6, cursor: 'pointer' },
+              onClick: () => { if (typeof setLightboxImage === 'function') setLightboxImage(srcUrl); }
+            })
+          );
+        }
+        const imgHtml = part.match(/^<img\s+[^>]*src=["']([^"']+)["'][^>]*>$/i);
+        if (imgHtml) {
+          const srcUrl = imgHtml[1].trim();
+          return h('span', { key: k, className: 'reader-inline-image-wrap', style: { display: 'block', margin: '10px 0', textAlign: 'center' } },
+            h('img', {
+              src: srcUrl,
+              alt: 'Illustration',
+              style: { maxWidth: '100%', height: 'auto', borderRadius: 6, cursor: 'pointer' },
+              onClick: () => { if (typeof setLightboxImage === 'function') setLightboxImage(srcUrl); }
+            })
+          );
+        }
         if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
           return h('code', { key: k, style: { fontFamily: 'monospace', fontSize: '0.9em', background: 'rgba(128,128,128,0.15)', padding: '2px 4px', borderRadius: 3 } }, part.slice(1, -1));
         }
@@ -2401,10 +2425,24 @@
             textAlign: 'left'
           }
         },
-          noteParagraphs.map((np, npIdx) => h('p', {
-            key: `np_${npIdx}`,
-            style: { margin: npIdx === noteParagraphs.length - 1 ? 0 : '0 0 8px 0', textIndent: 0, textAlign: 'left' }
-          }, parseInlineMarkdown(np, `np_${npIdx}`)))
+          noteParagraphs.map((np, npIdx) => {
+            const pureMd = (np || '').trim().match(/^!\[(.*?)\]\(([^\)]+)\)$/i);
+            if (pureMd) {
+              const srcUrl = pureMd[2].trim();
+              return h('div', { key: `np_img_${npIdx}`, style: { margin: '10px 0', textAlign: 'center' } },
+                h('img', {
+                  src: srcUrl,
+                  alt: pureMd[1] || 'Illustration',
+                  style: { maxWidth: '100%', height: 'auto', borderRadius: 6, cursor: 'pointer' },
+                  onClick: () => { if (typeof setLightboxImage === 'function') setLightboxImage(srcUrl); }
+                })
+              );
+            }
+            return h('p', {
+              key: `np_${npIdx}`,
+              style: { margin: npIdx === noteParagraphs.length - 1 ? 0 : '0 0 8px 0', textIndent: 0, textAlign: 'left' }
+            }, parseInlineMarkdown(np, `np_${npIdx}`));
+          })
         );
       }
 
@@ -2425,10 +2463,24 @@
             textAlign: 'left'
           }
         },
-          bqParagraphs.map((bp, bpIdx) => h('p', {
-            key: `bp_${bpIdx}`,
-            style: { margin: bpIdx === bqParagraphs.length - 1 ? 0 : '0 0 6px 0', textIndent: 0, textAlign: 'left' }
-          }, parseInlineMarkdown(bp, `bp_${bpIdx}`)))
+          bqParagraphs.map((bp, bpIdx) => {
+            const pureMd = (bp || '').trim().match(/^!\[(.*?)\]\(([^\)]+)\)$/i);
+            if (pureMd) {
+              const srcUrl = pureMd[2].trim();
+              return h('div', { key: `bp_img_${bpIdx}`, style: { margin: '10px 0', textAlign: 'center', fontStyle: 'normal' } },
+                h('img', {
+                  src: srcUrl,
+                  alt: pureMd[1] || 'Illustration',
+                  style: { maxWidth: '100%', height: 'auto', borderRadius: 6, cursor: 'pointer' },
+                  onClick: () => { if (typeof setLightboxImage === 'function') setLightboxImage(srcUrl); }
+                })
+              );
+            }
+            return h('p', {
+              key: `bp_${bpIdx}`,
+              style: { margin: bpIdx === bqParagraphs.length - 1 ? 0 : '0 0 6px 0', textIndent: 0, textAlign: 'left' }
+            }, parseInlineMarkdown(bp, `bp_${bpIdx}`));
+          })
         );
       }
 

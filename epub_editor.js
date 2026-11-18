@@ -1654,7 +1654,7 @@ ${bodyHtml}
                 title: state.title,
                 author: state.author,
                 summary: state.description,
-                cover: state.coverUrl,
+                cover: (state.coverUrl && state.coverUrl.startsWith('data:image/') && state.coverUrl.length > 25000) ? '' : (state.coverUrl || ''),
                 publishedDate: state.publishedDate || (existing && existing.publishedDate) || '',
                 chapterCount: state.chapters.length,
                 totalChapterCount: state.chapters.length,
@@ -1662,7 +1662,14 @@ ${bodyHtml}
                 wordCount: totalWords,
                 timestamp: Date.now(),
                 isEdited: true,
-                isTranslated: true
+                isTranslated: true,
+                isIncomplete: false,
+                inSavedSpace: existing?.inSavedSpace || false,
+                sourceUrl: existing?.sourceUrl || '',
+                folderPath: existing?.folderPath || '',
+                folderTreeUri: existing?.folderTreeUri || '',
+                fileUri: existing?.fileUri || '',
+                displayPath: existing?.displayPath || ''
             };
 
             try {

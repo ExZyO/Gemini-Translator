@@ -1746,7 +1746,12 @@
             if (handleOpenAutoGlossary) handleOpenAutoGlossary(full);
           }),
           menuRow('Star', item.inSavedSpace ? 'Remove from Saved Space' : 'Save to Space', item.inSavedSpace ? 'Remove priority star bookmark' : 'Pin to personal Saved Space shelf', () => {
-            if (toggleNovelSavedSpace) toggleNovelSavedSpace(item.id, item);
+            if (toggleNovelSavedSpace) {
+              toggleNovelSavedSpace(item.id, item);
+              if (typeof props.setActiveBookMenuNovel === 'function') {
+                props.setActiveBookMenuNovel(prev => prev ? { ...prev, inSavedSpace: !prev.inSavedSpace } : null);
+              }
+            }
           }, false, item.inSavedSpace ? 'In Space' : null),
           menuRow('Folder', 'Designated Device Folder', dispPath ? `Current: ${dispPath.length > 24 ? dispPath.slice(0, 22) + '…' : dispPath}` : 'Set auto-export folder for Moon+ Reader continuity', () => {
             if (handleSetNovelFolder) handleSetNovelFolder(item);
