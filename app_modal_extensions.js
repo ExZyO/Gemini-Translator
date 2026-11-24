@@ -68,8 +68,8 @@
           display: 'flex',
           flexDirection: 'column',
           padding: 'max(14px, env(safe-area-inset-top, 14px)) 16px 10px',
-          borderBottom: '1px solid var(--hairline)',
-          background: 'rgba(15, 23, 42, 0.95)',
+          borderBottom: '1px solid var(--omni-hairline, #262A36)',
+          background: 'var(--omni-canvas, #0F1014)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
           gap: 12,
@@ -82,19 +82,19 @@
             h('button', {
               type: 'button',
               className: 'icon-btn',
-              style: { width: 36, height: 36, borderRadius: '50%', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--hairline)', color: 'var(--paper)', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
+              style: { width: 36, height: 36, borderRadius: 7, background: 'var(--omni-control, #23262F)', border: '1px solid var(--omni-border, #363A48)', color: 'var(--omni-text, #F5F6F8)', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
               onClick: onClose,
               'aria-label': 'Back to Import',
               title: 'Back to Import'
             }, '←'),
             h('div', { style: { minWidth: 0, flex: 1 } },
-              h('div', { style: { fontWeight: 800, fontSize: 16, color: 'var(--paper)', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 8 } },
+              h('div', { style: { fontWeight: 800, fontSize: 16, color: 'var(--omni-text, #F5F6F8)', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 8 } },
                 h('span', null, 'Extensions & Sources'),
-                h('span', { className: 'badge', style: { background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', fontSize: 10, padding: '2px 8px', borderRadius: 12 } },
+                h('span', { className: 'badge', style: { background: 'var(--omni-control, #23262F)', border: '1px solid var(--omni-border, #363A48)', color: 'var(--omni-accent, #F5F6F8)', fontSize: 10, padding: '2px 8px', borderRadius: 5 } },
                   `${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length} Installed`
                 )
               ),
-              h('div', { style: { fontSize: 11, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+              h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub, #AEB4C2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
                 'Mihon & LNReader compatible source extensions and built-in scrapers'
               )
             )
@@ -103,13 +103,13 @@
             h('button', {
               type: 'button',
               className: `mini-btn ${pluginSelectedTab === 'custom' ? '' : 'ghost'}`,
-              style: { fontSize: 11, padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap', borderColor: 'var(--hairline)' },
+              style: { fontSize: 11, padding: '6px 12px', borderRadius: 6, whiteSpace: 'nowrap', borderColor: 'var(--omni-border, #363A48)' },
               onClick: () => setPluginSelectedTab(pluginSelectedTab === 'custom' ? 'installed' : 'custom')
             }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic(pluginSelectedTab === 'custom' ? 'X' : 'Link', 13), pluginSelectedTab === 'custom' ? 'Close Sideload' : 'Sideload')),
             h('button', {
               type: 'button',
               className: 'mini-btn ghost',
-              style: { fontSize: 11, padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap' },
+              style: { fontSize: 11, padding: '6px 12px', borderRadius: 6, whiteSpace: 'nowrap' },
               onClick: onClose
             }, 'Done')
           )
@@ -159,7 +159,7 @@
               h('button', {
                 type: 'button',
                 className: 'mini-btn',
-                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700, padding: '8px 18px' },
+                style: { background: 'var(--omni-accent, #38bdf8)', color: 'var(--omni-on-accent, #0F1014)', fontWeight: 700, padding: '8px 18px', borderRadius: 8 },
                 onClick: () => setPluginSelectedTab('catalog')
               }, 'Browse Catalog')
             );
@@ -176,9 +176,9 @@
                   justifyContent: 'space-between',
                   gap: 12,
                   padding: '12px 16px',
-                  borderRadius: 10,
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: isBuiltin ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: 8,
+                  background: 'var(--omni-surface, #181A20)',
+                  border: '1px solid var(--omni-border, #363A48)',
                   transition: 'border-color 0.15s ease'
                 }
               },

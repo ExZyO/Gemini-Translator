@@ -59,7 +59,7 @@
     },
       h('div', {
         className: 'download-success-toast',
-        style: { background: 'rgba(22, 27, 34, 0.96)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.14)', borderRadius: 16, padding: '12px 14px', boxShadow: '0 16px 36px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4)', display: 'flex', flexDirection: 'column', gap: 10, animation: 'sheetSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1)' }
+        style: { background: 'var(--omni-surface, #181A20)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid var(--omni-border, #363A48)', borderRadius: 10, padding: '12px 14px', boxShadow: '0 16px 36px rgba(0, 0, 0, 0.55)', display: 'flex', flexDirection: 'column', gap: 10, animation: 'sheetSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1)' }
       },
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 } },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 } },
@@ -81,12 +81,12 @@
           isEpub && h('button', {
             type: 'button',
             onClick: handleOpenInReader,
-            style: { flex: 1, padding: '7px 12px', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#38bdf8', color: '#0f172a', borderRadius: 8, border: 'none', cursor: 'pointer' }
+            style: { flex: 1, padding: '7px 12px', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--omni-accent, #38bdf8)', color: 'var(--omni-on-accent, #0F1014)', borderRadius: 6, border: 'none', cursor: 'pointer' }
           }, ic('BookOpen', 14), 'Open in Moon+ Reader'),
           h('button', {
             type: 'button',
             onClick: () => setDownloadSuccessModal(null),
-            style: { padding: '7px 12px', fontSize: 12, color: 'var(--text-secondary, #cbd5e1)', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: 8, cursor: 'pointer', fontWeight: 500 }
+            style: { padding: '7px 12px', fontSize: 12, color: 'var(--omni-text, #F5F6F8)', background: 'var(--omni-control, #23262F)', border: '1px solid var(--omni-border, #363A48)', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }
           }, 'Done')
         )
       )
@@ -115,12 +115,12 @@
         margin: '0 auto',
         zIndex: 85,
         pointerEvents: 'auto',
-        background: 'rgba(15, 23, 42, 0.95)',
+        background: 'var(--omni-surface, #181A20)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        border: '1px solid rgba(99, 102, 241, 0.4)',
-        borderRadius: '16px',
-        boxShadow: '0 16px 36px -6px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+        border: '1px solid var(--omni-border, #363A48)',
+        borderRadius: '10px',
+        boxShadow: '0 16px 36px -6px rgba(0, 0, 0, 0.75)',
         padding: '14px 16px'
       }
     },
@@ -158,12 +158,12 @@
           h('button', {
             type: 'button',
             style: {
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: 'none',
-              color: '#94a3b8',
-              borderRadius: '50%',
-              width: 24,
-              height: 24,
+              background: 'var(--omni-control, #23262F)',
+              border: '1px solid var(--omni-border, #363A48)',
+              color: 'var(--omni-text-sub, #AEB4C2)',
+              borderRadius: 6,
+              width: 26,
+              height: 26,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -183,7 +183,7 @@
         style: {
           width: '100%',
           height: 6,
-          borderRadius: 999,
+          borderRadius: 4,
           background: 'rgba(255, 255, 255, 0.1)',
           overflow: 'hidden',
           margin: '8px 0 10px',
@@ -195,7 +195,7 @@
             height: '100%',
             width: `${Math.min(100, Math.max(0, epubPackagingModal.pct || 0))}%`,
             background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #10b981 100%)',
-            borderRadius: 999,
+            borderRadius: 4,
             transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
           }
         })

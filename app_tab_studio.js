@@ -1,7 +1,7 @@
 /**
  * app_tab_studio.js - EPUB Studio (Ebook Editor, Splitter, Merger & Moon+ Reader Sync)
- * OmniTrack Pure-AMOLED Editorial layout with clean underline sub-tabs, circular Reset button,
- * and frameless hairline Moon+ Reader (.mrexpt) alignment workspace.
+ * Chimanew Elevated Dark workspace with crisp underline sub-tabs, 7px Reset button,
+ * and hairline Moon+ Reader (.mrexpt) alignment workspace.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -250,18 +250,18 @@
     const isSameIdWarning = masterFile && sampleFile && masterFile.info?.bookId && sampleFile.sample?.bookId && masterFile.info.bookId === sampleFile.sample.bookId;
 
     return h('div', { style: { paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 20px))' } },
-      h('div', { style: { padding: '6px 0 14px', borderBottom: '0.6px solid var(--omni-hairline)' } },
-        h('div', { style: { fontSize: 16, fontWeight: 750, color: '#F5F5F5' } }, 'Moon+ Reader (.mrexpt) Bookmark Aligner'),
-        h('p', { style: { fontSize: 12.5, color: 'rgba(255,255,255,0.52)', margin: '4px 0 0', lineHeight: 1.5 } },
+      h('div', { style: { padding: '6px 0 14px', borderBottom: '1px solid var(--omni-hairline)' } },
+        h('div', { style: { fontSize: 16, fontWeight: 750, color: 'var(--omni-text)' } }, 'Moon+ Reader (.mrexpt) Bookmark Aligner'),
+        h('p', { style: { fontSize: 12.5, color: 'var(--omni-text-sub)', margin: '4px 0 0', lineHeight: 1.5 } },
           'Aligns master highlights and bookmarks to match your phone EPUB ID and folder path so Moon+ Reader imports cleanly.'
         )
       ),
 
       // Step 1: Master Backup File
-      h('div', { style: { padding: '14px 0', borderBottom: '0.6px solid var(--omni-hairline)' } },
+      h('div', { style: { padding: '14px 0', borderBottom: '1px solid var(--omni-hairline)' } },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
           h('span', { className: 'omni-section-label' }, '1. Master Bookmark Backup (.mrexpt)'),
-          masterFile && h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '2px 8px', fontSize: 11 }, onClick: () => { setMasterFile(null); setIsDone(false); setMergeStats(null); } }, 'Change')
+          masterFile && h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '3px 9px', fontSize: 11 }, onClick: () => { setMasterFile(null); setIsDone(false); setMergeStats(null); } }, 'Change')
         ),
         !masterFile ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
           h('div', { className: 'omni-cta-row', style: { margin: 0 } },
@@ -288,21 +288,21 @@
               value: pastedText,
               onChange: (e) => setPastedText(e.target.value),
               placeholder: 'Paste raw .mrexpt backup content here...',
-              style: { width: '100%', height: 100, background: 'rgba(255,255,255,0.04)', border: '0.6px solid var(--omni-hairline)', borderRadius: 6, padding: 10, fontFamily: 'monospace', fontSize: 11.5, color: '#F5F5F5', outline: 'none' }
+              style: { width: '100%', height: 100, background: 'var(--omni-input)', border: '1px solid var(--omni-border)', borderRadius: 6, padding: 10, fontFamily: 'monospace', fontSize: 11.5, color: 'var(--omni-text)', outline: 'none' }
             }),
             h('button', { type: 'button', className: 'omni-flat-cta', style: { marginTop: 8, height: 36 }, onClick: () => handleProcessMaster(pastedText, 'pasted_backup.mrexpt') }, 'Load Pasted Backup')
           )
         ) : h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
           h('div', null,
             h('div', { style: { fontSize: 13.5, fontWeight: 700, color: 'var(--omni-jade)' } }, `${masterFile.fileName} (${masterFile.info.entryCount} entries)`),
-            h('div', { style: { fontSize: 11.5, color: 'rgba(255,255,255,0.5)', marginTop: 2 } }, `Source ID: ${masterFile.info.bookId || 'none'} · Title: ${masterFile.info.oldTitle || 'unknown'}`)
+            h('div', { style: { fontSize: 11.5, color: 'var(--omni-text-sub)', marginTop: 2 } }, `Source ID: ${masterFile.info.bookId || 'none'} · Title: ${masterFile.info.oldTitle || 'unknown'}`)
           ),
           ic('CheckCircle2', 18)
         )
       ),
 
       // Step 2: Target Edition Alignment
-      masterFile && h('div', { style: { padding: '14px 0', borderBottom: '0.6px solid var(--omni-hairline)' } },
+      masterFile && h('div', { style: { padding: '14px 0', borderBottom: '1px solid var(--omni-hairline)' } },
         h('div', { className: 'omni-section-label', style: { marginBottom: 8 } }, '2. Target Phone Edition Passport'),
         h('div', { className: 'omni-cta-row', style: { marginTop: 0 } },
           h('label', { className: 'omni-flat-icon-btn', style: { flex: 1, width: 'auto', fontSize: 12, fontWeight: 600, gap: 6, padding: '0 10px' } },
@@ -336,18 +336,18 @@
           'Notice: Sample file has the same internal Book ID as master. Re-export a sample directly from Moon+ Reader on your phone if alignment fails.'
         ),
         sampleFile && h('div', { className: 'omni-hairline-row', style: { cursor: 'default' } },
-          h('span', { style: { fontSize: 12.5, color: '#F5F5F5' } }, 'Discard dummy sample bookmark after capturing passport'),
+          h('span', { style: { fontSize: 12.5, color: 'var(--omni-text)' } }, 'Discard dummy sample bookmark after capturing passport'),
           h('button', { type: 'button', className: `switch ${discardDummy ? 'on' : ''}`, onClick: () => setDiscardDummy(!discardDummy) })
         ),
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 } },
           h('div', null,
-            h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)', marginBottom: 4 } }, 'Target Filename / Title'),
+            h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)', marginBottom: 4 } }, 'Target Filename / Title'),
             h('div', { className: 'omni-search-bar', style: { marginBottom: 0, height: 38 } },
               h('input', { type: 'text', value: targetTitle, onChange: (e) => setTargetTitle(e.target.value), placeholder: 'Book.epub' })
             )
           ),
           h('div', null,
-            h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)', marginBottom: 4 } }, 'Phone Storage File Path'),
+            h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)', marginBottom: 4 } }, 'Phone Storage File Path'),
             h('div', { className: 'omni-search-bar', style: { marginBottom: 6, height: 38 } },
               h('input', { type: 'text', value: targetPath, onChange: (e) => setTargetPath(e.target.value), placeholder: '/storage/emulated/0/Books/Book.epub' })
             ),
@@ -362,7 +362,7 @@
             )
           ),
           h('div', null,
-            h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)', marginBottom: 4 } }, 'Book Size / Internal Moon+ ID'),
+            h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)', marginBottom: 4 } }, 'Book Size / Internal Moon+ ID'),
             h('div', { className: 'omni-search-bar', style: { marginBottom: 0, height: 38 } },
               h('input', { type: 'text', value: targetBookId, onChange: (e) => setTargetBookId(e.target.value), placeholder: 'Optional numeric size/hash ID' })
             )

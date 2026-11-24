@@ -268,7 +268,7 @@
         'activeTab', 'studioSubTab', 'inputBoxHeight', 'outputBoxHeight', 'instructionsBoxHeight',
         'glossaryBoxHeight', 'glossaryCardOpen', 'showLiveLogs',
         // OmniTrack Visual Theme, Layouts & Custom Artwork Map
-        'omni_theme_id', 'omni_custom_hex_1', 'omni_custom_hex_2',
+        'omni_theme_id', 'omni_amoled_canvas', 'omni_custom_hex_1', 'omni_custom_hex_2',
         'omni_library_layout', 'omni_details_header', 'omni_discover_layout',
         'omni_hero_blur', 'omni_glass_sheen', 'omni_poster_radius',
         'omni_hero_autoscroll', 'omni_hero_interval', 'gemini_novel_artwork_map',

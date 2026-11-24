@@ -1,8 +1,8 @@
 /**
- * omni_settings_visual.js - Visual Presentation & Palette Customizer Sub-View
- * Provides a sticky live miniature preview stage, all 14 Pure-AMOLED semantic palettes
- * (with Custom Dual-Hex contrast auto-pairing), clickable wireframe layout switches
- * for Library / Book Details / Discover, and surface blur/sheen/radius/motion controls.
+ * omni_settings_visual.js - Chimanew Elevated Dark Visual Presentation & Palette Customizer
+ * Provides a sticky live miniature preview stage, all 14 Elevated Dark / AMOLED semantic palettes
+ * (with Custom Dual-Hex contrast auto-pairing), AMOLED Pitch-Black Canvas toggle,
+ * clickable wireframe layout switches for Library / Book Details / Discover, and optics controls.
  */
 (function (root, factory) {
   const exports = factory();
@@ -34,12 +34,13 @@
           themeId: 'WHITE',
           customHex1: '#E8C26A',
           customHex2: '#A855F7',
+          amoledCanvas: false,
           libraryLayout: 'editorial',
-          detailsHeader: 'jacket',
-          discoverLayout: 'grid',
+          detailsHeader: 'split',
+          discoverLayout: 'sources',
           heroBlur: 24,
           glassSheen: 70,
-          posterRadius: 10,
+          posterRadius: 8,
           heroAutoscroll: true,
           heroInterval: 6
         };
@@ -47,7 +48,7 @@
     const palettes = (Engine && Array.isArray(Engine.PALETTES)) ? Engine.PALETTES : [];
     const activePalette = (Engine && typeof Engine.getPalette === 'function')
       ? Engine.getPalette(prefs.themeId, prefs)
-      : { id: 'WHITE', name: 'Monochrome', accent: '#F5F5F5', variant: '#C8C4BC', onAccent: '#000000' };
+      : { id: 'WHITE', name: 'Monochrome', accent: '#F5F6F8', variant: '#AEB4C2', onAccent: '#0F1014' };
 
     const [hexDraft1, setHexDraft1] = useState(prefs.customHex1 || '#E8C26A');
     const [hexDraft2, setHexDraft2] = useState(prefs.customHex2 || '#A855F7');
@@ -86,6 +87,20 @@
     const sheenAlpha = ((Number(prefs.glassSheen) || 0) / 100) * 0.28;
     const previewBlurPx = Math.max(0, Math.round((Number(prefs.heroBlur) || 0) * 0.6));
 
+    const previewCanvasBg = prefs.amoledCanvas ? '#000000' : 'var(--omni-canvas, #0F1014)';
+    const isAmoledOn = typeof prefs.amoledCanvas === 'boolean' ? prefs.amoledCanvas : Boolean(props?.amoledMode);
+    const toggleAmoledCanvas = function (nextVal) {
+      const next = typeof nextVal === 'boolean' ? nextVal : !isAmoledOn;
+      setPref('amoledCanvas', next);
+      try {
+        localStorage.setItem('amoledMode', String(next));
+        localStorage.setItem('omni_amoled_canvas', String(next));
+      } catch (_) {}
+      if (typeof props?.setAmoledMode === 'function') {
+        props.setAmoledMode(next);
+      }
+    };
+
     // Reusable miniature wireframe schematic renderer
     const renderWireframeCard = function (opts) {
       const isActive = opts.active;
@@ -99,8 +114,8 @@
           textAlign: 'left',
           padding: '10px',
           borderRadius: 8,
-          background: isActive ? 'rgba(255, 255, 255, 0.065)' : 'rgba(255, 255, 255, 0.02)',
-          border: isActive ? ('1.2px solid ' + activePalette.accent) : '0.6px solid rgba(255, 255, 255, 0.09)',
+          background: isActive ? 'var(--omni-control, #23262F)' : 'var(--omni-surface, #181A20)',
+          border: isActive ? ('1.5px solid ' + activePalette.accent) : '1px solid var(--omni-border, #363A48)',
           cursor: 'pointer',
           display: 'flex',
           flexDirection: 'column',
@@ -112,8 +127,8 @@
             width: '100%',
             height: 62,
             borderRadius: 5,
-            background: '#050507',
-            border: '0.6px solid rgba(255,255,255,0.08)',
+            background: previewCanvasBg,
+            border: '1px solid var(--omni-hairline, #262A36)',
             padding: 5,
             display: 'flex',
             flexDirection: 'column',
@@ -124,8 +139,8 @@
         }, opts.schematic(isActive ? activePalette.accent : 'rgba(255,255,255,0.28)')),
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 } },
           h('div', { style: { minWidth: 0 } },
-            h('div', { style: { fontSize: 12, fontWeight: isActive ? 750 : 600, color: '#F5F5F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, opts.title),
-            h('div', { style: { fontSize: 10.5, color: 'rgba(255,255,255,0.5)', marginTop: 1 } }, opts.desc)
+            h('div', { style: { fontSize: 12, fontWeight: isActive ? 750 : 600, color: 'var(--omni-text, #F5F6F8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, opts.title),
+            h('div', { style: { fontSize: 10.5, color: 'var(--omni-text-sub, #AEB4C2)', marginTop: 1 } }, opts.desc)
           ),
           isActive && h('span', { style: { color: activePalette.accent, flexShrink: 0 } }, ic('Check', 14))
         )
@@ -148,7 +163,7 @@
             fontWeight: 700,
             letterSpacing: '0.11em',
             textTransform: 'uppercase',
-            color: 'rgba(255, 255, 255, 0.45)'
+            color: 'var(--omni-text-sub, #AEB4C2)'
           }
         }, label),
         rightText ? h('span', {
@@ -168,8 +183,8 @@
           position: 'sticky',
           top: 0,
           zIndex: 14,
-          background: '#000000',
-          borderBottom: '0.6px solid rgba(255, 255, 255, 0.08)',
+          background: 'var(--omni-canvas, #0F1014)',
+          borderBottom: '1px solid var(--omni-hairline, #262A36)',
           paddingTop: 4,
           paddingBottom: 12
         }
@@ -189,11 +204,11 @@
               className: 'omni-circle-btn',
               onClick: onBack,
               'aria-label': 'Back to Settings',
-              style: { color: '#FFFFFF' }
+              style: { color: 'var(--omni-text)' }
             }, ic('ArrowLeft', 18)),
             h('div', { style: { minWidth: 0 } },
-              h('div', { style: { fontSize: 16, fontWeight: 750, color: '#F5F5F5', letterSpacing: '-0.015em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, 'Visual Presentation & Colors'),
-              h('div', { style: { fontSize: 11, color: 'rgba(255, 255, 255, 0.48)' } }, 'Live OLED canvas, accent polarity & screen layouts')
+              h('div', { style: { fontSize: 16, fontWeight: 750, color: 'var(--omni-text)', letterSpacing: '-0.015em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, 'Visual Presentation & Colors'),
+              h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)' } }, 'Elevated Dark surfaces, accent polarity & screen layouts')
             )
           ),
           h('button', {
@@ -201,7 +216,8 @@
             onClick: function () {
               if (Engine && typeof Engine.resetPrefs === 'function') {
                 Engine.resetPrefs();
-                toast('Reset visual theme and layouts to Monochrome defaults.', 'info');
+                toggleAmoledCanvas(false);
+                toast('Reset visual theme and layouts to Chimanew Elevated Dark defaults.', 'info');
               }
             },
             style: {
@@ -209,10 +225,10 @@
               alignItems: 'center',
               gap: 5,
               padding: '6px 11px',
-              borderRadius: 999,
-              background: 'rgba(255, 255, 255, 0.055)',
-              border: '0.6px solid rgba(255, 255, 255, 0.12)',
-              color: 'rgba(255, 255, 255, 0.85)',
+              borderRadius: 6,
+              background: 'var(--omni-control, #23262F)',
+              border: '1px solid var(--omni-border, #363A48)',
+              color: 'var(--omni-text, #F5F6F8)',
               fontSize: 11.5,
               fontWeight: 600,
               cursor: 'pointer',
@@ -225,10 +241,10 @@
         h('div', {
           style: {
             position: 'relative',
-            borderRadius: 10,
+            borderRadius: 8,
             overflow: 'hidden',
-            background: '#050507',
-            border: '0.6px solid rgba(255, 255, 255, 0.1)',
+            background: isAmoledOn ? '#000000' : 'var(--omni-surface, #181A20)',
+            border: '1px solid var(--omni-border, #363A48)',
             minHeight: 108
           }
         },
@@ -237,7 +253,7 @@
             style: {
               position: 'absolute',
               inset: -16,
-              background: 'radial-gradient(circle at 18% 30%, ' + activePalette.accent + '55 0%, transparent 55%), radial-gradient(circle at 82% 70%, ' + activePalette.variant + '44 0%, transparent 58%), linear-gradient(135deg, #101116 0%, #030305 100%)',
+              background: 'radial-gradient(circle at 18% 30%, ' + activePalette.accent + '48 0%, transparent 55%), radial-gradient(circle at 82% 70%, ' + activePalette.variant + '38 0%, transparent 58%), linear-gradient(135deg, #181A20 0%, ' + (isAmoledOn ? '#000000' : '#0F1014') + ' 100%)',
               filter: 'blur(' + previewBlurPx + 'px)',
               transform: 'scale(1.08)',
               pointerEvents: 'none'
@@ -247,7 +263,7 @@
             style: {
               position: 'absolute',
               inset: 0,
-              background: 'linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.82) 100%)',
+              background: 'linear-gradient(180deg, rgba(15,16,20,0.22) 0%, rgba(15,16,20,0.82) 100%)',
               pointerEvents: 'none'
             }
           }),
@@ -269,10 +285,10 @@
                 width: 52,
                 height: 78,
                 flexShrink: 0,
-                borderRadius: (prefs.posterRadius || 10) + 'px',
+                borderRadius: (prefs.posterRadius || 8) + 'px',
                 overflow: 'hidden',
-                background: 'linear-gradient(160deg, ' + activePalette.accent + '33 0%, #09090D 52%, ' + activePalette.variant + '44 100%)',
-                border: '1px solid rgba(255, 255, 255, 0.16)',
+                background: 'linear-gradient(160deg, ' + activePalette.accent + '33 0%, #181A20 52%, ' + activePalette.variant + '44 100%)',
+                border: '1px solid var(--omni-border, #363A48)',
                 boxShadow: '0 8px 18px rgba(0, 0, 0, 0.7)'
               }
             },
@@ -295,10 +311,10 @@
                 }
               },
                 h('div', { style: { width: 14, height: 2, background: activePalette.accent, borderRadius: 2 } }),
-                h('div', { style: { fontSize: 6.5, fontWeight: 800, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.06em', lineHeight: 1.2 } }, 'OBSIDIAN\nSTAR')
+                h('div', { style: { fontSize: 6.5, fontWeight: 800, color: '#F5F6F8', letterSpacing: '0.06em', lineHeight: 1.2 } }, 'SAMPLE\nNOVEL')
               )
             ),
-            // Preview metadata + live hairline strip + contrast CTA
+            // Preview metadata + live 3-col hairline strip + contrast CTA
             h('div', { style: { flex: 1, minWidth: 0 } },
               h('div', {
                 style: {
@@ -311,35 +327,34 @@
                   overflow: 'hidden',
                   textOverflow: 'ellipsis'
                 }
-              }, activePalette.name + ' · ' + (prefs.libraryLayout === 'editorial' ? 'Editorial' : 'Minimal') + ' · ' + (prefs.detailsHeader === 'jacket' ? 'Jacket' : 'Split')),
+              }, activePalette.name + ' · ' + (isAmoledOn ? 'AMOLED' : 'Elevated') + ' · ' + (prefs.detailsHeader === 'jacket' ? 'Jacket' : 'Split')),
               h('div', {
                 style: {
                   fontSize: 13.5,
                   fontWeight: 750,
-                  color: '#F5F5F5',
+                  color: '#F5F6F8',
                   marginTop: 2,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis'
                 }
-              }, 'Chronicles of the Obsidian Star'),
+              }, 'Sample Novel'),
               h('div', {
                 style: {
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(4, 1fr)',
-                  borderTop: '0.6px solid rgba(255, 255, 255, 0.12)',
-                  borderBottom: '0.6px solid rgba(255, 255, 255, 0.12)',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  borderTop: '1px solid var(--omni-hairline, #262A36)',
+                  borderBottom: '1px solid var(--omni-hairline, #262A36)',
                   padding: '3px 0',
                   margin: '6px 0 7px',
                   fontSize: 9.5,
-                  color: 'rgba(255, 255, 255, 0.65)',
+                  color: 'var(--omni-text-sub, #AEB4C2)',
                   textAlign: 'center'
                 }
               },
-                h('span', null, '214 CH'),
+                h('span', null, '146 / 214'),
                 h('span', null, '68% READ'),
-                h('span', null, '42 GLS'),
-                h('span', null, 'EPUB')
+                h('span', null, '48K WORDS')
               ),
               h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
                 h('span', {
@@ -348,7 +363,7 @@
                     alignItems: 'center',
                     gap: 5,
                     padding: '4px 10px',
-                    borderRadius: 7,
+                    borderRadius: 6,
                     background: activePalette.accent,
                     color: activePalette.onAccent,
                     fontSize: 10.5,
@@ -359,13 +374,41 @@
                   style: {
                     fontSize: 10,
                     fontFamily: "'IBM Plex Mono', monospace",
-                    color: 'rgba(255,255,255,0.5)'
+                    color: 'var(--omni-text-muted, #7C8394)'
                   }
-                }, activePalette.accent + ' / ' + activePalette.onAccent)
+                }, activePalette.accent)
               )
             )
           )
         )
+      ),
+
+      // ── 0. Screen Canvas Surface Toggle (Elevated Dark vs Pitch Black) ──
+      hairlineSectionHeader('Page Canvas Background', isAmoledOn ? 'Pitch Black #000000' : 'Elevated #0F1014'),
+      h('div', {
+        style: {
+          background: 'var(--omni-surface, #181A20)',
+          border: '1px solid var(--omni-border, #363A48)',
+          borderRadius: 8,
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          cursor: 'pointer'
+        },
+        onClick: function () { toggleAmoledCanvas(!isAmoledOn); }
+      },
+        h('div', { style: { minWidth: 0, flex: 1 } },
+          h('div', { style: { fontSize: 13.5, fontWeight: 650, color: 'var(--omni-text, #F5F6F8)' } }, 'AMOLED Pitch-Black Page Canvas (#000000)'),
+          h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub, #AEB4C2)', marginTop: 2, lineHeight: 1.35 } }, 'Turn ON for pure black page background while keeping sheets (#14161C) and buttons (#23262F) separated.')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'switch ' + (isAmoledOn ? 'on' : ''),
+          'aria-pressed': !!isAmoledOn,
+          onClick: function (e) { e.stopPropagation(); toggleAmoledCanvas(!isAmoledOn); }
+        })
       ),
 
       // ── 1. Accent & Surface Palette Grid (14 Presets) ──
@@ -391,8 +434,8 @@
             gap: 6,
             padding: '9px 10px',
             borderRadius: 8,
-            background: isSelected ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.025)',
-            border: isSelected ? ('1.2px solid ' + swatchPrimary) : '0.6px solid rgba(255, 255, 255, 0.09)',
+            background: isSelected ? 'var(--omni-control-hover, #2A2E39)' : 'var(--omni-surface, #181A20)',
+            border: isSelected ? ('1.5px solid ' + swatchPrimary) : '1px solid var(--omni-border, #363A48)',
             cursor: 'pointer',
             textAlign: 'left'
           }
@@ -402,7 +445,7 @@
               style: {
                 width: 22,
                 height: 22,
-                borderRadius: 999,
+                borderRadius: 6,
                 background: 'linear-gradient(135deg, ' + swatchPrimary + ' 52%, ' + swatchSecondary + ' 52%)',
                 border: '1px solid rgba(255,255,255,0.2)',
                 display: 'inline-block'
@@ -414,7 +457,7 @@
             style: {
               fontSize: 11.5,
               fontWeight: isSelected ? 750 : 500,
-              color: isSelected ? '#FFFFFF' : 'rgba(255, 255, 255, 0.78)',
+              color: isSelected ? 'var(--omni-text, #F5F6F8)' : 'var(--omni-text-sub, #AEB4C2)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -454,11 +497,11 @@
               style: {
                 flex: 1,
                 minWidth: 0,
-                background: 'rgba(255,255,255,0.05)',
-                border: '0.6px solid rgba(255,255,255,0.12)',
+                background: 'var(--omni-input, #1B1D24)',
+                border: '1px solid var(--omni-border, #363A48)',
                 borderRadius: 6,
                 padding: '7px 8px',
-                color: '#F5F5F5',
+                color: 'var(--omni-text, #F5F6F8)',
                 fontSize: 12,
                 fontFamily: "'IBM Plex Mono', monospace",
                 outline: 'none'
@@ -484,11 +527,11 @@
               style: {
                 flex: 1,
                 minWidth: 0,
-                background: 'rgba(255,255,255,0.05)',
-                border: '0.6px solid rgba(255,255,255,0.12)',
+                background: 'var(--omni-input, #1B1D24)',
+                border: '1px solid var(--omni-border, #363A48)',
                 borderRadius: 6,
                 padding: '7px 8px',
-                color: '#F5F5F5',
+                color: 'var(--omni-text, #F5F6F8)',
                 fontSize: 12,
                 fontFamily: "'IBM Plex Mono', monospace",
                 outline: 'none'
@@ -581,14 +624,29 @@
         })
       ),
 
-      hairlineSectionHeader('Discover Catalog Layout', prefs.discoverLayout === 'grid' ? '3-Col Grid' : 'Source Rails'),
+      hairlineSectionHeader('Discover Catalog Layout', prefs.discoverLayout === 'grid' ? 'Poster Grid' : (prefs.discoverLayout === 'rails' ? 'Editorial Rails' : 'Sources List')),
       h('div', { style: { display: 'flex', gap: 8 } },
+        renderWireframeCard({
+          prefKey: 'discoverLayout',
+          value: 'sources',
+          active: !prefs.discoverLayout || prefs.discoverLayout === 'sources',
+          title: 'Sources Directory',
+          desc: 'Search + hairline site list',
+          schematic: function (tint) {
+            return [
+              h('div', { key: 'sb', style: { height: 10, borderRadius: 2, background: 'rgba(255,255,255,0.16)', border: '1px solid ' + tint } }),
+              h('div', { key: 'r1', style: { height: 12, borderRadius: 2, background: tint + '30' } }),
+              h('div', { key: 'r2', style: { height: 12, borderRadius: 2, background: 'rgba(255,255,255,0.1)' } }),
+              h('div', { key: 'r3', style: { height: 12, borderRadius: 2, background: 'rgba(255,255,255,0.08)' } })
+            ];
+          }
+        }),
         renderWireframeCard({
           prefKey: 'discoverLayout',
           value: 'grid',
           active: prefs.discoverLayout === 'grid',
-          title: '3-Column Poster Grid',
-          desc: 'Dense uniform cover gallery',
+          title: 'Poster Grid',
+          desc: 'Dense cover gallery',
           schematic: function (tint) {
             return [
               h('div', { key: 'r1', style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, flex: 1 } },
@@ -608,11 +666,11 @@
           prefKey: 'discoverLayout',
           value: 'rails',
           active: prefs.discoverLayout === 'rails',
-          title: 'Editorial Source Rails',
-          desc: 'Spotlight + horizontal rails',
+          title: 'Source Rails',
+          desc: 'Banner + sidecar rails',
           schematic: function (tint) {
             return [
-              h('div', { key: 'sp', style: { height: 22, borderRadius: 3, background: tint + '30', border: '0.6px solid ' + tint } }),
+              h('div', { key: 'sp', style: { height: 22, borderRadius: 3, background: tint + '30', border: '1px solid ' + tint } }),
               h('div', { key: 'rl', style: { display: 'flex', gap: 3, flex: 1 } },
                 h('div', { style: { width: '32%', borderRadius: 2, background: 'rgba(255,255,255,0.2)' } }),
                 h('div', { style: { width: '32%', borderRadius: 2, background: 'rgba(255,255,255,0.15)' } }),
@@ -654,12 +712,12 @@
                 onClick: function () { setPref('heroBlur', opt.val); },
                 style: {
                   padding: '7px 6px',
-                  borderRadius: 7,
-                  background: activeBlur ? activePalette.accent : 'rgba(255,255,255,0.045)',
-                  color: activeBlur ? activePalette.onAccent : 'rgba(255,255,255,0.78)',
-                  border: activeBlur ? 'none' : '0.6px solid rgba(255,255,255,0.09)',
+                  borderRadius: 6,
+                  background: activeBlur ? activePalette.accent : 'var(--omni-control, #23262F)',
+                  color: activeBlur ? activePalette.onAccent : 'var(--omni-text, #F5F6F8)',
+                  border: activeBlur ? ('1px solid ' + activePalette.accent) : '1px solid var(--omni-border, #363A48)',
                   fontSize: 11.5,
-                  fontWeight: activeBlur ? 750 : 500,
+                  fontWeight: activeBlur ? 750 : 600,
                   cursor: 'pointer'
                 }
               }, opt.label + ' (' + opt.val + ')');

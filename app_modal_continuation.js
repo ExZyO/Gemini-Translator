@@ -225,7 +225,7 @@
                 style: {
                   fontSize: 11.5,
                   padding: '3px 9px',
-                  borderRadius: 999,
+                  borderRadius: 5,
                   background: 'rgba(99, 102, 241, 0.15)',
                   color: 'var(--iris)',
                   fontWeight: 600,
@@ -242,7 +242,7 @@
                 style: {
                   fontSize: 11.5,
                   padding: '3px 9px',
-                  borderRadius: 999,
+                  borderRadius: 5,
                   background: 'rgba(16, 185, 129, 0.12)',
                   color: '#10b981',
                   fontWeight: 600,
@@ -588,7 +588,7 @@
                 style: {
                   fontSize: 11,
                   padding: '2px 8px',
-                  borderRadius: 999,
+                  borderRadius: 5,
                   background: 'rgba(16, 185, 129, 0.15)',
                   color: '#10b981',
                   fontWeight: 700,
@@ -723,7 +723,7 @@
                   fontWeight: 700,
                   fontSize: 12,
                   padding: '8px 16px',
-                  borderRadius: 999,
+                  borderRadius: 8,
                   border: 'none',
                   cursor: 'pointer',
                   display: 'inline-flex',
@@ -1224,12 +1224,12 @@
                     ic('Zap', 13), 'Align to Phone Book (Fix "Not the same book")'
                   ),
                   ongoingEpubModal.mrexptData.autoMatched && h('span', {
-                    style: { fontSize: 11, color: '#10b981', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 4 }
+                    style: { fontSize: 11, color: '#10b981', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: 5, display: 'inline-flex', alignItems: 'center', gap: 4 }
                   }, ic('Check', 11), `Phone ID Matched: ${ongoingEpubModal.mrexptData.targetBookId}`)
                 ),
 
                 // Sub-mode tabs: 1. Phone Stamp (Recommended) vs 2. Direct EPUB (Zero bookmarks)
-                h('div', { style: { display: 'flex', gap: 6, background: 'rgba(0,0,0,0.25)', padding: 3, borderRadius: 8 } },
+                h('div', { style: { display: 'flex', gap: 6, background: 'var(--omni-input, #1B1D24)', padding: 3, borderRadius: 8 } },
                   h('button', {
                     type: 'button',
                     style: {
@@ -1240,8 +1240,8 @@
                       fontWeight: 600,
                       cursor: 'pointer',
                       border: 'none',
-                      background: ongoingEpubModal.mrexptData.alignMode !== 'direct' ? 'var(--accent, #6366f1)' : 'transparent',
-                      color: ongoingEpubModal.mrexptData.alignMode !== 'direct' ? '#fff' : 'var(--slate)'
+                      background: ongoingEpubModal.mrexptData.alignMode !== 'direct' ? 'var(--omni-accent, #38bdf8)' : 'transparent',
+                      color: ongoingEpubModal.mrexptData.alignMode !== 'direct' ? 'var(--omni-on-accent, #0F1014)' : 'var(--omni-text-sub, #AEB4C2)'
                     },
                     onClick: () => setOngoingEpubModal(prev => prev ? {
                       ...prev,

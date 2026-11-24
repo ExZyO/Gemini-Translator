@@ -1,33 +1,53 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   omni_ui.css - Pure-AMOLED Editorial Design System (Nuvio + Chimanew)
-   Pure #000000 OLED canvas, 0.6px hairline rhythm, specular glass card depth,
-   feathered artwork backdrops, physical book jackets & scroll-shrinking dock.
+   omni_ui.css - Chimanew Elevated Dark Design System
+   4-shade elevated contrast (#0F1014 canvas -> #181A20 surface -> #23262F controls
+   -> --omni-accent CTA), crisp 6px-8px rectangular buttons & covers, 2px underline tabs,
+   unboxed hairline stats & rows, Floating Frosted Dock, plus optional AMOLED #000 canvas.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --omni-canvas: #000000;
-  --omni-surface: #070709;
-  --omni-chip-fill: rgba(255, 255, 255, 0.055);
-  --omni-hairline: rgba(255, 255, 255, 0.08);
+  --omni-canvas: #0F1014;
+  --omni-surface: #181A20;
+  --omni-control: #23262F;
+  --omni-control-hover: #2C303C;
+  --omni-input: #1B1D24;
+  --omni-border: #363A48;
+  --omni-hairline: #262A36;
+  --omni-text: #F5F6F8;
+  --omni-text-sub: #AEB4C2;
+  --omni-text-muted: #7C8394;
+  --omni-chip-fill: #23262F;
+  --omni-radius-btn: 6px;
+  --omni-radius-card: 8px;
+  --omni-radius-sheet: 12px;
   --omni-jade: #34D399;
   --omni-accent: #F5F5F5;
   --omni-accent-variant: #C8C4BC;
-  --omni-on-accent: #000000;
+  --omni-on-accent: #0D0D10;
   --omni-accent-rgb: 245, 245, 245;
-  --omni-accent-soft: rgba(245, 245, 245, 0.14);
+  --omni-accent-soft: rgba(245, 245, 245, 0.16);
   --omni-hero-blur: 24px;
   --omni-sheen-alpha: 0.168;
-  --omni-poster-radius: 10px;
+  --omni-poster-radius: 8px;
 }
 
-/* ── Pure #000000 AMOLED Canvas Overrides ── */
+/* ── Global Canvas & Optional Pitch-Black AMOLED Canvas ── */
 html[data-omni="true"],
 html[data-omni="true"] body,
 html[data-omni="true"] #root,
 html[data-omni="true"] .tl-app {
-  background: #000000 !important;
-  color: #F5F5F5;
+  background: var(--omni-canvas, #0F1014) !important;
+  color: var(--omni-text, #F5F6F8) !important;
   -webkit-font-smoothing: antialiased;
+}
+
+html[data-omni="true"][data-omni-amoled="true"],
+html[data-omni="true"][data-omni-amoled="true"] body,
+html[data-omni="true"][data-omni-amoled="true"] #root,
+html[data-omni="true"][data-omni-amoled="true"] .tl-app {
+  --omni-canvas: #000000;
+  --omni-surface: #14161C;
+  background: #000000 !important;
 }
 
 html[data-omni="true"] .tl-wrap {
@@ -35,29 +55,27 @@ html[data-omni="true"] .tl-wrap {
   padding: 0 16px calc(114px + env(safe-area-inset-bottom, 16px)) !important;
 }
 
-/* Strip enclosed card boxes globally in favor of open canvas & 0.6px hairlines */
+/* Frameless section layout on canvas while preserving elevated inner panels */
 html[data-omni="true"] .card,
-html[data-omni="true"] .settings-grouped-card,
-html[data-omni="true"] .stu-card,
 html[data-omni="true"] .book-card,
 html[data-omni="true"] .translate-glass-card {
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 0.6px solid var(--omni-hairline) !important;
-  border-radius: 0 !important;
+  background: var(--omni-surface) !important;
+  border: 1px solid var(--omni-border) !important;
+  border-radius: 8px !important;
   box-shadow: none !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
 }
 
-html[data-omni="true"] .settings-grouped-card:last-child,
-html[data-omni="true"] .card:last-child {
-  border-bottom: none !important;
+html[data-omni="true"] .settings-grouped-card,
+html[data-omni="true"] .stu-card {
+  background: var(--omni-surface) !important;
+  border: 1px solid var(--omni-border) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
 }
 
 /* ── Page Headers ── */
 .omni-page-hd {
-  padding: calc(env(safe-area-inset-top, 10px) + 14px) 0 14px;
+  padding: calc(env(safe-area-inset-top, 10px) + 12px) 0 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -65,71 +83,81 @@ html[data-omni="true"] .card:last-child {
 }
 
 .omni-page-title {
-  font-size: 25px;
+  font-size: 24px;
   font-weight: 800;
-  letter-spacing: -0.028em;
+  letter-spacing: -0.025em;
   line-height: 1.15;
-  color: #F5F5F5;
+  color: var(--omni-text);
   margin: 0;
 }
 
 .omni-page-sub {
-  font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.52);
-  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--omni-text-sub);
+  margin: 3px 0 0;
 }
 
 .omni-header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   flex-shrink: 0;
 }
 
-/* ── Circular Dark Icon Trigger ── */
+/* ── Crisp Rectangular 7px Icon Trigger (Zero Bubble/Pill) ── */
 .omni-circle-btn {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.065);
-  border: 0.6px solid rgba(255, 255, 255, 0.11);
-  color: #F5F5F5;
+  border-radius: 7px;
+  background: var(--omni-control);
+  border: 1px solid var(--omni-border);
+  color: var(--omni-text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: transform 0.14s ease, background 0.15s ease, color 0.15s ease;
+  transition: transform 0.14s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
+.omni-circle-btn:hover {
+  background: var(--omni-control-hover);
+  border-color: #4A5064;
+}
+
 .omni-circle-btn:active {
-  transform: scale(0.92);
-  background: rgba(255, 255, 255, 0.12);
+  transform: scale(0.94);
+  background: var(--omni-control-hover);
 }
 
 .omni-circle-btn.active {
   background: var(--omni-accent);
   color: var(--omni-on-accent);
-  border-color: transparent;
+  border-color: var(--omni-accent);
 }
 
 .omni-circle-btn.translucent {
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(24, 26, 32, 0.88);
+  border: 1px solid var(--omni-border);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-color: rgba(255, 255, 255, 0.18);
 }
 
-/* ── Specular Glass 2:3 Poster Frame (CardDepthEffect.kt) ── */
+.omni-circle-btn.translucent:hover {
+  background: var(--omni-control);
+}
+
+/* ── Specular Glass 2:3 Poster Frame (8px Chimanew Radius) ── */
 .omni-poster-frame {
   position: relative;
   width: 100%;
   aspect-ratio: 2 / 3;
-  border-radius: var(--omni-poster-radius, 10px);
+  border-radius: var(--omni-poster-radius, 8px);
   overflow: hidden;
-  background: #0B0B0D;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.72);
+  background: var(--omni-surface);
+  border: 1px solid var(--omni-hairline);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
   flex-shrink: 0;
 }
 
@@ -147,10 +175,8 @@ html[data-omni="true"] .card:last-child {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
   pointer-events: none;
   z-index: 4;
 }
@@ -194,11 +220,11 @@ html[data-omni="true"] .card:last-child {
 }
 
 .omni-poster-card:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .omni-poster-card.selected .omni-poster-frame {
-  box-shadow: 0 0 0 2.5px var(--omni-accent), 0 10px 24px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 0 0 2.5px var(--omni-accent), 0 8px 20px rgba(0, 0, 0, 0.75);
 }
 
 .omni-poster-title {
@@ -206,7 +232,7 @@ html[data-omni="true"] .card:last-child {
   font-size: 12.5px;
   font-weight: 650;
   line-height: 1.3;
-  color: #F5F5F5;
+  color: var(--omni-text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -217,7 +243,7 @@ html[data-omni="true"] .card:last-child {
 .omni-poster-meta {
   margin-top: 2px;
   font-size: 10.5px;
-  color: rgba(255, 255, 255, 0.48);
+  color: var(--omni-text-sub);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -229,13 +255,13 @@ html[data-omni="true"] .card:last-child {
   left: 7px;
   width: 22px;
   height: 22px;
-  border-radius: 50%;
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 6;
-  border: 1.5px solid rgba(255, 255, 255, 0.8);
-  background: rgba(0, 0, 0, 0.65);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  background: rgba(15, 16, 20, 0.8);
   color: var(--omni-on-accent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
 }
@@ -250,15 +276,13 @@ html[data-omni="true"] .card:last-child {
   bottom: 6px;
   right: 6px;
   z-index: 5;
-  background: rgba(0, 0, 0, 0.78);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 0.6px solid rgba(255, 255, 255, 0.22);
-  border-radius: 5px;
+  background: rgba(15, 16, 20, 0.88);
+  border: 1px solid var(--omni-border);
+  border-radius: 4px;
   padding: 2px 5px;
   font-size: 9.5px;
   font-weight: 700;
-  color: #FFFFFF;
+  color: var(--omni-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -269,37 +293,38 @@ html[data-omni="true"] .card:last-child {
   z-index: 5;
   background: var(--omni-accent);
   color: var(--omni-on-accent);
-  border-radius: 5px;
+  border-radius: 4px;
   padding: 2px 5px;
   font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.02em;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
 }
 
-/* ── Chimanew Full-Bleed Dual-Artwork Looping Hero Carousel ── */
+/* ── Editorial Dual-Artwork Looping Hero Carousel ── */
 .omni-hero {
   position: relative;
   margin: 0 -16px 14px;
-  height: 392px;
+  height: 368px;
   overflow: hidden;
-  background: #000000;
+  background: var(--omni-surface);
+  border-bottom: 1px solid var(--omni-hairline);
 }
 
 .omni-hero-bg {
   position: absolute;
   inset: -14px;
   overflow: hidden;
-  opacity: 0.78;
+  opacity: 0.72;
 }
 
 .omni-hero-glow {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 26% 32%, rgba(var(--omni-accent-rgb), 0.26) 0%, transparent 56%),
-    radial-gradient(circle at 78% 24%, rgba(255, 255, 255, 0.08) 0%, transparent 52%),
-    #000000;
+    radial-gradient(circle at 26% 32%, rgba(var(--omni-accent-rgb), 0.24) 0%, transparent 56%),
+    radial-gradient(circle at 78% 24%, rgba(255, 255, 255, 0.06) 0%, transparent 52%),
+    var(--omni-canvas);
 }
 
 .omni-hero-vignette {
@@ -307,11 +332,10 @@ html[data-omni="true"] .card:last-child {
   inset: 0;
   background: linear-gradient(
     180deg,
-    rgba(0, 0, 0, 0.48) 0%,
-    rgba(0, 0, 0, 0.16) 28%,
-    rgba(0, 0, 0, 0.58) 64%,
-    rgba(0, 0, 0, 0.92) 86%,
-    #000000 100%
+    rgba(15, 16, 20, 0.54) 0%,
+    rgba(15, 16, 20, 0.18) 30%,
+    rgba(15, 16, 20, 0.72) 66%,
+    var(--omni-canvas) 100%
   );
   pointer-events: none;
   z-index: 2;
@@ -332,9 +356,9 @@ html[data-omni="true"] .card:last-child {
 .omni-hero-brand {
   font-size: 13px;
   font-weight: 800;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--omni-text);
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
 }
 
@@ -342,7 +366,7 @@ html[data-omni="true"] .card:last-child {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 24px;
+  bottom: 22px;
   padding: 0 18px;
   display: flex;
   align-items: flex-end;
@@ -351,7 +375,7 @@ html[data-omni="true"] .card:last-child {
 }
 
 .omni-hero-cover-wrap {
-  width: 112px;
+  width: 108px;
   flex-shrink: 0;
 }
 
@@ -364,40 +388,40 @@ html[data-omni="true"] .card:last-child {
 .omni-hero-kicker {
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--omni-accent);
   margin-bottom: 4px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
 }
 
 .omni-hero-title {
   font-size: 20px;
   font-weight: 800;
   line-height: 1.18;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   color: #FFFFFF;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.95);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
 }
 
 .omni-hero-sub {
   margin-top: 5px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.74);
+  color: var(--omni-text-sub);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
 }
 
 .omni-hero-prog-track {
   width: 100%;
-  height: 2.5px;
-  border-radius: 99px;
+  height: 3px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.16);
   overflow: hidden;
   margin-top: 10px;
@@ -406,19 +430,19 @@ html[data-omni="true"] .card:last-child {
 .omni-hero-prog-fill {
   height: 100%;
   background: var(--omni-accent);
-  border-radius: 99px;
+  border-radius: 3px;
 }
 
 .omni-hero-continue-btn {
   margin-top: 10px;
-  height: 34px;
+  height: 35px;
   padding: 0 14px;
   border-radius: 7px;
   background: var(--omni-accent);
   color: var(--omni-on-accent);
   border: none;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 12.5px;
+  font-weight: 750;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -438,10 +462,10 @@ html[data-omni="true"] .card:last-child {
 }
 
 .omni-hero-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 99px;
-  background: rgba(255, 255, 255, 0.28);
+  width: 6px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.3);
   border: none;
   padding: 0;
   cursor: pointer;
@@ -449,7 +473,7 @@ html[data-omni="true"] .card:last-child {
 }
 
 .omni-hero-dot.active {
-  width: 16px;
+  width: 18px;
   background: var(--omni-accent);
 }
 
@@ -464,9 +488,9 @@ html[data-omni="true"] .card:last-child {
 .omni-section-label {
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--omni-text-sub);
 }
 
 .omni-continue-rail {
@@ -484,12 +508,12 @@ html[data-omni="true"] .card:last-child {
 
 .omni-continue-card {
   position: relative;
-  flex: 0 0 248px;
-  height: 112px;
-  border-radius: 10px;
+  flex: 0 0 250px;
+  height: 108px;
+  border-radius: 8px;
   overflow: hidden;
-  background: #0A0A0C;
-  border: 0.6px solid rgba(255, 255, 255, 0.12);
+  background: var(--omni-surface);
+  border: 1px solid var(--omni-border);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -500,7 +524,7 @@ html[data-omni="true"] .card:last-child {
 .omni-continue-card.compact-wide {
   flex: none;
   width: 100%;
-  height: 108px;
+  height: 104px;
   margin-bottom: 12px;
 }
 
@@ -510,19 +534,19 @@ html[data-omni="true"] .card:last-child {
   width: calc(100% + 20px);
   height: calc(100% + 20px);
   object-fit: cover;
-  filter: blur(18px) saturate(1.2);
-  opacity: 0.34;
+  filter: blur(18px) saturate(1.15);
+  opacity: 0.28;
   pointer-events: none;
 }
 
 .omni-continue-card-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.78) 100%);
+  background: linear-gradient(90deg, rgba(24, 26, 32, 0.72) 0%, rgba(24, 26, 32, 0.9) 100%);
   pointer-events: none;
 }
 
-/* ── Flat 6px Search Bar & Soft Borderless Tabs ── */
+/* ── Crisp 6px Search Bar & Rectangular Controls ── */
 .omni-search-bar {
   display: flex;
   align-items: center;
@@ -530,8 +554,9 @@ html[data-omni="true"] .card:last-child {
   height: 42px;
   padding: 0 12px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.055);
-  border: 0.6px solid rgba(255, 255, 255, 0.09);
+  background: var(--omni-input);
+  border: 1px solid var(--omni-border);
+  color: var(--omni-text-sub);
   margin-bottom: 10px;
 }
 
@@ -541,12 +566,12 @@ html[data-omni="true"] .card:last-child {
   background: transparent;
   border: none;
   outline: none;
-  color: #F5F5F5;
+  color: var(--omni-text);
   font-size: 13.5px;
 }
 
 .omni-search-bar input::placeholder {
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--omni-text-muted);
 }
 
 .omni-soft-tabs {
@@ -555,7 +580,7 @@ html[data-omni="true"] .card:last-child {
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 2px 0 12px;
+  padding: 2px 0 10px;
 }
 
 .omni-soft-tabs::-webkit-scrollbar {
@@ -563,36 +588,51 @@ html[data-omni="true"] .card:last-child {
 }
 
 .omni-soft-tab {
-  padding: 6px 12px;
-  border-radius: 7px;
-  font-size: 12.5px;
+  padding: 6px 11px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.52);
-  background: transparent;
-  border: none;
+  color: var(--omni-text-sub);
+  background: var(--omni-control);
+  border: 1px solid var(--omni-border);
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.omni-soft-tab:hover {
+  background: var(--omni-control-hover);
+  color: var(--omni-text);
 }
 
 .omni-soft-tab.active {
-  background: rgba(255, 255, 255, 0.105);
-  color: #FFFFFF;
+  background: var(--omni-accent);
+  color: var(--omni-on-accent);
+  border-color: var(--omni-accent);
+  font-weight: 700;
 }
 
-/* ── Unboxed 4-Column Hairline Stats Strip & Rows ── */
+/* ── Unboxed Hairline Stats Strip & Rows ── */
 .omni-hairline-strip {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--omni-hairline);
+  border-bottom: 1px solid var(--omni-hairline);
+  margin: 12px 0;
+}
+
+.omni-hairline-strip.cols-4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  border-top: 0.6px solid var(--omni-hairline);
-  border-bottom: 0.6px solid var(--omni-hairline);
-  margin: 14px 0;
 }
 
 .omni-stat-cell {
-  padding: 11px 6px;
+  padding: 10px 6px;
   text-align: center;
-  border-right: 0.6px solid var(--omni-hairline);
+  border-right: 1px solid var(--omni-hairline);
   min-width: 0;
 }
 
@@ -602,8 +642,8 @@ html[data-omni="true"] .card:last-child {
 
 .omni-stat-val {
   font-size: 13.5px;
-  font-weight: 700;
-  color: #F5F5F5;
+  font-weight: 750;
+  color: var(--omni-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -615,7 +655,7 @@ html[data-omni="true"] .card:last-child {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.44);
+  color: var(--omni-text-sub);
 }
 
 .omni-cta-row {
@@ -627,11 +667,11 @@ html[data-omni="true"] .card:last-child {
 
 .omni-flat-cta {
   flex: 1;
-  height: 44px;
+  height: 42px;
   border-radius: 8px;
   background: var(--omni-accent);
   color: var(--omni-on-accent);
-  border: none;
+  border: 1px solid var(--omni-accent);
   font-size: 13.5px;
   font-weight: 750;
   display: inline-flex;
@@ -643,30 +683,38 @@ html[data-omni="true"] .card:last-child {
 }
 
 .omni-flat-icon-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 0.6px solid rgba(255, 255, 255, 0.11);
-  color: #F5F5F5;
+  min-width: 42px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: var(--omni-control);
+  border: 1px solid var(--omni-border);
+  color: var(--omni-text);
+  font-size: 12px;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   position: relative;
   cursor: pointer;
   flex-shrink: 0;
 }
 
+.omni-flat-icon-btn:hover {
+  background: var(--omni-control-hover);
+}
+
 .omni-flat-icon-btn.active {
   background: var(--omni-accent-soft);
   color: var(--omni-accent);
-  border-color: rgba(var(--omni-accent-rgb), 0.4);
+  border-color: var(--omni-accent);
 }
 
 .omni-underline-tabs {
   display: flex;
-  gap: 20px;
-  border-bottom: 0.6px solid var(--omni-hairline);
+  gap: 18px;
+  border-bottom: 1px solid var(--omni-hairline);
   overflow-x: auto;
   scrollbar-width: none;
   margin-top: 6px;
@@ -677,14 +725,14 @@ html[data-omni="true"] .card:last-child {
 }
 
 .omni-underline-tab {
-  padding: 12px 2px 10px;
-  font-size: 13.5px;
+  padding: 11px 2px 9px;
+  font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.46);
+  color: var(--omni-text-sub);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  margin-bottom: -0.6px;
+  margin-bottom: -1px;
   white-space: nowrap;
   cursor: pointer;
   display: inline-flex;
@@ -692,9 +740,13 @@ html[data-omni="true"] .card:last-child {
   gap: 6px;
 }
 
+.omni-underline-tab:hover {
+  color: var(--omni-text);
+}
+
 .omni-underline-tab.active {
-  color: #F5F5F5;
-  font-weight: 700;
+  color: var(--omni-text);
+  font-weight: 750;
   border-bottom-color: var(--omni-accent);
 }
 
@@ -703,15 +755,15 @@ html[data-omni="true"] .card:last-child {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 54px;
-  padding: 12px 0;
-  border-bottom: 0.6px solid var(--omni-hairline);
+  min-height: 52px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--omni-hairline);
   background: transparent;
   cursor: pointer;
 }
 
 .omni-hairline-row:active {
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* ── Dedicated Editorial Book Details Screen ── */
@@ -719,7 +771,7 @@ html[data-omni="true"] .card:last-child {
   position: fixed;
   inset: 0;
   z-index: 1200;
-  background: #000000;
+  background: var(--omni-canvas);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: calc(48px + env(safe-area-inset-bottom, 16px));
@@ -739,7 +791,7 @@ html[data-omni="true"] .card:last-child {
   align-items: center;
   justify-content: space-between;
   padding: calc(env(safe-area-inset-top, 10px) + 10px) 16px 10px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0) 100%);
+  background: linear-gradient(180deg, rgba(15, 16, 20, 0.85) 0%, rgba(15, 16, 20, 0) 100%);
 }
 
 .omni-details-jacket-wrap {
@@ -763,13 +815,13 @@ html[data-omni="true"] .card:last-child {
 
 .omni-book-jacket {
   position: relative;
-  width: 152px;
-  height: 228px;
-  margin: 4px auto 16px;
-  border-radius: 5px 10px 10px 5px;
+  width: 148px;
+  height: 222px;
+  margin: 4px auto 14px;
+  border-radius: 5px 8px 8px 5px;
   overflow: hidden;
-  background: #0B0B0D;
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.88), 0 4px 12px rgba(0, 0, 0, 0.7);
+  background: var(--omni-surface);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.72);
 }
 
 .omni-book-jacket::before {
@@ -778,11 +830,11 @@ html[data-omni="true"] .card:last-child {
   inset: 0;
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.28) 0%,
-    rgba(255, 255, 255, 0.06) 4.5%,
+    rgba(255, 255, 255, 0.24) 0%,
+    rgba(255, 255, 255, 0.05) 4.5%,
     transparent 11%,
     transparent 94%,
-    rgba(0, 0, 0, 0.22) 100%
+    rgba(0, 0, 0, 0.2) 100%
   );
   pointer-events: none;
   z-index: 3;
@@ -807,7 +859,7 @@ html[data-omni="true"] .card:last-child {
 
 .omni-details-split-hero {
   position: relative;
-  height: 268px;
+  height: 256px;
   overflow: hidden;
   display: flex;
   align-items: flex-end;
@@ -824,15 +876,13 @@ html[data-omni="true"] .card:last-child {
   width: 100%;
 }
 
-/* ── Chimanew Multi-Select Top Bar & Floating Batch Dock ── */
+/* ── Chimanew Multi-Select Top Bar & Elevated Batch Dock ── */
 .omni-select-topbar {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-bottom: 0.6px solid var(--omni-hairline);
+  background: var(--omni-surface);
+  border-bottom: 1px solid var(--omni-border);
   margin: 0 -16px 12px;
   padding: calc(env(safe-area-inset-top, 10px) + 10px) 16px 10px;
   display: flex;
@@ -848,16 +898,12 @@ html[data-omni="true"] .card:last-child {
   transform: translateX(-50%);
   bottom: calc(84px + env(safe-area-inset-bottom, 12px));
   z-index: 65;
-  width: min(92vw, 400px);
+  width: min(92vw, 410px);
   height: 58px;
-  border-radius: 29px;
-  background: rgba(18, 17, 16, 0.82);
-  backdrop-filter: blur(26px) saturate(165%);
-  -webkit-backdrop-filter: blur(26px) saturate(165%);
-  border: 0.6px solid rgba(255, 255, 255, 0.16);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    0 12px 32px rgba(0, 0, 0, 0.85);
+  border-radius: 12px;
+  background: var(--omni-surface);
+  border: 1px solid var(--omni-border);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   padding: 4px 8px;
@@ -871,8 +917,8 @@ html[data-omni="true"] .card:last-child {
   gap: 2px;
   background: transparent;
   border: none;
-  color: #F5F5F5;
-  font-size: 10px;
+  color: var(--omni-text);
+  font-size: 10.5px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -881,34 +927,33 @@ html[data-omni="true"] .card:last-child {
   color: #F87171;
 }
 
-/* ── OmniTrack Frosted Scroll-Shrinking Bottom Nav Override ── */
+/* ── Floating Frosted Dock (Rectangular 14px Frame — Zero Bubbly Pills) ── */
 html[data-omni="true"] .bottomnav {
-  background: rgba(18, 17, 16, 0.68) !important;
-  backdrop-filter: blur(26px) saturate(165%) !important;
-  -webkit-backdrop-filter: blur(26px) saturate(165%) !important;
-  border: 0.6px solid rgba(255, 255, 255, 0.14) !important;
-  height: 62px !important;
-  border-radius: 31px !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 12px 32px rgba(0, 0, 0, 0.85) !important;
+  background: rgba(24, 26, 32, 0.90) !important;
+  backdrop-filter: blur(20px) saturate(145%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(145%) !important;
+  border: 1px solid var(--omni-border) !important;
+  height: 60px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65) !important;
 }
 
 html[data-omni="true"] .bottomnav.collapsed {
   height: 48px !important;
   max-width: 300px !important;
-  border-radius: 24px !important;
-  background: rgba(18, 17, 16, 0.8) !important;
+  border-radius: 12px !important;
+  background: rgba(24, 26, 32, 0.95) !important;
 }
 
 html[data-omni="true"] .nav-sliding-pill {
-  background: rgba(255, 255, 255, 0.10) !important;
-  border: 0.6px solid rgba(255, 255, 255, 0.22) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26) !important;
+  background: var(--omni-control) !important;
+  border: 1px solid var(--omni-border) !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
 }
 
 html[data-omni="true"] .nav-item {
-  color: rgba(255, 255, 255, 0.48) !important;
+  color: var(--omni-text-sub) !important;
 }
 
 html[data-omni="true"] .nav-item.active,
@@ -925,11 +970,11 @@ html[data-omni="true"] .nav-item.active .nav-icon {
 /* ── Discover Spotlight & Horizontal Rails ── */
 .omni-spotlight {
   position: relative;
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
-  min-height: 156px;
-  background: #08080A;
-  border: 0.6px solid rgba(255, 255, 255, 0.12);
+  min-height: 152px;
+  background: var(--omni-surface);
+  border: 1px solid var(--omni-border);
   display: flex;
   align-items: flex-end;
   padding: 14px;
@@ -944,15 +989,15 @@ html[data-omni="true"] .nav-item.active .nav-icon {
   width: calc(100% + 24px);
   height: calc(100% + 24px);
   object-fit: cover;
-  filter: blur(var(--omni-hero-blur, 20px)) saturate(1.18);
-  opacity: 0.42;
+  filter: blur(var(--omni-hero-blur, 20px)) saturate(1.15);
+  opacity: 0.38;
   pointer-events: none;
 }
 
 .omni-spotlight-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.88) 100%);
+  background: linear-gradient(180deg, rgba(15, 16, 20, 0.25) 0%, rgba(15, 16, 20, 0.92) 100%);
   pointer-events: none;
 }
 
@@ -976,113 +1021,254 @@ html[data-omni="true"] .nav-item.active .nav-icon {
   cursor: pointer;
 }
 
-/* ── Discover / Importer Novel Compact Blurred Header ── */
 .omni-novel-compact-hero {
   position: relative;
-  margin: 4px -16px 8px;
-  padding: 18px 16px 14px;
+  margin: 6px 0 10px;
+  padding: 16px 14px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--omni-border);
+  background: var(--omni-surface);
   overflow: hidden;
   display: flex;
   align-items: flex-end;
   gap: 14px;
-  min-height: 164px;
+  min-height: 158px;
 }
 
 .omni-novel-compact-hero::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.88) 82%, #000000 100%);
+  background: linear-gradient(180deg, rgba(15, 16, 20, 0.35) 0%, rgba(15, 16, 20, 0.92) 85%, var(--omni-surface) 100%);
   pointer-events: none;
   z-index: 1;
 }
 
-/* ── Translator Full-Bleed Language Bar & Edge-to-Edge Prose ── */
+/* ── Translator Language Bar & Bounded Lifted Prose Canvas ── */
 .omni-lang-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 0;
-  border-top: 0.6px solid var(--omni-hairline);
-  border-bottom: 0.6px solid var(--omni-hairline);
-  margin-bottom: 4px;
+  padding: 7px 10px;
+  background: var(--omni-surface);
+  border: 1px solid var(--omni-border);
+  border-radius: 6px;
+  margin-bottom: 8px;
 }
 
 .omni-lang-select {
   flex: 1;
   min-width: 0;
-  background: transparent;
-  border: none;
+  background: var(--omni-control);
+  border: 1px solid var(--omni-border);
+  border-radius: 6px;
   outline: none;
-  color: #F5F5F5;
-  font-size: 13.5px;
+  color: var(--omni-text);
+  font-size: 13px;
   font-weight: 700;
-  padding: 4px 2px;
+  padding: 6px 8px;
   cursor: pointer;
 }
 
 .omni-lang-select option {
-  background: #0D0D10;
-  color: #F5F5F5;
+  background: var(--omni-surface);
+  color: var(--omni-text);
 }
 
 .omni-prose-textarea {
   width: 100%;
-  background: #000000 !important;
-  border: none !important;
+  background: #16181F !important;
+  border: 1px solid #303442 !important;
+  border-radius: 8px !important;
   outline: none !important;
-  color: #F0EFEA !important;
+  color: var(--omni-text) !important;
   font-family: 'Literata', Georgia, serif;
   font-size: 14.5px;
   line-height: 1.72;
-  padding: 14px 2px !important;
+  padding: 14px !important;
+  margin-top: 8px;
   resize: vertical;
-  min-height: 260px;
+  min-height: 250px;
+}
+
+.omni-prose-textarea:focus {
+  border-color: var(--omni-accent) !important;
 }
 
 .omni-prose-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--omni-text-muted);
 }
 
-/* ── Ebook Studio Pure-AMOLED Frameless Overrides ── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL UNIFICATION FOR ALL 27+ LEGACY MODALS, SHEETS, BUTTONS & STUDIO UI
+   Ensures zero untouched submenus, zero invisible buttons, zero pill overload
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Controls & Buttons globally */
+html[data-omni="true"] .mini-btn,
+html[data-omni="true"] .chip-act,
+html[data-omni="true"] .btn-secondary,
+html[data-omni="true"] .btn-ghost,
+html[data-omni="true"] .icon-btn {
+  background: var(--omni-control) !important;
+  border: 1px solid var(--omni-border) !important;
+  color: var(--omni-text) !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+html[data-omni="true"] .mini-btn.danger,
+html[data-omni="true"] .chip-act.danger {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border-color: rgba(248, 113, 113, 0.45) !important;
+  color: #FCA5A5 !important;
+}
+
+html[data-omni="true"] .btn-primary {
+  background: var(--omni-accent) !important;
+  color: var(--omni-on-accent) !important;
+  border: 1px solid var(--omni-accent) !important;
+  border-radius: 7px !important;
+  font-weight: 750 !important;
+  box-shadow: none !important;
+}
+
+html[data-omni="true"] .chip,
+html[data-omni="true"] .badge {
+  background: var(--omni-control) !important;
+  border: 1px solid var(--omni-border) !important;
+  color: var(--omni-text) !important;
+  border-radius: 6px !important;
+}
+
+html[data-omni="true"] .switch {
+  background: #2B2F3C !important;
+  border: 1px solid #3E4354 !important;
+}
+
+html[data-omni="true"] .switch.on {
+  background: var(--omni-accent) !important;
+  border-color: var(--omni-accent) !important;
+}
+
+html[data-omni="true"] .switch.on::after {
+  background: var(--omni-on-accent) !important;
+}
+
+html[data-omni="true"] .seg,
+html[data-omni="true"] .seg-wide {
+  background: var(--omni-surface) !important;
+  border: 1px solid var(--omni-border) !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+}
+
+html[data-omni="true"] .seg-btn,
+html[data-omni="true"] .seg-wide span {
+  border-radius: 6px !important;
+  color: var(--omni-text-sub) !important;
+}
+
+html[data-omni="true"] .seg-btn.on,
+html[data-omni="true"] .seg-btn.active,
+html[data-omni="true"] .seg-wide span.on {
+  background: var(--omni-accent) !important;
+  color: var(--omni-on-accent) !important;
+  box-shadow: none !important;
+  font-weight: 750 !important;
+}
+
+/* Modals, Overlays, Glossaries, Confirms & Bottom Sheets */
+html[data-omni="true"] .modal-overlay,
+html[data-omni="true"] .confirm-backdrop,
+html[data-omni="true"] .sheet-backdrop,
+html[data-omni="true"] .fullscreen-modal-overlay {
+  background: rgba(6, 7, 10, 0.76) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+html[data-omni="true"] .gloss-overlay {
+  background: var(--omni-canvas) !important;
+}
+
+html[data-omni="true"] .modal-box,
+html[data-omni="true"] .confirm-box,
+html[data-omni="true"] .gloss-editor {
+  background: var(--omni-surface) !important;
+  border: 1px solid var(--omni-border) !important;
+  border-radius: 10px !important;
+  color: var(--omni-text) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75) !important;
+}
+
+html[data-omni="true"] .modal-hd,
+html[data-omni="true"] .modal-ft {
+  background: var(--omni-surface) !important;
+  border-color: var(--omni-hairline) !important;
+}
+
+html[data-omni="true"] .sheet {
+  background: var(--omni-surface) !important;
+  border-top: 1px solid var(--omni-border) !important;
+  border-radius: 14px 14px 0 0 !important;
+  color: var(--omni-text) !important;
+}
+
+html[data-omni="true"] .sheet-handle {
+  width: 36px !important;
+  height: 4px !important;
+  border-radius: 4px !important;
+  background: rgba(255, 255, 255, 0.28) !important;
+}
+
+html[data-omni="true"] .sheet-row {
+  border-bottom: 1px solid var(--omni-hairline) !important;
+  border-radius: 6px !important;
+  color: var(--omni-text) !important;
+}
+
+html[data-omni="true"] .sheet-row:hover {
+  background: var(--omni-control) !important;
+}
+
+/* ── Ebook Studio Elevated Dark Unification ── */
 html[data-omni="true"] .stu-drop-canvas,
 html[data-omni="true"] .stu-hero-card,
 html[data-omni="true"] .stu-action-deck,
 html[data-omni="true"] .stu-toc-section,
 html[data-omni="true"] #split-tab .card,
 html[data-omni="true"] #merge-tab .card {
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 0.6px solid var(--omni-hairline) !important;
-  border-radius: 0 !important;
+  background: var(--omni-surface) !important;
+  border: 1px solid var(--omni-border) !important;
+  border-radius: 8px !important;
   box-shadow: none !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
+  padding: 14px !important;
 }
 
 html[data-omni="true"] .stu-book-cover {
-  border-radius: var(--omni-poster-radius, 10px) !important;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: var(--omni-poster-radius, 8px) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.65) !important;
+  border: 1px solid var(--omni-border) !important;
 }
 
 html[data-omni="true"] .stu-title-input,
 html[data-omni="true"] .stu-text-input,
 html[data-omni="true"] .stu-textarea,
 html[data-omni="true"] .stu-filter-input {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 0.6px solid rgba(255, 255, 255, 0.1) !important;
+  background: var(--omni-input) !important;
+  border: 1px solid var(--omni-border) !important;
   border-radius: 6px !important;
-  color: #F5F5F5 !important;
+  color: var(--omni-text) !important;
 }
 
 html[data-omni="true"] .stu-btn-radiant-sky,
 html[data-omni="true"] .stu-btn-radiant-emerald {
   background: var(--omni-accent) !important;
   color: var(--omni-on-accent) !important;
-  border: none !important;
-  border-radius: 8px !important;
+  border: 1px solid var(--omni-accent) !important;
+  border-radius: 7px !important;
   box-shadow: none !important;
   font-weight: 750 !important;
 }
@@ -1090,28 +1276,32 @@ html[data-omni="true"] .stu-btn-radiant-emerald {
 html[data-omni="true"] .stu-btn-glass,
 html[data-omni="true"] .stu-tool-btn,
 html[data-omni="true"] .stu-chip-btn {
-  background: rgba(255, 255, 255, 0.055) !important;
-  border: 0.6px solid rgba(255, 255, 255, 0.11) !important;
-  border-radius: 7px !important;
-  color: #F5F5F5 !important;
+  background: var(--omni-control) !important;
+  border: 1px solid var(--omni-border) !important;
+  border-radius: 6px !important;
+  color: var(--omni-text) !important;
 }
 
 html[data-omni="true"] .stu-chapter-row {
   background: transparent !important;
   border: none !important;
-  border-bottom: 0.6px solid var(--omni-hairline) !important;
+  border-bottom: 1px solid var(--omni-hairline) !important;
   border-radius: 0 !important;
-  padding: 12px 2px !important;
+  padding: 11px 2px !important;
 }
 
 html[data-omni="true"] .stu-modal-sheet,
-html[data-omni="true"] .stu-modal-header,
+html[data-omni="true"] .stu-modal-header {
+  background: var(--omni-surface) !important;
+  border-color: var(--omni-border) !important;
+}
+
 html[data-omni="true"] #edit-ch-modal-textarea {
-  background: #000000 !important;
+  background: #16181F !important;
+  color: var(--omni-text) !important;
 }
 
 html[data-omni="true"] #edit-ch-modal-subtoolbar {
-  background: #050507 !important;
-  border-bottom: 0.6px solid var(--omni-hairline) !important;
+  background: var(--omni-surface) !important;
+  border-bottom: 1px solid var(--omni-hairline) !important;
 }
-

@@ -123,23 +123,23 @@
     const {
       activeSession,
       activeSessionRef,
-      libQuery,
+      libQuery = '',
       setLibQuery,
       epubRestoreInputRef,
       ongoingEpubInputRef,
       handleRestoreFromEpubFiles,
       handleSelectOngoingEpubFile,
-      libTab,
+      libTab = 'all',
       setLibTab,
-      allCountLabel,
-      filteredAudiobooks,
-      savedSpaceCount,
-      transCount,
-      incCount,
+      allCountLabel = 0,
+      filteredAudiobooks = [],
+      savedSpaceCount = 0,
+      transCount = 0,
+      incCount = 0,
       loadTrashCount,
-      trashCount,
-      trashList,
-      savedAudiobooks,
+      trashCount = 0,
+      trashList = [],
+      savedAudiobooks = [],
       setSavedAudiobooks,
       confirmAction,
       deleteNovelFromHistory,
@@ -186,15 +186,15 @@
       handleRestoreNovel,
       handlePermanentDelete,
       clearAllNovelHistory,
-      libCollapsed,
+      libCollapsed = { books: false, history: false },
       setLibCollapsed,
-      history,
-      filteredHistory,
+      history = [],
+      filteredHistory = [],
       loadFromHistory,
       deleteHistoryItem,
       clearHistory,
       webImportHistory = [],
-      novelUpdateBadges
+      novelUpdateBadges = {}
     } = props;
 
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -718,8 +718,8 @@
               }, ic(window.Play || 'Play', 12), pct > 0 ? `Continue Ch. ${chNum}` : 'Read Now'),
               h('button', {
                 type: 'button',
-                className: 'omni-soft-tab',
-                style: { marginTop: 10, padding: '6px 10px', background: 'rgba(255,255,255,0.1)', color: '#F5F5F5' },
+                className: 'omni-flat-icon-btn',
+                style: { width: 'auto', height: 35, marginTop: 10, padding: '0 12px', fontSize: 12 },
                 onClick: () => setActiveBookMenuNovel && setActiveBookMenuNovel(b)
               }, 'Details')
             )
@@ -980,8 +980,8 @@
         }, ic(window.X || 'X', 12))
       ),
 
-      // 4. Soft Borderless Shelf Filter Tabs
-      h('div', { className: 'omni-soft-tabs' },
+      // 4. Clean Chimanew Underline Shelf Tabs (Zero Bubble/Pill Shapes)
+      h('div', { className: 'omni-underline-tabs', style: { marginBottom: 12 } },
         [
           { id: 'all', label: `All (${allCountLabel})` },
           { id: 'saved', label: `Saved (${savedSpaceCount})` },
@@ -992,7 +992,7 @@
         ].map(tab => h('button', {
           key: tab.id,
           type: 'button',
-          className: `omni-soft-tab ${libTab === tab.id ? 'active' : ''}`,
+          className: `omni-underline-tab ${libTab === tab.id ? 'active' : ''}`,
           onClick: () => {
             setLibTab(tab.id);
             if (tab.id === 'trash') loadTrashCount();

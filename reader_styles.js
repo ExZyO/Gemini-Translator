@@ -30,8 +30,8 @@
         overflow: hidden;
         font-family: inherit;
       }
-      .reader-v2-theme-black { background: #000000; color: #f3f4f6; --r-accent: #f59e0b; --r-bg: #000000; --r-card: #111111; --r-border: #222222; --r-text: #f3f4f6; --r-muted: #9ca3af; }
-      .reader-v2-theme-dark { background: #0a0f1d; color: #cbd5e1; --r-accent: #60a5fa; --r-bg: #0a0f1d; --r-card: #141c2f; --r-border: #222f4c; --r-text: #cbd5e1; --r-muted: #7b8fa7; }
+      .reader-v2-theme-black { background: #000000; color: #f3f4f6; --r-accent: var(--omni-accent, #38bdf8); --r-on-accent: var(--omni-on-accent, #0F1014); --r-bg: #000000; --r-card: var(--omni-surface, #181A20); --r-border: var(--omni-border, #363A48); --r-text: var(--omni-text, #F5F6F8); --r-muted: var(--omni-text-sub, #AEB4C2); }
+      .reader-v2-theme-dark { background: #0F1014; color: #F5F6F8; --r-accent: var(--omni-accent, #38bdf8); --r-on-accent: var(--omni-on-accent, #0F1014); --r-bg: #0F1014; --r-card: var(--omni-surface, #181A20); --r-border: var(--omni-border, #363A48); --r-text: #F5F6F8; --r-muted: #AEB4C2; }
       .reader-v2-theme-nord { background: #242933; color: #eceff4; --r-accent: #88c0d0; --r-bg: #242933; --r-card: #2e3440; --r-border: #434c5e; --r-text: #eceff4; --r-muted: #9baec8; }
       .reader-v2-theme-sepia { background: #fbf0d9; color: #433422; --r-accent: #b45309; --r-bg: #fbf0d9; --r-card: #f3e5c8; --r-border: #e3d2b2; --r-text: #433422; --r-muted: #7d6b53; }
       .reader-v2-theme-parchment { background: #f4ecd8; color: #383226; --r-accent: #92400e; --r-bg: #f4ecd8; --r-card: #eadebe; --r-border: #dbcbb1; --r-text: #383226; --r-muted: #706551; }
@@ -334,7 +334,7 @@
         color: var(--r-accent);
         background: rgba(99, 102, 241, 0.15);
         border: 1px solid currentColor;
-        border-radius: 9999px;
+        border-radius: 5px;
         cursor: pointer;
         touch-action: manipulation;
         user-select: none;
@@ -345,7 +345,7 @@
       .reader-footnote-badge:hover {
         transform: scale(1.12);
         background: var(--r-accent);
-        color: #ffffff;
+        color: var(--r-on-accent, #ffffff);
       }
       .reader-footnote-card {
         position: fixed;
@@ -546,8 +546,8 @@
         box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.06);
       }
       .reader-v2-theme-dark .moon-reader-status-bar {
-        background: #0a0f1d;
-        color: rgba(203, 213, 225, 0.75);
+        background: #0F1014;
+        color: rgba(245, 246, 248, 0.72);
       }
       .reader-v2-theme-nord .moon-reader-status-bar {
         background: #242933;
@@ -1245,9 +1245,9 @@
         white-space: nowrap;
       }
       .moon-bm-filter-chip.active {
-        background: #38bdf8;
-        color: #0f172a;
-        border-color: #38bdf8;
+        background: var(--r-accent, #38bdf8);
+        color: var(--r-on-accent, #0F1014);
+        border-color: var(--r-accent, #38bdf8);
         font-weight: 700;
       }
       .moon-bm-card {
@@ -1464,10 +1464,10 @@
         align-items: center;
         gap: 8px;
         padding: 10px 22px;
-        border-radius: 9999px;
-        background: rgba(255, 255, 255, 0.12);
-        border: 1px solid rgba(255, 255, 255, 0.22);
-        color: #ffffff;
+        border-radius: 8px;
+        background: var(--r-card, #181A20);
+        border: 1px solid var(--r-border, #363A48);
+        color: var(--r-text, #F5F6F8);
         font-size: 13px;
         font-weight: 600;
         box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
@@ -1477,16 +1477,16 @@
       .moon-reader-next-swipe-card:active .moon-swipe-pill,
       .moon-reader-prev-swipe-card:active .moon-swipe-pill {
         transform: scale(0.96);
-        background: rgba(255, 255, 255, 0.2);
-        border-color: rgba(255, 255, 255, 0.32);
+        background: var(--omni-control, #23262F);
+        border-color: var(--r-border, #363A48);
       }
       .moon-reader-next-swipe-card.active-release .moon-swipe-pill,
       .moon-reader-prev-swipe-card.active-release .moon-swipe-pill {
-        transform: scale(1.06);
+        transform: scale(1.04);
         background: var(--r-accent, #38bdf8);
-        border-color: #ffffff;
-        color: #ffffff;
-        box-shadow: 0 6px 24px rgba(56, 189, 248, 0.6);
+        border-color: var(--r-accent, #38bdf8);
+        color: var(--r-on-accent, #ffffff);
+        box-shadow: 0 6px 24px rgba(56, 189, 248, 0.4);
       }
       .moon-swipe-arrow {
         transition: transform 0.2s ease;

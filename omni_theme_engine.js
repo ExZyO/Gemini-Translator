@@ -38,14 +38,15 @@
 
   const PREF_SCHEMA = [
     { key: 'themeId', storage: 'omni_theme_id', type: 'string', def: 'WHITE' },
+    { key: 'amoledCanvas', storage: 'omni_amoled_canvas', type: 'bool', def: false },
     { key: 'customHex1', storage: 'omni_custom_hex_1', type: 'hex', def: '#E8C26A' },
     { key: 'customHex2', storage: 'omni_custom_hex_2', type: 'hex', def: '#A855F7' },
     { key: 'libraryLayout', storage: 'omni_library_layout', type: 'enum', values: ['editorial', 'minimal'], def: 'editorial' },
-    { key: 'detailsHeader', storage: 'omni_details_header', type: 'enum', values: ['jacket', 'split'], def: 'jacket' },
-    { key: 'discoverLayout', storage: 'omni_discover_layout', type: 'enum', values: ['grid', 'rails'], def: 'grid' },
+    { key: 'detailsHeader', storage: 'omni_details_header', type: 'enum', values: ['split', 'jacket'], def: 'split' },
+    { key: 'discoverLayout', storage: 'omni_discover_layout', type: 'enum', values: ['sources', 'grid', 'rails'], def: 'sources' },
     { key: 'heroBlur', storage: 'omni_hero_blur', type: 'number', min: 0, max: 32, def: 24 },
     { key: 'glassSheen', storage: 'omni_glass_sheen', type: 'number', min: 0, max: 100, def: 70 },
-    { key: 'posterRadius', storage: 'omni_poster_radius', type: 'number', min: 4, max: 16, def: 10 },
+    { key: 'posterRadius', storage: 'omni_poster_radius', type: 'number', min: 4, max: 16, def: 8 },
     { key: 'heroAutoscroll', storage: 'omni_hero_autoscroll', type: 'bool', def: true },
     { key: 'heroInterval', storage: 'omni_hero_interval', type: 'number', min: 3, max: 15, def: 6 }
   ];
@@ -145,32 +146,67 @@
 
     if (typeof document !== 'undefined') {
       const docEl = document.documentElement;
+      const isAmoled = !!prefs.amoledCanvas;
+      const canvasColor = isAmoled ? '#000000' : '#0F1014';
+      const surfaceColor = isAmoled ? '#14161C' : '#181A20';
+
       if (docEl && typeof docEl.setAttribute === 'function') {
         docEl.setAttribute('data-omni', 'true');
-        if (readStorage('amoledMode') !== 'false') {
+        docEl.setAttribute('data-omni-amoled', isAmoled ? 'true' : 'false');
+        if (isAmoled) {
           docEl.setAttribute('data-theme', 'amoled');
+        } else if (typeof docEl.removeAttribute === 'function') {
+          docEl.removeAttribute('data-theme');
         }
       }
       if (docEl && docEl.style && typeof docEl.style.setProperty === 'function') {
-        docEl.style.setProperty('--omni-canvas', '#000000');
-        docEl.style.setProperty('--omni-surface', '#070709');
-        docEl.style.setProperty('--omni-chip-fill', 'rgba(255, 255, 255, 0.055)');
-        docEl.style.setProperty('--omni-hairline', 'rgba(255, 255, 255, 0.08)');
+        docEl.style.setProperty('--omni-canvas', canvasColor);
+        docEl.style.setProperty('--omni-surface', surfaceColor);
+        docEl.style.setProperty('--omni-control', '#23262F');
+        docEl.style.setProperty('--omni-control-hover', '#2C303C');
+        docEl.style.setProperty('--omni-input', '#1B1D24');
+        docEl.style.setProperty('--omni-border', '#363A48');
+        docEl.style.setProperty('--omni-hairline', '#262A36');
+        docEl.style.setProperty('--omni-text', '#F5F6F8');
+        docEl.style.setProperty('--omni-text-sub', '#AEB4C2');
+        docEl.style.setProperty('--omni-text-muted', '#7C8394');
+        docEl.style.setProperty('--omni-chip-fill', '#23262F');
+        docEl.style.setProperty('--omni-radius-btn', '6px');
+        docEl.style.setProperty('--omni-radius-card', '8px');
+        docEl.style.setProperty('--omni-radius-sheet', '12px');
         docEl.style.setProperty('--omni-jade', '#34D399');
         docEl.style.setProperty('--omni-accent', pal.accent);
         docEl.style.setProperty('--omni-accent-variant', pal.variant);
         docEl.style.setProperty('--omni-on-accent', pal.onAccent);
         docEl.style.setProperty('--omni-accent-rgb', rgbStr);
-        docEl.style.setProperty('--omni-accent-soft', 'rgba(' + rgbStr + ', 0.14)');
+        docEl.style.setProperty('--omni-accent-soft', 'rgba(' + rgbStr + ', 0.16)');
         docEl.style.setProperty('--omni-hero-blur', prefs.heroBlur + 'px');
         docEl.style.setProperty('--omni-sheen-alpha', sheenAlpha.toFixed(3));
         docEl.style.setProperty('--omni-poster-radius', prefs.posterRadius + 'px');
+        // Synchronize legacy UI tokens to Elevated Dark so every submenu lifts cleanly
+        docEl.style.setProperty('--void', canvasColor);
+        docEl.style.setProperty('--bg', canvasColor);
+        docEl.style.setProperty('--panel', surfaceColor);
+        docEl.style.setProperty('--card-bg', surfaceColor);
+        docEl.style.setProperty('--surface', surfaceColor);
+        docEl.style.setProperty('--ember-1', surfaceColor);
+        docEl.style.setProperty('--ember-2', '#23262F');
+        docEl.style.setProperty('--hairline', '#262A36');
+        docEl.style.setProperty('--border', '#363A48');
+        docEl.style.setProperty('--paper', '#F5F6F8');
+        docEl.style.setProperty('--paper-dim', '#AEB4C2');
+        docEl.style.setProperty('--slate', '#9CA3AF');
+        docEl.style.setProperty('--text-muted', '#AEB4C2');
         docEl.style.setProperty('--accent', pal.accent);
         docEl.style.setProperty('--iris', pal.accent);
+        docEl.style.setProperty('--iris-light', pal.accent);
         docEl.style.setProperty('--iris-deep', pal.variant);
       }
       if (document.body && document.body.classList && typeof document.body.classList.add === 'function') {
         document.body.classList.add('omni-active');
+        if (!isAmoled && typeof document.body.classList.remove === 'function') {
+          document.body.classList.remove('theme-amoled');
+        }
       }
     }
     return prefs;

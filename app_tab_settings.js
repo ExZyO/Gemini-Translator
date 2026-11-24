@@ -1,8 +1,9 @@
 /**
- * app_tab_settings.js - OmniTrack Pure-AMOLED Drill-Down Settings Hub
- * Presents a searchable frameless hairline menu (Appearance & Layout, AI & Translation Engine,
- * Sync, Storage & System) that opens dedicated full-screen #000000 sub-views while preserving
- * 100% of engine, key pool, QA/TM, recipe, OPDS, TTS, Cloud Sync, Storage, and System controls.
+ * app_tab_settings.js - Chimanew Elevated Dark Drill-Down Settings Hub
+ * Presents a searchable grouped menu (Appearance & Layout, AI & Translation Engine,
+ * Sync, Storage & System) using Elevated #181A20 8px panels over #0F1014 canvas, opening
+ * dedicated full-screen sub-views while preserving 100% of engine, key pool, QA/TM,
+ * recipe, OPDS, TTS, Cloud Sync, Storage, and System controls.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -190,10 +191,10 @@
     const ThemeEngine = (typeof window !== 'undefined' && window.OmniThemeEngine) ? window.OmniThemeEngine : null;
     const omniPrefs = ThemeEngine && typeof ThemeEngine.useOmniPrefs === 'function'
       ? ThemeEngine.useOmniPrefs()
-      : { themeId: 'WHITE', libraryLayout: 'editorial', detailsHeader: 'jacket', discoverLayout: 'grid', heroBlur: 24 };
+      : { themeId: 'WHITE', libraryLayout: 'editorial', detailsHeader: 'split', discoverLayout: 'sources', amoledCanvas: false, heroBlur: 24 };
     const activePalette = ThemeEngine && typeof ThemeEngine.getPalette === 'function'
       ? ThemeEngine.getPalette(omniPrefs.themeId, omniPrefs)
-      : { id: 'WHITE', name: 'Monochrome', accent: '#F5F5F5', variant: '#C8C4BC', onAccent: '#000000' };
+      : { id: 'WHITE', name: 'Monochrome', accent: '#F5F6F8', variant: '#AEB4C2', onAccent: '#0F1014' };
 
     const [activeSubView, setActiveSubView] = useState(null);
     const [settingsQuery, setSettingsQuery] = useState('');
@@ -357,9 +358,9 @@
     ];
 
     const inputStyle = {
-      background: 'rgba(255, 255, 255, 0.05)',
-      border: '0.6px solid rgba(255, 255, 255, 0.12)',
-      color: '#F5F5F5',
+      background: 'var(--omni-input, #1B1D24)',
+      border: '1px solid var(--omni-border, #363A48)',
+      color: 'var(--omni-text, #F5F6F8)',
       borderRadius: 6,
       padding: '8px 10px',
       fontSize: 12,
@@ -368,9 +369,9 @@
     };
 
     const selectStyle = {
-      background: 'rgba(255, 255, 255, 0.06)',
-      border: '0.6px solid rgba(255, 255, 255, 0.14)',
-      color: '#F5F5F5',
+      background: 'var(--omni-control, #23262F)',
+      border: '1px solid var(--omni-border, #363A48)',
+      color: 'var(--omni-text, #F5F6F8)',
       borderRadius: 6,
       padding: '7px 10px',
       fontSize: 12.5,
@@ -386,10 +387,10 @@
       justifyContent: 'center',
       gap: 6,
       padding: '8px 12px',
-      borderRadius: 7,
-      background: 'rgba(255, 255, 255, 0.055)',
-      border: '0.6px solid rgba(255, 255, 255, 0.12)',
-      color: '#F5F5F5',
+      borderRadius: 6,
+      background: 'var(--omni-control, #23262F)',
+      border: '1px solid var(--omni-border, #363A48)',
+      color: 'var(--omni-text, #F5F6F8)',
       fontSize: 12,
       fontWeight: 600,
       cursor: 'pointer'
@@ -402,8 +403,8 @@
       gap: 6,
       padding: '9px 14px',
       borderRadius: 8,
-      background: 'var(--omni-accent, #F5F5F5)',
-      color: 'var(--omni-on-accent, #000000)',
+      background: 'var(--omni-accent, #F5F6F8)',
+      color: 'var(--omni-on-accent, #0F1014)',
       border: 'none',
       fontSize: 12.5,
       fontWeight: 750,
@@ -416,8 +417,8 @@
       onClick: () => onChange(!checked)
     },
       h('div', { style: { minWidth: 0, flex: 1, paddingRight: 12 } },
-        h('div', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, label),
-        subtitle && h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 2, lineHeight: 1.35 } }, subtitle)
+        h('div', { style: { fontSize: 13.5, fontWeight: 500, color: 'var(--omni-text)' } }, label),
+        subtitle && h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)', marginTop: 2, lineHeight: 1.35 } }, subtitle)
       ),
       h('button', {
         type: 'button',
@@ -432,8 +433,8 @@
         position: 'sticky',
         top: 0,
         zIndex: 14,
-        background: '#000000',
-        borderBottom: '0.6px solid rgba(255, 255, 255, 0.08)',
+        background: 'var(--omni-canvas, #0F1014)',
+        borderBottom: '1px solid var(--omni-hairline, #262A36)',
         padding: '6px 0 12px',
         marginBottom: 8,
         display: 'flex',
@@ -448,11 +449,11 @@
           className: 'omni-circle-btn',
           onClick: () => setActiveSubView(null),
           'aria-label': 'Back to Settings',
-          style: { color: '#FFFFFF' }
+          style: { color: 'var(--omni-text)' }
         }, ic('ArrowLeft', 18)),
         h('div', { style: { minWidth: 0 } },
-          h('div', { style: { fontSize: 16.5, fontWeight: 750, color: '#F5F5F5', letterSpacing: '-0.015em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title),
-          subtitle && h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)' } }, subtitle)
+          h('div', { style: { fontSize: 16.5, fontWeight: 750, color: 'var(--omni-text)', letterSpacing: '-0.015em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title),
+          subtitle && h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)' } }, subtitle)
         )
       ),
       rightNode || null
@@ -466,7 +467,7 @@
         marginTop: 22,
         marginBottom: 8,
         paddingBottom: 6,
-        borderBottom: '0.6px solid rgba(255, 255, 255, 0.08)'
+        borderBottom: '1px solid var(--omni-hairline, #262A36)'
       }
     },
       h('span', {
@@ -475,7 +476,7 @@
           fontWeight: 700,
           letterSpacing: '0.11em',
           textTransform: 'uppercase',
-          color: 'rgba(255, 255, 255, 0.45)'
+          color: 'var(--omni-text-sub)'
         }
       }, text),
       rightBadge ? h('span', { style: { fontSize: 10.5, fontWeight: 600, color: activePalette.accent } }, rightBadge) : null
@@ -484,23 +485,31 @@
     // ── Sub-View 1: Visual Presentation & Colors ──
     if (activeSubView === 'visual') {
       if (typeof window !== 'undefined' && window.OmniVisualSettingsScreen) {
-        return h(window.OmniVisualSettingsScreen, { onBack: () => setActiveSubView(null) });
+        return h(window.OmniVisualSettingsScreen, {
+          onBack: () => setActiveSubView(null),
+          amoledMode,
+          setAmoledMode
+        });
       }
       return h('div', { style: { paddingBottom: 32 } },
         subHeader('Visual Presentation & Colors', 'Palette & Layouts'),
-        h('div', { style: { padding: '24px 0', color: 'rgba(255,255,255,0.6)', fontSize: 13 } }, 'Visual customizer module loading...')
+        h('div', { style: { padding: '24px 0', color: 'var(--omni-text-sub)', fontSize: 13 } }, 'Visual customizer module loading...')
       );
     }
 
     // ── Sub-View 2: Reader, EPUB & Speech ──
     if (activeSubView === 'display') {
       return h('div', { style: { paddingBottom: 32 } },
-        subHeader('Reader, EPUB & Speech', `${amoledMode ? 'AMOLED' : 'Dark'} · ${epubFontTheme || 'Literata'} · ${opdsRunning ? 'OPDS Online' : 'OPDS Idle'}`),
+        subHeader('Reader, EPUB & Speech', `${amoledMode ? 'AMOLED' : 'Elevated Dark'} · ${epubFontTheme || 'Literata'} · ${opdsRunning ? 'OPDS Online' : 'OPDS Idle'}`),
 
-        sectionTitle('THEME & EPUB TYPOGRAPHY', amoledMode ? 'AMOLED' : 'DARK'),
-        switchRow('AMOLED Pitch Black (Pure #000000)', amoledMode, (v) => {
+        sectionTitle('THEME & EPUB TYPOGRAPHY', amoledMode ? 'AMOLED' : 'ELEVATED DARK'),
+        switchRow('AMOLED Pitch-Black Canvas (#000000)', amoledMode, (v) => {
           setAmoledMode(v);
-          localStorage.setItem('amoledMode', String(v));
+          try {
+            localStorage.setItem('amoledMode', String(v));
+            localStorage.setItem('omni_amoled_canvas', String(v));
+            ThemeEngine?.setPref?.('amoledCanvas', Boolean(v));
+          } catch (_) {}
           if (v) {
             document.documentElement.setAttribute('data-theme', 'amoled');
             document.body?.classList?.add('theme-amoled');
@@ -508,7 +517,7 @@
             document.documentElement.removeAttribute('data-theme');
             document.body?.classList?.remove('theme-amoled');
           }
-        }),
+        }, 'True black #000000 page background while keeping panels and buttons elevated'),
         switchRow('Embed Images in EPUB', epubIncludeImages, setEpubIncludeImages),
         switchRow('Drop Caps', epubDropCaps, setEpubDropCaps),
         switchRow('Smart Quotes', epubSmartQuotes, setEpubSmartQuotes),
@@ -896,7 +905,7 @@
                 style: { ...inputStyle, flex: 1, minWidth: 110, fontFamily: 'inherit', fontWeight: 600 }
               }),
               isActive
-                ? h('span', { style: { fontSize: 10.5, fontWeight: 700, padding: '4px 9px', borderRadius: 999, background: activePalette.accent, color: activePalette.onAccent } }, 'Active')
+                ? h('span', { style: { fontSize: 10.5, fontWeight: 700, padding: '4px 9px', borderRadius: 5, background: activePalette.accent, color: activePalette.onAccent } }, 'Active')
                 : h('button', { type: 'button', style: { ...ghostBtnStyle, padding: '5px 10px', fontSize: 11 }, onClick: () => setActiveKey(provider, k.id) }, 'Set Active'),
               isDuplicate && h('span', { style: { fontSize: 10.5, fontWeight: 700, color: '#f87171' } }, 'Duplicate'),
               h('button', {
@@ -1070,7 +1079,7 @@
 
           h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '12px 0' } },
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-              h('span', { style: { width: 8, height: 8, borderRadius: 999, background: gdriveConnected ? '#34D399' : 'rgba(255,255,255,0.3)' } }),
+              h('span', { style: { width: 8, height: 8, borderRadius: 2, background: gdriveConnected ? '#34D399' : 'var(--omni-text-muted)' } }),
               h('div', null,
                 h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#F5F5F5' } },
                   gdriveConnected ? (gdriveUser?.displayName || gdriveUser?.emailAddress || 'Connected to Google Drive') : 'Not Connected (Direct OAuth API)'
@@ -1232,7 +1241,7 @@
     // ── Sub-View 7: Hardware, Telemetry & App Build ──
     if (activeSubView === 'system') {
       return h('div', { style: { paddingBottom: 32 } },
-        subHeader('Hardware, Telemetry & System', `v${appVersion} (Build ${appVersionCode || 8563})`),
+        subHeader('Hardware, Telemetry & System', `v${appVersion} (Build ${appVersionCode || 8564})`),
 
         availableUpdate && h('div', {
           style: {
@@ -1306,7 +1315,7 @@
         sectionTitle('APP BUILD & ANDROID PERMISSIONS', `v${appVersion}`),
         h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
           h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Check for App Updates'),
-          h('button', { type: 'button', style: ghostBtnStyle, onClick: () => checkForAppUpdate(true) }, ic('RefreshCw', 13), `v${appVersion} (${appVersionCode || 8563})`)
+          h('button', { type: 'button', style: ghostBtnStyle, onClick: () => checkForAppUpdate(true) }, ic('RefreshCw', 13), `v${appVersion} (${appVersionCode || 8564})`)
         ),
         h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
           h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Notifications & Completion Alerts'),
@@ -1391,14 +1400,14 @@
             id: 'visual',
             icon: 'Palette',
             title: 'Visual Presentation & Colors',
-            sub: `${activePalette.name} · ${omniPrefs.libraryLayout === 'editorial' ? 'Editorial' : 'Minimal'} · ${omniPrefs.detailsHeader === 'jacket' ? 'Jacket' : 'Split'} · Blur ${omniPrefs.heroBlur}px`,
-            keywords: 'palette monochrome gold ocean violet custom hex theme blur sheen radius carousel editorial minimal layout wireframe showcase'
+            sub: `${activePalette.name} · ${omniPrefs.libraryLayout === 'editorial' ? 'Editorial' : 'Minimal'} · ${omniPrefs.detailsHeader === 'jacket' ? 'Jacket' : 'Split'} · ${omniPrefs.discoverLayout === 'sources' ? 'Sources' : (omniPrefs.discoverLayout === 'grid' ? 'Grid' : 'Rails')}`,
+            keywords: 'palette monochrome gold ocean violet custom hex theme blur sheen radius carousel editorial minimal layout wireframe showcase amoled'
           },
           {
             id: 'display',
             icon: 'BookOpen',
             title: 'Reader, EPUB & Speech',
-            sub: `${amoledMode ? 'AMOLED Pitch Black' : 'Dark Slate'} · ${epubFontTheme || 'Literata'} · OPDS ${opdsRunning ? 'Online' : 'Idle'} · Voices`,
+            sub: `${amoledMode ? 'AMOLED Pitch Black' : 'Elevated Dark'} · ${epubFontTheme || 'Literata'} · OPDS ${opdsRunning ? 'Online' : 'Idle'} · Voices`,
             keywords: 'amoled black epub images drop caps smart quotes clean web justify filename font literata georgia moon reader opds catalog feed tts voice sherpatts piper'
           }
         ]
@@ -1443,7 +1452,7 @@
             id: 'system',
             icon: 'Settings',
             title: 'Hardware, Telemetry & System',
-            sub: `v${appVersion} (Build ${appVersionCode || 8563}) · WakeLock ${deviceWakeLock ? 'On' : 'Off'}`,
+            sub: `v${appVersion} (Build ${appVersionCode || 8564}) · WakeLock ${deviceWakeLock ? 'On' : 'Off'}`,
             keywords: 'wakelock keep awake live logs telemetry server debugging update apk force clear cache notifications battery unrestricted pwa install reset shortcuts'
           }
         ]
@@ -1457,7 +1466,7 @@
       h('div', { className: 'omni-page-hd' },
         h('div', { style: { minWidth: 0 } },
           h('h1', { className: 'omni-page-title' }, 'Settings'),
-          h('div', { className: 'omni-page-sub' }, `v${appVersion} (Build ${appVersionCode || 8563}) · Pure AMOLED`)
+          h('div', { className: 'omni-page-sub' }, `v${appVersion} (Build ${appVersionCode || 8564}) · ${amoledMode ? 'AMOLED Pitch Black' : 'Elevated Dark'}`)
         ),
         h('div', { className: 'omni-header-actions' },
           h('button', {
@@ -1575,19 +1584,19 @@
             display: 'inline-flex',
             alignItems: 'center',
             gap: 5,
-            padding: '6px 10px',
-            borderRadius: 999,
-            background: chip.active ? activePalette.accent : 'rgba(255, 255, 255, 0.045)',
-            color: chip.active ? activePalette.onAccent : 'rgba(255, 255, 255, 0.72)',
-            border: chip.active ? 'none' : '0.6px solid rgba(255, 255, 255, 0.1)',
+            padding: '6px 11px',
+            borderRadius: 6,
+            background: chip.active ? activePalette.accent : 'var(--omni-control, #23262F)',
+            color: chip.active ? activePalette.onAccent : 'var(--omni-text, #F5F6F8)',
+            border: chip.active ? ('1px solid ' + activePalette.accent) : '1px solid var(--omni-border, #363A48)',
             fontSize: 11.5,
-            fontWeight: chip.active ? 750 : 500,
+            fontWeight: chip.active ? 750 : 600,
             cursor: 'pointer'
           }
         }, ic(chip.icon, 12), chip.label))
       ),
 
-      // 3 Frameless Hairline Menu Groups
+      // 3 Elevated Dark #181A20 Menu Group Panels
       MENU_GROUPS.map(group => {
         const filteredRows = group.rows.filter(r => {
           if (!q) return true;
@@ -1599,54 +1608,66 @@
         });
         if (filteredRows.length === 0) return null;
 
-        return h('div', { key: group.heading, style: { marginTop: 22 } },
+        return h('div', { key: group.heading, style: { marginTop: 18 } },
           h('div', {
             style: {
               fontSize: 10.5,
               fontWeight: 700,
               letterSpacing: '0.11em',
               textTransform: 'uppercase',
-              color: 'rgba(255, 255, 255, 0.42)',
-              paddingBottom: 6,
-              borderBottom: '0.6px solid rgba(255, 255, 255, 0.08)'
+              color: 'var(--omni-text-sub)',
+              marginBottom: 8
             }
           }, group.heading),
-          filteredRows.map(row => h('button', {
-            key: row.id,
-            type: 'button',
-            className: 'omni-hairline-row',
-            onClick: () => setActiveSubView(row.id),
+          h('div', {
             style: {
-              width: '100%',
-              background: 'transparent',
-              borderLeft: 'none',
-              borderRight: 'none',
-              borderTop: 'none',
-              textAlign: 'left',
-              padding: '15px 0',
-              gap: 12
+              background: 'var(--omni-surface, #181A20)',
+              border: '1px solid var(--omni-border, #363A48)',
+              borderRadius: 8,
+              overflow: 'hidden'
             }
           },
-            h('span', {
+            filteredRows.map((row, rIdx) => h('button', {
+              key: row.id,
+              type: 'button',
+              onClick: () => setActiveSubView(row.id),
               style: {
-                width: 34,
-                height: 34,
-                borderRadius: 9,
-                background: 'rgba(255, 255, 255, 0.055)',
-                border: '0.6px solid rgba(255, 255, 255, 0.09)',
-                color: activePalette.accent,
-                display: 'inline-flex',
+                width: '100%',
+                background: 'transparent',
+                borderTop: 'none',
+                borderLeft: 'none',
+                borderRight: 'none',
+                borderBottom: rIdx < filteredRows.length - 1 ? '1px solid var(--omni-hairline, #262A36)' : 'none',
+                display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
+                justifyContent: 'space-between',
+                textAlign: 'left',
+                padding: '13px 14px',
+                gap: 12,
+                cursor: 'pointer'
               }
-            }, ic(row.icon, 16)),
-            h('div', { style: { flex: 1, minWidth: 0 } },
-              h('div', { style: { fontSize: 14.5, fontWeight: 650, color: '#F5F5F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, row.title),
-              h('div', { style: { fontSize: 11.5, color: 'rgba(255, 255, 255, 0.48)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, row.sub)
-            ),
-            h('span', { style: { color: 'rgba(255, 255, 255, 0.36)', flexShrink: 0 } }, ic('ChevronRight', 16))
-          ))
+            },
+              h('span', {
+                style: {
+                  width: 34,
+                  height: 34,
+                  borderRadius: 7,
+                  background: 'var(--omni-control, #23262F)',
+                  border: '1px solid var(--omni-border, #363A48)',
+                  color: activePalette.accent,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }
+              }, ic(row.icon, 16)),
+              h('div', { style: { flex: 1, minWidth: 0 } },
+                h('div', { style: { fontSize: 14.5, fontWeight: 650, color: 'var(--omni-text, #F5F6F8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, row.title),
+                h('div', { style: { fontSize: 11.5, color: 'var(--omni-text-sub, #AEB4C2)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, row.sub)
+              ),
+              h('span', { style: { color: 'var(--omni-text-sub, #AEB4C2)', flexShrink: 0 } }, ic('ChevronRight', 16))
+            ))
+          )
         );
       })
     );

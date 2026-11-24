@@ -205,10 +205,10 @@
             position: 'relative',
             width: '100%',
             aspectRatio: '16 / 9',
-            borderRadius: 10,
+            borderRadius: 8,
             overflow: 'hidden',
-            background: '#08080A',
-            border: '0.6px solid rgba(255,255,255,0.16)',
+            background: 'var(--omni-canvas, #0F1014)',
+            border: '1px solid var(--omni-border, #363A48)',
             touchAction: 'none',
             cursor: previewBanner.src ? 'grab' : 'default'
           }
@@ -389,7 +389,7 @@
 
     const omniPrefs = (window.OmniThemeEngine && window.OmniThemeEngine.useOmniPrefs)
       ? window.OmniThemeEngine.useOmniPrefs()
-      : { detailsHeader: 'jacket', heroBlur: 24 };
+      : { detailsHeader: 'split', heroBlur: 24 };
 
     const [localNovel, setLocalNovel] = useState(novel);
     const [fullNovel, setFullNovel] = useState(null);
@@ -433,6 +433,14 @@
     const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number' && savedProg.chapterIdx >= 0) ? savedProg.chapterIdx : 0;
     const totalCount = rawChList.length || item.chapterCount || 0;
     const pct = savedProg?.pct || (totalCount > 0 && resumeIdx > 0 ? Math.min(100, Math.round(((resumeIdx + 1) / totalCount) * 100)) : 0);
+    const totalWords = useMemo(() => {
+      if (item.wordCount > 0) return Number(item.wordCount) || 0;
+      return (rawChList || []).reduce((acc, c) => {
+        if (c && c.words > 0) return acc + Number(c.words);
+        const body = (c && (c.text || c.content)) || '';
+        return body ? acc + body.trim().split(/\s+/).length : acc;
+      }, 0);
+    }, [rawChList, item.wordCount]);
 
     const fOpts = typeof getNovelFolderOptions === 'function' ? getNovelFolderOptions(item) : {};
     const dispPath = item.folderPath || fOpts.folderPath || '';
@@ -644,6 +652,17 @@
         h('div', { className: 'omni-details-topbar' },
           h('button', { type: 'button', className: 'omni-circle-btn translucent', title: 'Back', onClick: onClose }, ic('ArrowLeft', 18)),
           h('div', { className: 'omni-header-actions' },
+            h('button', {
+              type: 'button',
+              className: `omni-circle-btn translucent ${item.inSavedSpace ? 'active' : ''}`,
+              title: item.inSavedSpace ? 'In Saved Space' : 'Save to Space',
+              onClick: () => {
+                if (toggleNovelSavedSpace) {
+                  toggleNovelSavedSpace(item.id, item);
+                  setLocalNovel(prev => prev ? Object.assign({}, prev, { inSavedSpace: !prev.inSavedSpace }) : prev);
+                }
+              }
+            }, ic('Star', 16)),
             h('button', { type: 'button', className: 'omni-circle-btn translucent', title: 'Customize Cover & Banner', onClick: () => setArtworkModalOpen(true) }, ic('Image', 16)),
             h('button', {
               type: 'button',
@@ -699,54 +718,86 @@
             ),
 
         h('div', { style: { padding: '0 16px' } },
-          // Unboxed 4-Column Hairline Stats Strip
+          // Unboxed 3-Column Hairline Stats Strip (Zero Filler Text)
           h('div', { className: 'omni-hairline-strip' },
             h('div', { className: 'omni-stat-cell' },
-              h('div', { className: 'omni-stat-val' }, `${pct}%`),
+              h('div', { className: 'omni-stat-val' }, `${resumeIdx + (totalCount > 0 ? 1 : 0)} / ${totalCount}`),
               h('div', { className: 'omni-stat-lbl' }, 'Progress')
             ),
             h('div', { className: 'omni-stat-cell' },
-              h('div', { className: 'omni-stat-val' }, `${resumeIdx + (totalCount > 0 ? 1 : 0)} / ${totalCount}`),
-              h('div', { className: 'omni-stat-lbl' }, 'Read')
+              h('div', { className: 'omni-stat-val', style: { color: 'var(--omni-accent)' } }, statusLabel),
+              h('div', { className: 'omni-stat-lbl' }, `${pct}% Read`)
             ),
             h('div', { className: 'omni-stat-cell' },
-              h('div', { className: 'omni-stat-val' }, statusLabel),
-              h('div', { className: 'omni-stat-lbl' }, 'Status')
-            ),
-            h('div', { className: 'omni-stat-cell' },
-              h('div', { className: 'omni-stat-val' }, folderShort),
-              h('div', { className: 'omni-stat-lbl' }, 'Folder')
+              h('div', { className: 'omni-stat-val' }, totalWords > 0 ? (totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}k` : `${totalWords}`) : `${totalCount} Ch`),
+              h('div', { className: 'omni-stat-lbl' }, totalWords > 0 ? 'Words' : 'Chapters')
             )
           ),
 
-          // Flat 8px CTA Bar
-          h('div', { className: 'omni-cta-row' },
+          // Primary 8px Continue CTA + 4-Column 6px Rectangular Tool Row
+          h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, margin: '10px 0 8px' } },
             h('button', {
               type: 'button',
               className: 'omni-flat-cta',
+              style: { width: '100%' },
               onClick: () => ensureAndOpenReader(resumeIdx)
-            }, ic('Play', 14), pct > 0 || resumeIdx > 0 ? `Continue · Ch. ${resumeIdx + 1}` : 'Start Reading'),
-            h('button', { type: 'button', className: 'omni-flat-icon-btn', title: 'Download EPUB', onClick: handleExportEpubAction }, ic('Download', 17)),
-            h('button', {
-              type: 'button',
-              className: 'omni-flat-icon-btn',
-              title: 'Check Online Updates',
-              onClick: () => handleCheckNovelUpdate && handleCheckNovelUpdate(item)
-            },
-              ic('RefreshCw', 17),
-              newCount > 0 && h('span', { style: { position: 'absolute', top: 6, right: 6, width: 7, height: 7, borderRadius: '50%', background: 'var(--omni-jade)' } })
-            ),
-            h('button', {
-              type: 'button',
-              className: `omni-flat-icon-btn ${item.inSavedSpace ? 'active' : ''}`,
-              title: item.inSavedSpace ? 'In Saved Space' : 'Save to Space',
-              onClick: () => {
-                if (toggleNovelSavedSpace) {
-                  toggleNovelSavedSpace(item.id, item);
-                  setLocalNovel(prev => prev ? Object.assign({}, prev, { inSavedSpace: !prev.inSavedSpace }) : prev);
+            }, ic('Play', 14), pct > 0 || resumeIdx > 0 ? `Continue · Chapter ${resumeIdx + 1}` : 'Start Reading'),
+            h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6 } },
+              h('button', {
+                type: 'button',
+                className: 'omni-flat-icon-btn',
+                style: { width: '100%', height: 38 },
+                title: 'Check Online Updates',
+                onClick: () => handleCheckNovelUpdate && handleCheckNovelUpdate(item)
+              },
+                ic('RefreshCw', 14),
+                h('span', null, 'Update'),
+                newCount > 0 && h('span', { style: { position: 'absolute', top: 5, right: 5, width: 7, height: 7, borderRadius: 2, background: 'var(--omni-jade)' } })
+              ),
+              h('button', {
+                type: 'button',
+                className: 'omni-flat-icon-btn',
+                style: { width: '100%', height: 38 },
+                title: 'Open or Stage Translation',
+                onClick: async () => {
+                  const full = fullNovel || (loadFullNovel ? await loadFullNovel(item) : null) || item;
+                  const chs = (full.rawChapters && full.rawChapters.length > 0) ? full.rawChapters : (full.chapters || []);
+                  if (typeof props.setInputText === 'function' && chs.length > 0) {
+                    const mapped = chs.map(c => ({ title: c.title, text: c.text || c.content || '', content: c.text || c.content || '' }));
+                    props.setInputText(mapped.map(c => `# ${c.title}\n\n${c.content}`).join('\n\n'));
+                    props.setChapters?.(mapped);
+                    props.setTranslatedChapters?.(full.translatedChapters || []);
+                    props.setAssembledText?.('');
+                    setActiveNovelRecord?.(full);
+                    props.setFileName?.(titleStr);
+                    props.setCurrentDocTitle?.(titleStr);
+                    onClose?.();
+                    setActiveTab?.('text');
+                    toast(`Loaded "${titleStr}" into Translator.`, 'info');
+                  } else if (typeof handleUpdateTranslateAndMakeEpub === 'function') {
+                    onClose?.();
+                    handleUpdateTranslateAndMakeEpub(item);
+                  } else {
+                    onClose?.();
+                    setActiveTab?.('text');
+                  }
                 }
-              }
-            }, ic('Star', 17))
+              }, ic('Languages', 14), h('span', null, 'Translate')),
+              h('button', {
+                type: 'button',
+                className: 'omni-flat-icon-btn',
+                style: { width: '100%', height: 38 },
+                title: 'Export EPUB',
+                onClick: handleExportEpubAction
+              }, ic('Download', 14), h('span', null, 'EPUB')),
+              h('button', {
+                type: 'button',
+                className: 'omni-flat-icon-btn',
+                style: { width: '100%', height: 38 },
+                title: 'Customize Cover & Banner',
+                onClick: () => setArtworkModalOpen(true)
+              }, ic('Image', 14), h('span', null, 'Art'))
+            )
           ),
 
           // Live Update Strip if new chapters detected

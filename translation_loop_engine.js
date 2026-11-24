@@ -1715,6 +1715,52 @@
   }
 
   /**
+   * Throttles rapid live-streaming state updates while guaranteeing a final flush.
+   */
+  function createStreamThrottler(setter, delayMs = 200) {
+    let lastAt = 0;
+    let pendingVal = null;
+    let timer = null;
+    const clear = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+    };
+    const push = (val, force = false) => {
+      if (typeof setter !== 'function') return;
+      const now = Date.now();
+      if (force || (now - lastAt) >= delayMs) {
+        clear();
+        lastAt = now;
+        pendingVal = null;
+        setter(val);
+      } else {
+        pendingVal = val;
+        if (!timer) {
+          timer = setTimeout(() => {
+            timer = null;
+            if (pendingVal !== null) {
+              lastAt = Date.now();
+              const v = pendingVal;
+              pendingVal = null;
+              setter(v);
+            }
+          }, Math.max(0, delayMs - (now - lastAt)));
+        }
+      }
+    };
+    const flush = (finalVal) => {
+      clear();
+      if (finalVal !== undefined) pendingVal = finalVal;
+      if (pendingVal !== null && typeof setter === 'function') {
+        lastAt = Date.now();
+        const v = pendingVal;
+        pendingVal = null;
+        setter(v);
+      }
+    };
+    return { push, flush, cancel: clear };
+  }
+
+  /**
    * Executes text translation cycle with wake-lock, notifications, abort coordination, and telemetry.
    */
   async function executeTranslateText(params = {}) {
@@ -1747,6 +1793,7 @@
     const ctrl = new AbortController();
     if (params.abortRef) params.abortRef.current = ctrl;
     const jobId = params.jobId || generateJobId(inputText);
+    const streamThrottle = createStreamThrottler(params.setAssembledText, 200);
 
     try {
       const opts = params.opts || (typeof params.getTranslateOpts === 'function' ? params.getTranslateOpts(ctrl.signal) : buildTranslateOpts({ ...params, signal: ctrl.signal }));
@@ -1755,9 +1802,9 @@
       const callbacks = {
         onProgress: (pct) => params.setProgress && params.setProgress(pct),
         onProgressLabel: (label) => params.setProgressLabel && params.setProgressLabel(label),
-        onStream: (chunk, assembled) => params.setAssembledText && params.setAssembledText(assembled),
+        onStream: (chunk, assembled) => streamThrottle.push(assembled),
         onChunkDone: (info) => {
-          if (info && info.assembledText && params.setAssembledText) params.setAssembledText(info.assembledText);
+          if (info && info.assembledText) streamThrottle.flush(info.assembledText);
         },
         onSaveState: async (state) => {
           if (params.activeSessionRef) params.activeSessionRef.current = state;
@@ -1788,7 +1835,7 @@
       });
 
       const { assembledText: result, lastUsageStats: stats } = res;
-      if (params.setAssembledText) params.setAssembledText(result);
+      streamThrottle.flush(result);
       if (params.setTranslatedChapters) params.setTranslatedChapters([{ title: 'Translated Document', content: result }]);
       const isTextComplete = Boolean(result && result.trim() && !result.includes('[Partial Parallel Completion]'));
       if (isTextComplete) {
@@ -1855,6 +1902,7 @@
         }).catch(() => {});
       }
     } finally {
+      streamThrottle.flush();
       if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
       if (params.setIsTranslating) params.setIsTranslating(false);
       const isPausing = params.isPausingRef && params.isPausingRef.current;
@@ -1918,6 +1966,7 @@
       ? chapters[0].title
       : ((fileName && fileName.trim()) || (activeNovelRecord && activeNovelRecord.title) || currentDocTitle || 'Web Novel');
     const jobId = currentFileHash || ('job_' + String(bookTitle).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30) + '_' + chapters.length);
+    const streamThrottle = createStreamThrottler(params.setAssembledText, 200);
 
     try {
       const config = params.config || buildTranslationConfig({
@@ -1931,11 +1980,11 @@
       const callbacks = {
         onProgress: (pct) => params.setProgress && params.setProgress(pct),
         onProgressLabel: (label) => params.setProgressLabel && params.setProgressLabel(label),
-        onLiveTextUpdate: (text) => params.setAssembledText && params.setAssembledText(text),
+        onLiveTextUpdate: (text) => streamThrottle.push(text),
         onChapterComplete: (i, chapter, allChapters, allParts) => {
           if (params.setTranslatedChapters) params.setTranslatedChapters([...allChapters]);
           const currentAssembled = allParts.filter(Boolean).join('\n\n\n').trim();
-          if (params.setAssembledText) params.setAssembledText(currentAssembled);
+          streamThrottle.flush(currentAssembled);
         },
         onSaveState: async (state) => {
           if (params.activeSessionRef) params.activeSessionRef.current = state;
@@ -1972,7 +2021,7 @@
         window.currentTranslatedZip = originalZip;
       }
       if (params.setTranslatedChapters) params.setTranslatedChapters(newChapters);
-      if (params.setAssembledText) params.setAssembledText(final);
+      streamThrottle.flush(final);
       if (params.setLastUsageStats) params.setLastUsageStats(stats);
       if (stats && stats.breakdown && typeof window !== 'undefined') {
         window.telemetryLog?.('TOKEN_BREAKDOWN', `Token Consumption Breakdown: ${stats.promptTokens.toLocaleString()} in (${stats.breakdown.glossaryTokens.toLocaleString()} glossary · ${stats.breakdown.sourceTokens.toLocaleString()} source · ${stats.breakdown.genderTokens.toLocaleString()} gender · ${stats.breakdown.systemTokens.toLocaleString()} system) + ${stats.outputTokens.toLocaleString()} out`, {
@@ -2186,6 +2235,7 @@
       const finalChapters = ((params.activeSessionRef && params.activeSessionRef.current) || params.activeSession)?.newChapters || [];
       if (finalChapters.length > 0 && params.setTranslatedChapters) params.setTranslatedChapters(finalChapters);
     } finally {
+      streamThrottle.flush();
       if (params.setIsTranslating) params.setIsTranslating(false);
       const isPausing = params.isPausingRef && params.isPausingRef.current;
       if (!isPausing) {

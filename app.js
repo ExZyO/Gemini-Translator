@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.52';
+    let VERSION = '8.22.53';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -984,10 +984,16 @@
         }, 800);
       };
 
-      // Memoized Performance Metrics
+      // Memoized Performance Metrics (O(1) estimation on huge docs to prevent typing lag)
       const inputCharCount = useMemo(() => charCount(inputText), [inputText]);
-      const inputTokenCount = useMemo(() => estimateTokens(inputText), [inputText]);
-      const outputWordCount = useMemo(() => wordCount(assembledText), [assembledText]);
+      const inputTokenCount = useMemo(() => {
+        if (!inputText) return 0;
+        return inputText.length > 80000 ? Math.ceil(inputText.length / 3.4) : estimateTokens(inputText);
+      }, [inputText]);
+      const outputWordCount = useMemo(() => {
+        if (!assembledText) return 0;
+        return assembledText.length > 80000 ? Math.round(assembledText.length / 5.4) : wordCount(assembledText);
+      }, [assembledText]);
 
       const handlePauseTranslation = async () => {
         const engine = window.TranslationLoopEngine || TranslationLoopEngine;
@@ -1081,9 +1087,23 @@
 
       // --- UI State ---
       const [darkMode, setDarkMode] = useState(() => { const s = localStorage.getItem('darkMode'); return s !== null ? s === 'true' : window.matchMedia('(prefers-color-scheme:dark)').matches });
-      const [amoledMode, setAmoledMode] = useState(() => localStorage.getItem('amoledMode') !== 'false');
+      const [amoledMode, setAmoledMode] = useState(() => {
+        try {
+          const omniVal = localStorage.getItem('omni_amoled_canvas');
+          if (omniVal !== null) return omniVal === 'true';
+          return localStorage.getItem('amoledMode') === 'true';
+        } catch (_) { return false; }
+      });
       useEffect(() => {
-        localStorage.setItem('amoledMode', String(amoledMode));
+        try {
+          localStorage.setItem('amoledMode', String(amoledMode));
+          localStorage.setItem('omni_amoled_canvas', String(amoledMode));
+          if (window.OmniThemeEngine?.setPref && window.OmniThemeEngine.getPref?.('amoledCanvas') !== Boolean(amoledMode)) {
+            window.OmniThemeEngine.setPref('amoledCanvas', Boolean(amoledMode));
+          } else {
+            document.documentElement.setAttribute('data-omni-amoled', amoledMode ? 'true' : 'false');
+          }
+        } catch (_) {}
         if (amoledMode) {
           document.documentElement.setAttribute('data-theme', 'amoled');
           document.body.classList.add('theme-amoled');
@@ -1178,7 +1198,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8563);
+      const [appVersionCode, setAppVersionCode] = useState(8564);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [assignWebsiteModalNovel, setAssignWebsiteModalNovel] = useState(null);
@@ -1638,28 +1658,29 @@
           }
           return;
         }
-        const id = inputText ? generateJobId(inputText) : currentFileHash;
-        const saved = localStorage.getItem(id);
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            activeSessionRef.current = parsed;
-            setActiveSession(parsed);
-            if (parsed.result) {
-              setAssembledText(parsed.result);
-            } else if (parsed.allParts && Array.isArray(parsed.allParts)) {
-              setAssembledText(parsed.allParts.filter(Boolean).join('\n\n\n').trim());
-            }
-            if (parsed.newChapters && Array.isArray(parsed.newChapters)) {
-              setTranslatedChapters(parsed.newChapters);
-            }
-          } catch(e) {}
-        } else {
-          if (!savedTranslationSession) {
+        const timer = setTimeout(() => {
+          const id = inputText ? generateJobId(inputText) : currentFileHash;
+          const saved = localStorage.getItem(id);
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              activeSessionRef.current = parsed;
+              setActiveSession(parsed);
+              if (parsed.result) {
+                setAssembledText(parsed.result);
+              } else if (parsed.allParts && Array.isArray(parsed.allParts)) {
+                setAssembledText(parsed.allParts.filter(Boolean).join('\n\n\n').trim());
+              }
+              if (parsed.newChapters && Array.isArray(parsed.newChapters)) {
+                setTranslatedChapters(parsed.newChapters);
+              }
+            } catch (e) {}
+          } else if (!savedTranslationSession) {
             setActiveSession(null);
             activeSessionRef.current = null;
           }
-        }
+        }, 500);
+        return () => clearTimeout(timer);
       }, [inputText, currentFileHash, provider, contextAware]);
 
       useEffect(() => {
@@ -2232,6 +2253,7 @@
             localStorage.setItem('contextAware', 'true');
             localStorage.setItem('deviceWakeLock', 'true');
             localStorage.setItem('amoledMode', 'false');
+            localStorage.setItem('omni_amoled_canvas', 'false');
           } catch (_) {}
           toast('Settings restored to recommended defaults.', 'success');
         });
@@ -2678,12 +2700,12 @@
         setTranslatedChapters, outputWordCount, outputRef, outputBoxHeight,
         handleOpenActiveQaModal, handleOpenDiffModal, copyText, handleDownloadEPUB,
         handleSaveTranslationToLibrarySpace, activeNovelRecord, activeCrawlSession,
-        webImportData, webImportHistory, currentDocCover, setCurrentDocCover, currentDocTitle,
+        webImportData, webImportHistory, currentDocCover, setCurrentDocCover, currentDocTitle, setCurrentDocTitle,
         fileName, handleLnoriDirectEpubDownload, setReaderChapterIdx, setReaderNovelId,
         setReaderNovelTitle, setReaderOpen, readerChapters, setReaderChapters, lastUsageStats, setLastUsageStats,
         showLiveLogs, setShowLiveLogs, liveLogs, logsContainerRef, copyDiagnosticsReport,
         copyLogsWithReport, setLogsModalOpen, handleStartTranslation, handleOpenCostEstimator,
-        setSheetOpen, setActiveTab, setWebImportUrl, disabled, renderBoxResizeBar, switchRow,
+        setSheetOpen, setActiveTab, setWebImportUrl, getExportChapters, disabled, renderBoxResizeBar, switchRow,
 
         // Tab 2: Web Importer
         webImportUrl, webImportStatus, setWebImportStatus, webImportError, setWebImportError,
@@ -2896,7 +2918,8 @@
 
           // Library Novel Action Sheet (Editorial Book Details)
           activeBookMenuNovel, setActiveBookMenuNovel, activeNovelRecord, setActiveNovelRecord,
-          currentDocTitle, setCurrentDocCover, getNovelFolderOptions, setRenameModalNovel,
+          currentDocTitle, setCurrentDocTitle, setInputText, setChapters, setTranslatedChapters, setAssembledText, setFileName,
+          setCurrentDocCover, getNovelFolderOptions, setRenameModalNovel,
           setNewNovelTitleInput, setAssignWebsiteModalNovel, setNewNovelWebsiteUrlInput, getCustomTitle, loadFullNovel, setActiveTab, setStudioSubTab,
           handleCheckNovelUpdate, handleDownloadNewChapters, handleUpdateTranslateAndMakeEpub, novelUpdateBadges,
           handleOpenContinuationForNovel, handleOpenAutoGlossary,

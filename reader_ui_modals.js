@@ -839,7 +839,7 @@
         onClick: () => setShowSettings(false)
       },
         h('div', {
-          style: { width: '100%', maxWidth: 520, background: 'var(--r-card)', color: 'var(--r-text)', borderRadius: '16px 16px 0 0', padding: 20, boxShadow: '0 -10px 40px rgba(0,0,0,0.5)' },
+          style: { width: '100%', maxWidth: 520, background: 'var(--r-card)', color: 'var(--r-text)', borderTop: '1px solid var(--r-border)', borderRadius: '14px 14px 0 0', padding: 20, boxShadow: '0 -10px 40px rgba(0,0,0,0.5)' },
           onClick: (e) => e.stopPropagation()
         },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 } },
@@ -859,13 +859,13 @@
               h('button', {
                 type: 'button',
                 className: `mini-btn ${viewMode === 'paginated' ? '' : 'ghost'}`,
-                style: viewMode === 'paginated' ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 } : { padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+                style: viewMode === 'paginated' ? { background: 'var(--r-accent)', color: 'var(--r-on-accent, #ffffff)', fontWeight: 700, padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 } : { padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
                 onClick: () => setViewMode('paginated')
               }, ic('BookOpen', 15), 'Foliate Book Flip'),
               h('button', {
                 type: 'button',
                 className: `mini-btn ${viewMode === 'scroll' ? '' : 'ghost'}`,
-                style: viewMode === 'scroll' ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 } : { padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+                style: viewMode === 'scroll' ? { background: 'var(--r-accent)', color: 'var(--r-on-accent, #ffffff)', fontWeight: 700, padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 } : { padding: '9px 0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
                 onClick: () => setViewMode('scroll')
               }, ic('Rows2', 15), 'Continuous Scroll')
             )
@@ -877,7 +877,7 @@
             h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 } },
               [
                 ['black', '#000000', 'Black'],
-                ['dark', '#0a0f1d', 'Dark'],
+                ['dark', '#0F1014', 'Dark'],
                 ['nord', '#242933', 'Nord'],
                 ['sepia', '#fbf0d9', 'Sepia'],
                 ['parchment', '#f4ecd8', 'Parchment'],
@@ -907,7 +907,7 @@
                 key: fKey,
                 type: 'button',
                 className: `mini-btn ${font === fKey ? '' : 'ghost'}`,
-                style: font === fKey ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
+                style: font === fKey ? { background: 'var(--r-accent)', color: 'var(--r-on-accent, #ffffff)', fontWeight: 700 } : {},
                 onClick: () => setFont?.(fKey)
               }, label))
             )
@@ -921,7 +921,7 @@
                 key: wKey,
                 type: 'button',
                 className: `mini-btn ${contentWidth === wKey ? '' : 'ghost'}`,
-                style: contentWidth === wKey ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
+                style: contentWidth === wKey ? { background: 'var(--r-accent)', color: 'var(--r-on-accent, #ffffff)', fontWeight: 700 } : {},
                 onClick: () => setContentWidth(wKey)
               }, label))
             )
@@ -938,7 +938,7 @@
                 key: lh,
                 type: 'button',
                 className: `mini-btn ${Math.abs(lineHeight - lh) < 0.05 ? '' : 'ghost'}`,
-                style: Math.abs(lineHeight - lh) < 0.05 ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
+                style: Math.abs(lineHeight - lh) < 0.05 ? { background: 'var(--r-accent)', color: 'var(--r-on-accent, #ffffff)', fontWeight: 700 } : {},
                 onClick: () => setLineHeight(lh)
               }, `${lh}`))
             )
@@ -1022,7 +1022,7 @@
                   key: r,
                   type: 'button',
                   className: `mini-btn ${Math.abs(ttsRate - r) < 0.05 ? '' : 'ghost'}`,
-                  style: Math.abs(ttsRate - r) < 0.05 ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, fontSize: 11 } : { fontSize: 11 },
+                  style: Math.abs(ttsRate - r) < 0.05 ? { background: 'var(--r-accent)', color: 'var(--r-on-accent, #ffffff)', fontWeight: 700, fontSize: 11 } : { fontSize: 11 },
                   onClick: () => handleRateChange(r)
                 }, `${r}x`))
               ),
@@ -1046,7 +1046,7 @@
                   key: ms,
                   type: 'button',
                   className: `mini-btn ${dacDelayMs === ms ? '' : 'ghost'}`,
-                  style: dacDelayMs === ms ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
+                  style: dacDelayMs === ms ? { background: 'var(--r-accent)', color: 'var(--r-on-accent, #ffffff)', fontWeight: 700 } : {},
                   title: ms === 200 ? 'Recommended for Piper ONNX' : undefined,
                   onClick: () => setDacDelayMs(ms)
                 }, label))
@@ -1061,7 +1061,7 @@
                   key: m,
                   type: 'button',
                   className: `mini-btn ${sleepTimerMinutes === m ? '' : 'ghost'}`,
-                  style: sleepTimerMinutes === m ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700, fontSize: 11 } : { fontSize: 11 },
+                  style: sleepTimerMinutes === m ? { background: 'var(--r-accent)', color: 'var(--r-on-accent, #ffffff)', fontWeight: 700, fontSize: 11 } : { fontSize: 11 },
                   onClick: () => {
                     setSleepTimerMinutes(m);
                     if (m > 0) setSleepTimerSecondsLeft(m * 60);
@@ -1073,7 +1073,7 @@
             h('button', {
               type: 'button',
               className: 'mini-btn',
-              style: { width: '100%', padding: '10px 0', marginTop: 14, background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+              style: { width: '100%', padding: '10px 0', marginTop: 14, background: 'var(--r-accent)', color: 'var(--r-on-accent, #ffffff)', fontWeight: 700, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
               onClick: () => { setShowSettings(false); setShowVoiceModal(true); }
             }, ic('Volume2', 15), 'Open Voice & Offline AI Engine Manager')
           )
@@ -1108,11 +1108,12 @@
             maxWidth: 520,
             maxHeight: '88vh',
             overflowY: 'auto',
-            background: 'var(--r-card, #16161a)',
-            color: 'var(--r-text, #f1f5f9)',
-            borderRadius: '24px 24px 0 0',
+            background: 'var(--r-card, #181A20)',
+            color: 'var(--r-text, #F5F6F8)',
+            borderTop: '1px solid var(--r-border, #363A48)',
+            borderRadius: '14px 14px 0 0',
             padding: '22px 20px 32px',
-            boxShadow: '0 -10px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.08)',
+            boxShadow: '0 -10px 40px rgba(0,0,0,0.8)',
             display: 'flex',
             flexDirection: 'column',
             gap: 16
@@ -1126,7 +1127,7 @@
                 style: {
                   width: 38,
                   height: 38,
-                  borderRadius: 12,
+                  borderRadius: 10,
                   background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                   display: 'flex',
                   alignItems: 'center',
@@ -1143,12 +1144,12 @@
             h('button', {
               type: 'button',
               style: {
-                background: 'rgba(255,255,255,0.06)',
-                border: 'none',
-                color: 'var(--r-muted, #94a3b8)',
+                background: 'var(--omni-control, #23262F)',
+                border: '1px solid var(--r-border, #363A48)',
+                color: 'var(--r-text, #F5F6F8)',
                 width: 32,
                 height: 32,
-                borderRadius: '50%',
+                borderRadius: 7,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1162,9 +1163,9 @@
           // ── 1. ACTIVE ANDROID SYSTEM SPEECH STATUS CARD ──
           h('div', {
             style: {
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08))',
-              border: '1.5px solid rgba(99, 102, 241, 0.35)',
-              borderRadius: 16,
+              background: 'rgba(99, 102, 241, 0.08)',
+              border: '1px solid var(--r-border, #363A48)',
+              borderRadius: 10,
               padding: 16,
               display: 'flex',
               flexDirection: 'column',
@@ -1186,7 +1187,7 @@
                   fontSize: 11,
                   fontWeight: 700,
                   padding: '3px 8px',
-                  borderRadius: 9999,
+                  borderRadius: 5,
                   background: 'rgba(16, 185, 129, 0.2)',
                   color: '#34d399',
                   border: '1px solid rgba(16, 185, 129, 0.3)'
@@ -1226,9 +1227,9 @@
                   flex: 1,
                   padding: '10px 14px',
                   background: 'var(--r-accent, #6366f1)',
-                  color: '#fff',
+                  color: 'var(--r-on-accent, #ffffff)',
                   fontWeight: 700,
-                  borderRadius: 10,
+                  borderRadius: 8,
                   fontSize: 13,
                   display: 'flex',
                   alignItems: 'center',

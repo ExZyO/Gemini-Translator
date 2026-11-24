@@ -168,9 +168,9 @@
           width: '100%',
           maxWidth: 540,
           maxHeight: '92vh',
-          background: 'var(--r-card, #1e293b)',
-          border: '1px solid var(--r-border, rgba(255,255,255,0.12))',
-          borderRadius: 16,
+          background: 'var(--r-card, #181A20)',
+          border: '1px solid var(--r-border, #363A48)',
+          borderRadius: 12,
           boxShadow: '0 25px 60px rgba(0,0,0,0.8)',
           display: 'flex',
           flexDirection: 'column',
@@ -399,16 +399,16 @@
                 value: tgtLang,
                 style: {
                   padding: '8px 12px',
-                  borderRadius: 8,
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: 6,
+                  background: 'var(--omni-input, #1B1D24)',
+                  border: '1px solid var(--omni-border, #363A48)',
                   color: 'inherit',
                   fontSize: 12.5,
                   outline: 'none'
                 },
                 onChange: (e) => setTgtLang(e.target.value)
               },
-                targetLanguages.map(l => h('option', { key: l, value: l, style: { background: '#1e293b', color: '#fff' } }, l))
+                targetLanguages.map(l => h('option', { key: l, value: l, style: { background: 'var(--omni-surface, #181A20)', color: 'var(--omni-text, #F5F6F8)' } }, l))
               )
             ),
 
@@ -430,9 +430,9 @@
                         fontSize: 11.5,
                         fontWeight: 700,
                         borderRadius: 6,
-                        border: '1px solid ' + (isSel ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,255,0.1)'),
-                        background: isSel ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,255,0.04)',
-                        color: isSel ? '#fff' : 'var(--r-text)',
+                        border: '1px solid ' + (isSel ? 'var(--r-accent, #6366f1)' : 'var(--omni-border, #363A48)'),
+                        background: isSel ? 'var(--r-accent, #6366f1)' : 'var(--omni-control, #23262F)',
+                        color: isSel ? 'var(--r-on-accent, #ffffff)' : 'var(--r-text)',
                         textTransform: 'capitalize'
                       },
                       onClick: () => setProvider(p)
@@ -466,9 +466,9 @@
                       value: customModel,
                       style: {
                         padding: '8px 10px',
-                        borderRadius: 8,
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: 6,
+                        background: 'var(--omni-input, #1B1D24)',
+                        border: '1px solid var(--omni-border, #363A48)',
                         color: 'inherit',
                         fontSize: 12,
                         outline: 'none'
@@ -480,9 +480,9 @@
                       value: provider === 'deepseek' ? deepseekModel : geminiModel,
                       style: {
                         padding: '8px 10px',
-                        borderRadius: 8,
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: 6,
+                        background: 'var(--omni-input, #1B1D24)',
+                        border: '1px solid var(--omni-border, #363A48)',
                         color: 'inherit',
                         fontSize: 12,
                         outline: 'none'
@@ -493,7 +493,7 @@
                       }
                     },
                       (provider === 'deepseek' ? deepseekModels : geminiModels).map(m => (
-                        h('option', { key: m.id, value: m.id, style: { background: '#1e293b', color: '#fff' } }, m.name)
+                        h('option', { key: m.id, value: m.id, style: { background: 'var(--omni-surface, #181A20)', color: 'var(--omni-text, #F5F6F8)' } }, m.name)
                       ))
                     )
                   )
@@ -577,14 +577,14 @@
                   style: {
                     padding: '7px 10px',
                     borderRadius: 6,
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: 'var(--omni-input, #1B1D24)',
+                    border: '1px solid var(--omni-border, #363A48)',
                     color: 'inherit',
                     fontSize: 12
                   },
                   onChange: (e) => setConcurrency(parseInt(e.target.value, 10))
                 },
-                  [1, 2, 3, 4, 5].map(n => h('option', { key: n, value: n, style: { background: '#1e293b', color: '#fff' } }, `${n} parallel stream${n > 1 ? 's' : ''}`))
+                  [1, 2, 3, 4, 5].map(n => h('option', { key: n, value: n, style: { background: 'var(--omni-surface, #181A20)', color: 'var(--omni-text, #F5F6F8)' } }, `${n} parallel stream${n > 1 ? 's' : ''}`))
                 )
               ),
 
@@ -595,17 +595,17 @@
                   style: {
                     padding: '7px 10px',
                     borderRadius: 6,
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: 'var(--omni-input, #1B1D24)',
+                    border: '1px solid var(--omni-border, #363A48)',
                     color: 'inherit',
                     fontSize: 12
                   },
                   onChange: (e) => setChunkSizePreset(e.target.value)
                 },
-                  h('option', { value: 'turbo', style: { background: '#1e293b', color: '#fff' } }, 'Turbo (Max words/req ~4,500 chars)'),
-                  h('option', { value: 'large', style: { background: '#1e293b', color: '#fff' } }, 'Large (~3,800 chars)'),
-                  h('option', { value: 'medium', style: { background: '#1e293b', color: '#fff' } }, 'Medium (~2,800 chars)'),
-                  h('option', { value: 'small', style: { background: '#1e293b', color: '#fff' } }, 'Small (~1,800 chars)')
+                  h('option', { value: 'turbo', style: { background: 'var(--omni-surface, #181A20)', color: 'var(--omni-text, #F5F6F8)' } }, 'Turbo (Max words/req ~4,500 chars)'),
+                  h('option', { value: 'large', style: { background: 'var(--omni-surface, #181A20)', color: 'var(--omni-text, #F5F6F8)' } }, 'Large (~3,800 chars)'),
+                  h('option', { value: 'medium', style: { background: 'var(--omni-surface, #181A20)', color: 'var(--omni-text, #F5F6F8)' } }, 'Medium (~2,800 chars)'),
+                  h('option', { value: 'small', style: { background: 'var(--omni-surface, #181A20)', color: 'var(--omni-text, #F5F6F8)' } }, 'Small (~1,800 chars)')
                 )
               )
             ),

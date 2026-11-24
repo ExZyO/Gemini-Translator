@@ -51,15 +51,15 @@
           style: {
             flex: 1,
             overflowY: 'auto',
-            background: '#090a0f',
-            color: '#e2e8f0',
+            background: 'var(--omni-input, #1B1D24)',
+            color: 'var(--omni-text, #F5F6F8)',
             fontFamily: "'IBM Plex Mono', monospace",
             fontSize: 11,
             lineHeight: 1.5,
             padding: 12,
             borderRadius: 8,
             margin: '10px 0',
-            border: '1px solid var(--hairline)',
+            border: '1px solid var(--omni-border, #363A48)',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word'
           }
@@ -77,7 +77,7 @@
                     det = raw.length > 180 ? ' ' + raw.slice(0, 180) + '…' : ' ' + raw;
                   }
                 }
-                return h('div', { key: idx, style: { padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' } },
+                return h('div', { key: idx, style: { padding: '3px 0', borderBottom: '1px solid var(--omni-hairline, #262A36)' } },
                   h('span', { style: { color: '#64748b' } }, `[${l.time}] `),
                   h('span', { style: { color, fontWeight: 700 } }, `[${(l.tag || 'INFO').toUpperCase()}] `),
                   h('span', { style: { color: '#cbd5e1' } }, l.message),
@@ -657,8 +657,8 @@
           h('div', {
             className: 'custom-scrollbar',
             style: {
-              background: '#090a0f',
-              border: '1px solid var(--border)',
+              background: 'var(--omni-input, #1B1D24)',
+              border: '1px solid var(--omni-border, #363A48)',
               borderRadius: 8,
               padding: '16px',
               maxHeight: '52vh',
@@ -2096,6 +2096,12 @@
         setActiveBookMenuNovel: props.setActiveBookMenuNovel,
         activeNovelRecord: props.activeNovelRecord,
         currentDocTitle: props.currentDocTitle,
+        setCurrentDocTitle: props.setCurrentDocTitle,
+        setInputText: props.setInputText,
+        setChapters: props.setChapters,
+        setTranslatedChapters: props.setTranslatedChapters,
+        setAssembledText: props.setAssembledText,
+        setFileName: props.setFileName,
         setCurrentDocCover: props.setCurrentDocCover,
         handleDownloadEPUB: props.handleDownloadEPUB,
         getNovelFolderOptions: props.getNovelFolderOptions,

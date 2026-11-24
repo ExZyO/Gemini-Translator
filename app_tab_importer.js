@@ -73,38 +73,38 @@
     const ic = (typeof window !== 'undefined' && window.ic) || props?.ic || function () { return null; };
     const omniPrefs = (window.OmniThemeEngine && window.OmniThemeEngine.useOmniPrefs)
       ? window.OmniThemeEngine.useOmniPrefs()
-      : { discoverLayout: 'grid', heroBlur: 24 };
+      : { discoverLayout: 'sources', heroBlur: 24 };
 
     const {
-      webImportUrl,
-      setWebImportUrl,
-      webImportStatus,
-      webImportError,
-      setWebImportError,
-      isFetchingUrl,
-      isFetchingPaused,
-      activeCrawlSession,
-      activeNovelView,
-      setActiveNovelRecord,
-      novelSearchResults,
-      setNovelSearchResults,
-      novelSearchFilter,
-      setNovelSearchFilter,
-      isSearchingNovels,
-      isSearchResultsCollapsed,
-      setIsSearchResultsCollapsed,
-      swiftAudioResults,
-      setSwiftAudioResults,
-      isSwiftAudioMode,
-      setIsSwiftAudioMode,
-      isSwiftAudioSearching,
-      bookSearchResults,
-      setBookSearchResults,
-      isBookSearchMode,
-      setIsBookSearchMode,
-      isSearchingBooks,
-      bookSearchFilter,
-      setBookSearchFilter,
+      webImportUrl = '',
+      setWebImportUrl = function () {},
+      webImportStatus = '',
+      webImportError = '',
+      setWebImportError = function () {},
+      isFetchingUrl = false,
+      isFetchingPaused = false,
+      activeCrawlSession = null,
+      activeNovelView = null,
+      setActiveNovelRecord = function () {},
+      novelSearchResults = [],
+      setNovelSearchResults = function () {},
+      novelSearchFilter = 'all',
+      setNovelSearchFilter = function () {},
+      isSearchingNovels = false,
+      isSearchResultsCollapsed = false,
+      setIsSearchResultsCollapsed = function () {},
+      swiftAudioResults = [],
+      setSwiftAudioResults = function () {},
+      isSwiftAudioMode = false,
+      setIsSwiftAudioMode = function () {},
+      isSwiftAudioSearching = false,
+      bookSearchResults = [],
+      setBookSearchResults = function () {},
+      isBookSearchMode = false,
+      setIsBookSearchMode = function () {},
+      isSearchingBooks = false,
+      bookSearchFilter = 'all',
+      setBookSearchFilter = function () {},
       handleSearchBooks,
       handleDownloadBookEpub,
       collapsedVolumes,
@@ -368,7 +368,7 @@
       setActiveNovelRecord?.(full || targetObj);
       setCurrentDocCover(full?.cover || targetObj?.cover || '');
       setFileName(full?.title || targetObj?.title || 'Web Novel');
-      setCurrentDocTitle(full?.title || targetObj?.title || 'Web Novel');
+      setCurrentDocTitle?.(full?.title || targetObj?.title || 'Web Novel');
       checkAndApplyNovelGlossary?.(full || targetObj);
       setActiveTab('text');
       toast(`Loaded ${chs.length} chapters into Translator.`, 'info');
@@ -425,8 +425,8 @@
       isLnoriUrl
     );
     const hasActiveRecipe = Boolean(webImportUrl && typeof window !== 'undefined' && window.SiteRecipeEngine?.findForUrl(webImportUrl));
-    const hasResettableState = Boolean(activeNovelView || webImportUrl.trim() || novelSearchResults?.length || bookSearchResults?.length || swiftAudioResults?.length);
-    const isIdleState = !webImportUrl.trim() && !isFetchingUrl && !isFetchingPaused && !activeNovelView && (!novelSearchResults || !novelSearchResults.length) && (!bookSearchResults || !bookSearchResults.length) && (!swiftAudioResults || !swiftAudioResults.length);
+    const hasResettableState = Boolean(activeNovelView || (webImportUrl || '').trim() || novelSearchResults?.length || bookSearchResults?.length || swiftAudioResults?.length);
+    const isIdleState = !(webImportUrl || '').trim() && !isFetchingUrl && !isFetchingPaused && !activeNovelView && (!novelSearchResults || !novelSearchResults.length) && (!bookSearchResults || !bookSearchResults.length) && (!swiftAudioResults || !swiftAudioResults.length);
 
     function renderNovelPosterCard(item, idx, extraClass) {
       const isLnori = item.source === 'Lnori' || /lnori\.(?:org|com)/i.test(item.url || '');
@@ -469,43 +469,48 @@
     }
 
     function renderDiscoverIdleDirectory() {
-      if (omniPrefs.discoverLayout === 'rails') {
-        const dirRow = (iconName, title, sub, onTap) => h('div', { className: 'omni-hairline-row', onClick: onTap },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
-            h('span', { style: { color: 'var(--omni-accent)', display: 'inline-flex' } }, ic(iconName, 17)),
-            h('div', null,
-              h('div', { style: { fontSize: 13.5, fontWeight: 650, color: '#F5F5F5' } }, title),
-              h('div', { style: { fontSize: 11.5, color: 'rgba(255,255,255,0.48)', marginTop: 2 } }, sub)
+      if (omniPrefs.discoverLayout === 'sources' || omniPrefs.discoverLayout === 'rails') {
+        const dirRow = (iconName, title, sub, btnLabel, onTap) => h('div', { className: 'omni-hairline-row', onClick: onTap },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 } },
+            h('span', { style: { color: 'var(--omni-accent)', display: 'inline-flex', flexShrink: 0 } }, ic(iconName, 17)),
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h('div', { style: { fontSize: 13.5, fontWeight: 650, color: 'var(--omni-text)' } }, title),
+              h('div', { style: { fontSize: 11.5, color: 'var(--omni-text-sub)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, sub)
             )
           ),
-          ic('ChevronRight', 15)
+          h('button', {
+            type: 'button',
+            className: 'omni-flat-icon-btn',
+            style: { height: 30, padding: '0 10px', fontSize: 11.5, width: 'auto' },
+            onClick: (e) => { e.stopPropagation(); onTap(); }
+          }, btnLabel || 'Browse')
         );
-        return h('div', { style: { marginTop: 6 } },
+        return h('div', { style: { marginTop: 8 } },
           h('div', { className: 'omni-section-label', style: { marginBottom: 4 } }, 'Sources Directory'),
-          dirRow('Globe', 'Web Serials & Fan Archives', 'NovelBuddy, RoyalRoad, NovelFire, Wattpad, AO3, Syosetu', () => {
+          dirRow('Globe', 'Web Serials & Archives', 'RoyalRoad, NovelFire, NovelBuddy, Wattpad, Syosetu, AO3', 'Search', () => {
             setImportCategoryTab('wn'); setIsBookSearchMode(false); setIsSwiftAudioMode(false); setNovelSearchFilter('all');
             document.getElementById('discover-search-input')?.focus();
           }),
-          dirRow('BookOpen', 'Light Novels (Lnori Catalog)', 'Illustrated official English light novels with 1-click EPUB', () => {
+          dirRow('BookOpen', 'Light Novels (Lnori Catalog)', 'Illustrated official English light novels with 1-click EPUB', 'Search', () => {
             setImportCategoryTab('ln'); setIsBookSearchMode(false); setIsSwiftAudioMode(false); setNovelSearchFilter('Lnori');
             document.getElementById('discover-search-input')?.focus();
           }),
-          dirRow('Library', 'Public Domain & Published Books', 'Project Gutenberg, Standard Ebooks, Open Library, LibGen', () => {
+          dirRow('Library', 'Public Domain & Published Books', 'Project Gutenberg, Standard Ebooks, Open Library, LibGen', 'Browse', () => {
             setImportCategoryTab('books'); setIsBookSearchMode(true); setIsSwiftAudioMode(false);
             document.getElementById('discover-search-input')?.focus();
           }),
-          dirRow('Headphones', 'Spoken Audiobooks', 'SwiftAudiobooks stream player & offline MP3 chapter saver', () => {
+          dirRow('Headphones', 'Spoken Audiobooks', 'SwiftAudiobooks stream player & offline MP3 chapter saver', 'Listen', () => {
             setImportCategoryTab('audio'); setIsBookSearchMode(false); setIsSwiftAudioMode(true);
             document.getElementById('discover-search-input')?.focus();
           }),
-          dirRow('Sliders', 'Source Plugins & Community Catalog', 'Install or update community source extensions', handleOpenSourcePluginsModal),
-          dirRow('Settings', 'Custom Site Recipes', 'Edit HTML selectors & cleanup rules for custom websites', () => openSiteRecipeEditor?.({ url: '' }))
+          dirRow('Sliders', 'Source Plugins & Community Catalog', 'Install or update community LNReader source extensions', 'Manage', handleOpenSourcePluginsModal),
+          dirRow('Settings', 'Custom Site Recipes', 'Edit HTML selectors & cleanup rules for custom websites', 'Recipes', () => openSiteRecipeEditor?.({ url: '' }))
         );
       }
       return h('div', { style: { textAlign: 'center', padding: '56px 16px' } },
-        h('div', { style: { color: 'rgba(255,255,255,0.28)', display: 'flex', justifyContent: 'center', marginBottom: 14 } }, ic('Compass', 34)),
-        h('div', { style: { fontSize: 17, fontWeight: 750, color: '#F5F5F5' } }, 'Discover & Import Books'),
-        h('p', { style: { fontSize: 13, lineHeight: 1.5, color: 'rgba(255,255,255,0.5)', maxWidth: 360, margin: '8px auto 0' } },
+        h('div', { style: { color: 'var(--omni-text-muted)', display: 'flex', justifyContent: 'center', marginBottom: 14 } }, ic('Compass', 34)),
+        h('div', { style: { fontSize: 17, fontWeight: 750, color: 'var(--omni-text)' } }, 'Discover & Import Books'),
+        h('p', { style: { fontSize: 13, lineHeight: 1.5, color: 'var(--omni-text-sub)', maxWidth: 360, margin: '8px auto 0' } },
           'Search web serials, light novels, classics, or audiobooks above, or paste any direct book link to import into your Library.'
         )
       );
@@ -570,23 +575,25 @@
         }, ic('X', 12))
       ),
 
-      // 3. Soft Borderless Category Tabs + Secondary Inline Tools
-      h('div', { className: 'omni-soft-tabs' },
+      // 3. Chimanew 2px Underline Category Tabs + Rectangular Secondary Action Strip
+      h('div', { className: 'omni-underline-tabs', style: { marginBottom: 8 } },
         [
           { id: 'wn', label: 'Web Novels', onTap: () => { setImportCategoryTab('wn'); setIsBookSearchMode(false); setIsSwiftAudioMode(false); setNovelSearchFilter('all'); } },
           { id: 'ln', label: 'Light Novels', onTap: () => { setImportCategoryTab('ln'); setIsBookSearchMode(false); setIsSwiftAudioMode(false); setNovelSearchFilter('Lnori'); } },
           { id: 'books', label: 'Books', onTap: () => { setImportCategoryTab('books'); setIsBookSearchMode(true); setIsSwiftAudioMode(false); } },
-          { id: 'audio', label: 'Audio', onTap: () => { setImportCategoryTab('audio'); setIsBookSearchMode(false); setIsSwiftAudioMode(true); } }
+          { id: 'audio', label: 'Audio', onTap: () => { setImportCategoryTab('audio'); setIsBookSearchMode(false); setIsSwiftAudioMode(true); } },
+          { id: 'recipes', label: 'Recipes', onTap: () => openSiteRecipeEditor?.({ url: (webImportUrl || '').trim() }) }
         ].map(t => h('button', {
           key: t.id,
           type: 'button',
-          className: `omni-soft-tab ${importCategoryTab === t.id ? 'active' : ''}`,
+          className: `omni-underline-tab ${importCategoryTab === t.id ? 'active' : ''}`,
           onClick: t.onTap
-        }, t.label)),
-        h('span', { style: { width: 1, height: 14, background: 'var(--omni-hairline)', flexShrink: 0 } }),
+        }, t.label))
+      ),
+      h('div', { className: 'omni-soft-tabs', style: { paddingTop: 2, paddingBottom: 8 } },
         h('button', { type: 'button', className: 'omni-soft-tab', onClick: () => ongoingEpubInputRef?.current?.click() }, 'Continue EPUB'),
         h('button', { type: 'button', className: 'omni-soft-tab', onClick: toggleCrawlerSpeedMode }, crawlerSpeedMode === 'builtin' ? 'Speed: Fast' : 'Speed: Safe'),
-        h('button', { type: 'button', className: 'omni-soft-tab', onClick: () => setShowLofterModal(true) }, lofterAuth?.cookieString ? 'Lofter: On' : 'Lofter')
+        h('button', { type: 'button', className: 'omni-soft-tab', onClick: () => setShowLofterModal(true) }, lofterAuth?.cookieString ? 'Lofter: Connected' : 'Lofter Auth')
       ),
 
       // Primary Search / Fetch Action Row when URL or query typed (and not currently fetching)
@@ -810,7 +817,7 @@
                 h('button', {
                   type: 'button',
                   className: 'omni-soft-tab',
-                  style: { padding: '4px 10px', fontSize: 11, background: 'rgba(255,255,255,0.08)' },
+                  style: { padding: '4px 10px', fontSize: 11 },
                   onClick: () => { setImportCategoryTab('wn'); handleResetImportTab(); }
                 }, 'New Import')
               )

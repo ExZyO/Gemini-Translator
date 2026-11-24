@@ -71,12 +71,12 @@
     const totalTracks = audioPlayerState?.totalTracks || (currentBook.tracks ? currentBook.tracks.length : 1);
     const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0;
 
-    const glassCardBg = amoledMode ? 'rgba(0, 0, 0, 0.94)' : 'rgba(15, 23, 42, 0.90)';
-    const glassCardBorder = '1px solid rgba(255, 255, 255, 0.10)';
+    const glassCardBg = amoledMode ? 'rgba(20, 22, 28, 0.96)' : 'rgba(24, 26, 32, 0.95)';
+    const glassCardBorder = '1px solid var(--omni-border, #363A48)';
 
     return h(ReactComp.Fragment, null,
       // ══════════════════════════════════════════════════════════════════════
-      // 1. SLEEK APPLE MUSIC FLOATING FROSTED-GLASS MINI-PLAYER
+      // 1. SLEEK FLOATING FROSTED-GLASS MINI-PLAYER
       // ══════════════════════════════════════════════════════════════════════
       hasMini && h('div', {
         className: 'swift-mini-player',
@@ -88,17 +88,17 @@
           maxWidth: 480,
           margin: '0 auto',
           height: 60,
-          background: amoledMode ? 'rgba(0, 0, 0, 0.94)' : 'rgba(15, 23, 42, 0.88)',
+          background: glassCardBg,
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          borderRadius: 18,
+          border: glassCardBorder,
+          borderRadius: 12,
           display: 'flex',
           alignItems: 'center',
           padding: '0 10px',
           gap: 8,
           zIndex: 995,
-          boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(99, 102, 241, 0.20)',
+          boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65)',
           cursor: 'pointer',
           overflow: 'hidden',
           userSelect: 'none'
@@ -233,15 +233,15 @@
             onClick: (e) => { if (e) e.stopPropagation(); window.SwiftAudioEngine?.Player?.skipBackward5(); }
           }, '-5s'),
 
-          // Apple Music White Hero Play/Pause Button
+          // White Hero Play/Pause Button
           h('button', {
             type: 'button',
             style: {
               width: 36,
               height: 36,
-              borderRadius: '50%',
-              background: '#ffffff',
-              color: '#0f172a',
+              borderRadius: 8,
+              background: 'var(--omni-accent, #F5F6F8)',
+              color: 'var(--omni-on-accent, #0F1014)',
               border: 'none',
               display: 'flex',
               alignItems: 'center',
@@ -336,7 +336,7 @@
           padding: 'calc(16px + env(safe-area-inset-top, 0px)) 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px',
           background: amoledMode
             ? '#000000'
-            : 'linear-gradient(180deg, #1e1b4b 0%, #0f172a 45%, #020617 100%)',
+            : 'linear-gradient(180deg, #181A20 0%, #0F1014 100%)',
           color: '#ffffff',
           overflow: 'hidden',
           boxSizing: 'border-box',
@@ -705,15 +705,15 @@
               onClick: (e) => { if (e) e.stopPropagation(); window.SwiftAudioEngine?.Player?.skipBackward5(); }
             }, '-5s'),
 
-            // Hero Play/Pause Circle (White circle with dark icon)
+            // Hero Play/Pause Control
             h('button', {
               type: 'button',
               style: {
                 width: 64,
                 height: 64,
-                borderRadius: '50%',
-                background: '#ffffff',
-                color: '#0f172a',
+                borderRadius: 16,
+                background: 'var(--omni-accent, #F5F6F8)',
+                color: 'var(--omni-on-accent, #0F1014)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
@@ -1011,9 +1011,9 @@
           // Chapter Queue Overlay Sheet
           isChapterQueueOpen && h('div', {
             style: {
-              background: 'rgba(15, 23, 42, 0.96)',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
-              borderRadius: 16,
+              background: 'var(--omni-surface, #181A20)',
+              border: '1px solid var(--omni-border, #363A48)',
+              borderRadius: 12,
               padding: 12,
               maxHeight: 220,
               overflowY: 'auto',
@@ -1079,11 +1079,11 @@
           right: 12,
           maxWidth: 480,
           margin: '0 auto',
-          background: 'rgba(15, 23, 42, 0.94)',
+          background: 'var(--omni-surface, #181A20)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(99, 102, 241, 0.4)',
-          borderRadius: 12,
+          border: '1px solid var(--omni-border, #363A48)',
+          borderRadius: 10,
           padding: '10px 14px',
           zIndex: 998,
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
@@ -1134,9 +1134,9 @@
             maxHeight: '88vh',
             boxSizing: 'border-box',
             overflowX: 'hidden',
-            background: amoledMode ? '#000000' : 'rgba(15, 23, 42, 0.94)',
+            background: amoledMode ? '#14161C' : 'var(--omni-surface, #181A20)',
             border: glassCardBorder,
-            borderRadius: 16,
+            borderRadius: 12,
             boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7)'
           },
           onClick: e => e.stopPropagation()
