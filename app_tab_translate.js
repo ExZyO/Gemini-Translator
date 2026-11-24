@@ -1,8 +1,9 @@
 /**
- * app_tab_translate.js - Tab 1 (Translator & Text Input) for Gemini Translator
- * Handles source/target language selection, prompt instructions, glossary profiles,
- * live translation streaming & progress, split input/output view, diffs/QA audit,
- * celebratory export card, token cost telemetry, and execution logs.
+ * app_tab_translate.js - Tabbed Full-Bleed Translator Workspace for Gemini Translator
+ * OmniTrack Pure-AMOLED Editorial Option A layout:
+ * 25px header + circular icon triggers, 0.6px hairline Language Pair Bar,
+ * unboxed 4-col Telemetry Strip, underline pane switcher (Source / Translated / Live Stream),
+ * and full-bleed distraction-free prose canvas with inline Action Bar.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -15,21 +16,23 @@
   'use strict';
 
   function TabTranslate(props) {
+    const ReactObj = typeof React !== 'undefined' ? React : (typeof window !== 'undefined' ? window.React : null);
+    const useState = ReactObj?.useState || function (init) { return [typeof init === 'function' ? init() : init, function () {}]; };
+    const useEffect = ReactObj?.useEffect || function () {};
     const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
-    const toast = (typeof window !== 'undefined' && window.toast) || props?.toast || function() {};
-    const ic = (typeof window !== 'undefined' && window.ic) || props?.ic || function() { return null; };
-    const btn = (typeof window !== 'undefined' && window.btn) || props?.btn || function(p, ...ch) { return h('button', p, ...ch); };
+    const toast = (typeof window !== 'undefined' && window.toast) || props?.toast || function () {};
+    const ic = (typeof window !== 'undefined' && window.ic) || props?.ic || function () { return null; };
     const ArrowRightLeft = (typeof window !== 'undefined' && window.ArrowRightLeft) || props?.ArrowRightLeft || 'ArrowRightLeft';
     const LANGUAGES = (typeof window !== 'undefined' && window.LANGUAGES) || props?.LANGUAGES || ['Auto-detect', 'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Russian', 'Japanese', 'Korean', 'Chinese (Simplified)', 'Chinese (Traditional)', 'Arabic', 'Hindi', 'Indonesian', 'Vietnamese', 'Thai', 'Polish', 'Dutch', 'Turkish', 'Ukrainian', 'Czech', 'Swedish', 'Romanian', 'Greek', 'Hungarian', 'Danish', 'Finnish', 'Norwegian', 'Hebrew', 'Malay', 'Tagalog', 'Bengali', 'Persian', 'Slovak', 'Bulgarian', 'Serbian', 'Croatian', 'Lithuanian', 'Slovenian', 'Latvian', 'Estonian'];
     const TARGET_LANGUAGES = (typeof window !== 'undefined' && window.TARGET_LANGUAGES) || props?.TARGET_LANGUAGES || LANGUAGES.filter(l => l !== 'Auto-detect');
 
     const {
       error,
-      setError = function() {},
+      setError = function () {},
       srcLang = 'Auto-detect',
-      setSrcLang = function() {},
+      setSrcLang = function () {},
       tgtLang = 'English',
-      setTgtLang = function() {},
+      setTgtLang = function () {},
       provider = 'gemini',
       geminiModel = 'gemini-3.7-flash',
       deepseekModel = 'deepseek-chat',
@@ -37,1091 +40,535 @@
       useCustomModel = false,
       customDeepseekModel = '',
       useCustomDeepseekModel = false,
-      model = '',
-      handleSwapLanguages = function() {},
-      handleResetTranslateTab = function() {},
+      handleSwapLanguages = function () {},
+      handleResetTranslateTab = function () {},
       chunkSizePreset = 'turbo',
       concurrency = 2,
       inputText = '',
-      setInputText = function() {},
-      handleInputChange = function() {},
+      setInputText = function () {},
+      handleInputChange = function () {},
       inputCharCount = 0,
       inputTokenCount = 0,
       inputRef = { current: null },
       fileInputRef = { current: null },
       uploadingFile = false,
-      processFile = function() {},
-      onDragOver = function() {},
-      onDragLeave = function() {},
-      onDrop = function() {},
+      processFile = function () {},
+      onDragOver = function () {},
+      onDragLeave = function () {},
+      onDrop = function () {},
       isDragOver = false,
-      handlePasteFromClipboard = function() {},
-      inputBoxHeight,
+      handlePasteFromClipboard = function () {},
+      inputBoxHeight = 260,
       glossaryCardOpen = false,
-      setGlossaryCardOpen = function() {},
+      setGlossaryCardOpen = function () {},
       glossaryTermCount = 0,
-      applyGlossaryPreset = function() {},
+      applyGlossaryPreset = function () {},
       newGlossaryName = '',
-      setNewGlossaryName = function() {},
-      handleSaveGlossary = function() {},
+      setNewGlossaryName = function () {},
+      handleSaveGlossary = function () {},
       activeGlossaryId = null,
-      setActiveGlossaryId = function() {},
-      handleLoadGlossary = function() {},
-      handleDeleteGlossary = function() {},
-      handleUnloadGlossary = function() {},
+      setActiveGlossaryId = function () {},
+      handleLoadGlossary = function () {},
+      handleDeleteGlossary = function () {},
+      handleUnloadGlossary = function () {},
       savedGlossaries = [],
       defaultGlossaryName = '',
-      setDefaultGlossaryName = function() {},
-      clearDefaultGloss = function() {},
+      setDefaultGlossaryName = function () {},
+      clearDefaultGloss = function () {},
       smartGlossary = true,
-      setSmartGlossary = function() {},
-      setGlossaryEditorOpen = function() {},
-      handleOpenAutoGlossary = function() {},
-      handleRunConsistencyCheck = function() {},
+      setSmartGlossary = function () {},
+      setGlossaryEditorOpen = function () {},
+      handleOpenAutoGlossary = function () {},
+      handleRunConsistencyCheck = function () {},
       isAuditingConsistency = false,
       customInstructions = '',
-      setCustomInstructions = function() {},
+      setCustomInstructions = function () {},
       instructionsRef = { current: null },
-      terminology = '',
-      setTerminology = function() {},
+      setTerminology = function () {},
       savedTranslationSession = null,
       isTranslationPaused = false,
       activeSession = null,
       activeSessionRef = { current: null },
-      resumeSavedTranslation = function() {},
-      discardSavedTranslation = function() {},
+      resumeSavedTranslation = function () {},
+      discardSavedTranslation = function () {},
       chapters = [],
-      setChapters = function() {},
+      setChapters = function () {},
       isTranslating = false,
       progress = 0,
       progressLabel = '',
       elapsedSec = 0,
-      handlePauseTranslation = function() {},
-      cancelTranslation = function() {},
+      handlePauseTranslation = function () {},
+      cancelTranslation = function () {},
       assembledText = '',
-      setAssembledText = function() {},
-      handleAssembledTextChange = function() {},
+      handleAssembledTextChange = function () {},
       translatedChapters = [],
-      setTranslatedChapters = function() {},
       outputWordCount = 0,
       outputRef = { current: null },
-      outputBoxHeight,
-      handleOpenActiveQaModal = function() {},
-      handleOpenDiffModal = function() {},
-      copyText = async function() {},
-      handleDownloadEPUB = function() {},
-      handleSaveTranslationToLibrarySpace = function() {},
+      outputBoxHeight = 280,
+      handleOpenActiveQaModal = function () {},
+      handleOpenDiffModal = function () {},
+      copyText = async function () {},
+      handleDownloadEPUB = function () {},
+      handleSaveTranslationToLibrarySpace = function () {},
       activeNovelRecord = null,
       activeCrawlSession = null,
       webImportData = null,
       webImportHistory = [],
       currentDocCover = '',
-      setCurrentDocCover = function() {},
+      setCurrentDocCover = function () {},
       currentDocTitle = '',
       fileName = '',
-      handleLnoriDirectEpubDownload = function() {},
-      setReaderChapterIdx = function() {},
-      setReaderNovelId = function() {},
-      setReaderNovelTitle = function() {},
-      setReaderOpen = function() {},
-      readerChapters = [],
-      setReaderChapters = function() {},
+      handleLnoriDirectEpubDownload = function () {},
+      setReaderChapterIdx = function () {},
+      setReaderNovelId = function () {},
+      setReaderNovelTitle = function () {},
+      setReaderOpen = function () {},
+      setReaderChapters = function () {},
       lastUsageStats = null,
-      setLastUsageStats = function() {},
-      showLiveLogs = false,
-      setShowLiveLogs = function() {},
+      setLastUsageStats = function () {},
+      setShowLiveLogs = function () {},
       liveLogs = [],
       logsContainerRef = { current: null },
-      copyDiagnosticsReport = function() {},
-      copyLogsWithReport = function() {},
-      setLogsModalOpen = function() {},
-      handleStartTranslation = function() {},
-      handleOpenCostEstimator = function() {},
-      setSheetOpen = function() {},
-      setActiveTab = function() {},
-      setWebImportUrl = function() {},
+      copyDiagnosticsReport = function () {},
+      copyLogsWithReport = function () {},
+      setLogsModalOpen = function () {},
+      handleStartTranslation = function () {},
+      handleOpenCostEstimator = function () {},
+      setSheetOpen = function () {},
+      setActiveTab = function () {},
+      setWebImportUrl = function () {},
+      setFileName = function () {},
+      getExportChapters,
       disabled = props?.disabled !== undefined ? props.disabled : (isTranslating || uploadingFile),
-      switchRow = props?.switchRow || ((label, checked, onChange) => h('div', { className: 'set-row' },
-        h('span', null, label),
-        h('label', { className: 'sw' },
-          h('input', { type: 'checkbox', checked: !!checked, onChange }),
-          h('span', null)
-        )
-      )),
-      renderBoxResizeBar = props?.renderBoxResizeBar || ((boxType) => null)
+      renderBoxResizeBar = props?.renderBoxResizeBar || (() => null)
     } = props || {};
 
-    const [translateDeckMode, setTranslateDeckMode] = (typeof React !== 'undefined' && React.useState)
-      ? React.useState((props?.chapters && props.chapters.length > 0 && !props?.inputText) ? 'file' : 'text')
-      : ['text', function() {}];
+    const [activePaneTab, setActivePaneTab] = useState('source'); // 'source' | 'translated' | 'stream'
 
-    if (typeof React !== 'undefined' && React.useEffect) {
-      React.useEffect(() => {
-        if (chapters && chapters.length > 0 && !inputText) {
-          setTranslateDeckMode('file');
-        }
-      }, [((chapters && chapters.length) || 0) > 0]);
-    }
+    useEffect(() => {
+      if (isTranslating) {
+        setActivePaneTab('stream');
+      }
+    }, [isTranslating]);
+
+    const activeModelDisplay = (provider || 'gemini') === 'gemini'
+      ? (String((useCustomModel && customModel ? customModel : geminiModel) || 'Flash').replace(/^gemini-/, '') || 'Flash')
+      : (provider === 'deepseek' ? String((useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel) || 'DeepSeek') : provider.toUpperCase());
+
+    const openTranslatedInReader = () => {
+      if (!assembledText.trim() && (!translatedChapters || translatedChapters.length === 0) && (!chapters || chapters.length === 0)) {
+        toast('Nothing loaded to open in Reader yet.', 'info');
+        return;
+      }
+      const docKey = currentDocTitle || fileName || 'translated_doc';
+      setReaderNovelId(docKey);
+      setReaderNovelTitle(currentDocTitle || fileName || 'Document');
+      if (typeof setReaderChapters === 'function') {
+        const exportChs = (typeof getExportChapters === 'function')
+          ? getExportChapters()
+          : ((translatedChapters && translatedChapters.length > 0) ? translatedChapters : chapters);
+        if (Array.isArray(exportChs) && exportChs.length > 0) setReaderChapters(exportChs);
+      }
+      const savedProg = window.getReadingProgress ? window.getReadingProgress(docKey) : null;
+      const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
+      setReaderChapterIdx(resumeIdx);
+      setReaderOpen(true);
+    };
+
+    const hasAnyContent = Boolean(inputText || assembledText || (chapters && chapters.length > 0) || savedTranslationSession || activeSessionRef?.current);
+    const hasCompletedTranslation = !isTranslating && !(savedTranslationSession || isTranslationPaused || activeSessionRef.current) && assembledText && translatedChapters && translatedChapters.filter(c => c && (c.content || c.text)).length > 0 && (activeNovelRecord || (chapters && chapters.length > 0));
 
     return h(React.Fragment, null,
-      error && h('div', {
-                className: 'card',
-                style: {
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  borderColor: 'rgba(239, 68, 68, 0.4)',
-                  padding: '10px 14px',
-                  marginBottom: 14,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  borderRadius: 10
-                }
-              },
-                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                  ic('AlertCircle', 16),
-                  h('span', { style: { fontSize: 12.5, fontWeight: 600, color: '#fca5a5' } }, error)
-                ),
-                h('button', {
-                  type: 'button',
-                  onClick: () => setError(''),
-                  style: { background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 16, fontWeight: 'bold' }
-                }, ic('X', 12))
-              ),
-              /lnori\.(?:org|com)/i.test(inputText) && h('div', {
-                className: 'card',
-                style: {
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.12))',
-                  border: '1px solid rgba(99, 102, 241, 0.4)',
-                  padding: '12px 14px',
-                  marginBottom: 14,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 8,
-                  flexWrap: 'wrap'
-                }
-              },
-                h('div', null,
-                  h('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
-                    ic('Sparkles', 14),
-                    h('span', null, 'Lnori Link Detected (English Light Novel)'),
-                    h('span', { className: 'chip', style: { color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)', fontSize: '10.5px' } }, 'English Original')
-                  ),
-                  h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } },
-                    'Lnori light novels are already in official English! You can download the clean EPUB directly without translating.'
-                  )
-                ),
-                h('button', {
-                  type: 'button',
-                  className: 'mini-btn',
-                  style: { background: 'linear-gradient(90deg, #6366f1, #10b981)', color: '#fff', fontWeight: 700, border: 'none', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 },
-                  onClick: () => {
-                    const match = inputText.match(/https?:\/\/[^\s\n"']+/);
-                    const url = match ? match[0] : inputText.trim();
-                    setWebImportUrl(url);
-                    setActiveTab('web_importer');
-                    handleLnoriDirectEpubDownload(url);
-                  }
-                }, ic('Download', 13), 'Download Clean EPUB')
-              ),
-              (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && !isTranslating && (() => {
-                const s = savedTranslationSession || activeSessionRef.current || activeSession;
-                if (!s) return null;
-                const cCount = s.completedCount || 0;
-                const tCount = s.total || s.totalChunks || '?';
-                const isDelta = Boolean(s.isDeltaUpdate);
-                const deltaLabel = `Ch ${s.deltaStart || (cCount + 1)}–${s.deltaEnd || tCount}`;
-                return h('div', {
-                  className: 'card',
-                  style: {
-                    background: isDelta
-                      ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(124, 58, 237, 0.12))'
-                      : 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
-                    borderColor: isDelta ? '#3b82f6' : 'var(--accent, #6366f1)',
-                    marginBottom: 14
-                  }
-                },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 } },
-                    h('div', null,
-                      h('div', { style: { fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 } },
-                        ic(isDelta ? 'Zap' : 'Pause', 13),
-                        h('span', null, isDelta ? 'New Chapters Staged for Update' : 'Saved Translation Session'),
-                        h('span', { className: 'badge', style: { background: isDelta ? '#3b82f6' : 'var(--accent)', color: '#fff' } },
-                          isDelta ? `${deltaLabel} waiting (${cCount} translated)` : `${cCount} / ${tCount} completed`
-                        )
-                      ),
-                      h('div', { style: { fontSize: 11.5, opacity: 0.8, marginTop: 2 } },
-                        isDelta
-                          ? `${s?.title || 'Novel'} · Chapters 1–${cCount} preserved in library`
-                          : `${s?.title || 'Translation'} · Saved ${new Date(s?.timestamp || Date.now()).toLocaleTimeString()}`
-                      )
-                    ),
-                    h('div', { style: { display: 'flex', gap: 6 } },
-                      h('button', {
-                        type: 'button',
-                        className: 'btn-primary',
-                        style: {
-                          padding: '6px 16px',
-                          fontSize: 12,
-                          background: isDelta ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: 999,
-                          fontWeight: 700,
-                          boxShadow: isDelta ? '0 2px 8px rgba(124, 58, 237, 0.35)' : 'none'
-                        },
-                        onClick: () => resumeSavedTranslation(s)
-                      }, isDelta ? `▶ Translate Only New Chapters (${deltaLabel})` : '▶ Resume Translation'),
-                      h('button', {
-                        type: 'button',
-                        className: 'chip-act',
-                        style: { padding: '6px 12px', fontSize: 12, borderRadius: 999 },
-                        onClick: () => discardSavedTranslation(s.id)
-                      }, 'Discard')
-                    )
-                  )
-                );
-              })(),
+      // Hidden file picker mounted unconditionally so Upload trigger always works
+      h('input', {
+        type: 'file',
+        ref: fileInputRef,
+        onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) processFile(f); },
+        accept: '.txt,.epub,.docx,.pdf,.md,.html,.xml',
+        style: { display: 'none' }
+      }),
 
-              h('div', { className: 'apple-page-header', style: { marginBottom: 14 } },
-                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 } },
-                  h('div', null,
-                    h('h1', { style: { fontSize: 24, fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em', margin: '0 0 2px' } }, 'Translate'),
-                    h('p', { style: { fontSize: 13, color: '#94A3B8', margin: 0 } }, 'Dual-mode AI translation deck & real-time reader sync')
-                  ),
-                  (inputText || assembledText || (chapters && chapters.length > 0) || savedTranslationSession || activeSessionRef?.current) && h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    disabled: isTranslating,
-                    onClick: handleResetTranslateTab,
-                    title: 'Reset Translate tab and clear current text, chapters, and active sessions',
-                    style: {
-                      borderColor: 'rgba(239, 68, 68, 0.35)',
-                      color: '#f87171',
-                      background: 'rgba(239, 68, 68, 0.08)',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                      padding: '5px 12px',
-                      borderRadius: 999,
-                      fontSize: 11.5,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4
-                    }
-                  }, ic('RotateCcw', 12), 'Reset Tab')
-                )
-              ),
+      // 1. Clean 25px Header + Circular Action Triggers
+      h('div', { className: 'omni-page-hd' },
+        h('div', null,
+          h('h1', { className: 'omni-page-title' }, 'Translate')
+        ),
+        h('div', { className: 'omni-header-actions' },
+          h('button', {
+            type: 'button',
+            className: 'omni-circle-btn',
+            title: 'Import EPUB, TXT, DOCX, or PDF',
+            disabled: disabled || uploadingFile,
+            onClick: () => fileInputRef.current && fileInputRef.current.click()
+          }, ic('Upload', 16)),
+          h('button', {
+            type: 'button',
+            className: `omni-circle-btn ${(glossaryCardOpen || glossaryTermCount > 0) ? 'active' : ''}`,
+            title: 'Glossary & Custom Prompt Rules',
+            onClick: () => setGlossaryCardOpen(v => !v)
+          }, ic('BookOpen', 16)),
+          h('button', {
+            type: 'button',
+            className: 'omni-circle-btn',
+            title: 'Export & Split Tools',
+            disabled: isTranslating,
+            onClick: () => setSheetOpen(true)
+          }, ic('Sliders', 16)),
+          hasAnyContent && h('button', {
+            type: 'button',
+            className: 'omni-circle-btn',
+            style: { color: '#F87171' },
+            title: 'Reset Translate Tab',
+            disabled: isTranslating,
+            onClick: handleResetTranslateTab
+          }, ic('RotateCcw', 15))
+        )
+      ),
 
-              h('div', { className: 'translate-mode-pills' },
-                h('button', {
-                  type: 'button',
-                  className: `translate-mode-btn ${translateDeckMode === 'text' ? 'active' : ''}`,
-                  onClick: () => setTranslateDeckMode('text')
-                },
-                  ic('FileText', 14),
-                  h('span', null, 'Quick Text')
-                ),
-                h('button', {
-                  type: 'button',
-                  className: `translate-mode-btn ${translateDeckMode === 'file' ? 'active' : ''}`,
-                  onClick: () => setTranslateDeckMode('file')
-                },
-                  ic('BookOpen', 14),
-                  h('span', null, 'Book File'),
-                  (chapters && chapters.length > 0) && h('span', {
-                    style: {
-                      background: translateDeckMode === 'file' ? 'rgba(255,255,255,0.25)' : 'rgba(99,102,241,0.25)',
-                      color: translateDeckMode === 'file' ? '#fff' : '#c7d2fe',
-                      fontSize: '10.5px',
-                      padding: '1px 7px',
-                      borderRadius: 999,
-                      fontWeight: 700
-                    }
-                  }, `${chapters.length}`)
-                )
-              ),
+      // 2. Frameless 0.6px Hairline Language Pair Bar
+      h('div', { className: 'omni-lang-bar' },
+        h('select', { className: 'omni-lang-select', value: srcLang, onChange: e => setSrcLang(e.target.value), disabled },
+          LANGUAGES.map(l => h('option', { key: l, value: l }, l))
+        ),
+        h('button', {
+          type: 'button',
+          className: 'omni-circle-btn',
+          style: { width: 32, height: 32 },
+          title: 'Swap Languages',
+          disabled: disabled || srcLang === 'Auto-detect',
+          onClick: handleSwapLanguages
+        }, ic(ArrowRightLeft, 14)),
+        h('select', { className: 'omni-lang-select', style: { textAlign: 'right' }, value: tgtLang, onChange: e => setTgtLang(e.target.value), disabled },
+          TARGET_LANGUAGES.map(l => h('option', { key: l, value: l }, l))
+        )
+      ),
 
-              h('div', { className: 'langrow-deck' },
-                h('div', { className: 'lang-deck-select' },
-                  ic('Globe', 14),
-                  h('select', { value: srcLang, onChange: e => setSrcLang(e.target.value), disabled }, LANGUAGES.map(l => h('option', { key: l, value: l }, l)))
-                ),
-                h('button', {
-                  type: 'button',
-                  className: 'lang-deck-swap',
-                  title: 'Swap Languages',
-                  disabled: disabled || srcLang === 'Auto-detect',
-                  onClick: handleSwapLanguages
-                }, ic(ArrowRightLeft, 15)),
-                h('div', { className: 'lang-deck-select' },
-                  ic('Languages', 14),
-                  h('select', { value: tgtLang, onChange: e => setTgtLang(e.target.value), disabled }, TARGET_LANGUAGES.map(l => h('option', { key: l, value: l }, l)))
-                ),
-                h('div', { className: 'active-model-pill', title: `Active Provider: ${provider || 'gemini'}` },
-                  h('span', { className: 'pulse-green-dot' }),
-                  h('span', null, `${(provider || 'gemini') === 'gemini' ? (String((useCustomModel && customModel ? customModel : geminiModel) || 'Flash').replace(/^gemini-/, '') || 'Flash') : (String((useCustomDeepseekModel && customDeepseekModel ? customDeepseekModel : deepseekModel) || 'Chat'))}`)
-                )
-              ),
-              h('div', { className: 'meta', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 } },
-                h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                  h('span', { className: 'chip' }, `${concurrency} streams`),
-                  h('span', { className: 'chip' }, `${(chunkSizePreset || 'turbo').toUpperCase()}`),
-                  (inputText || assembledText || (chapters && chapters.length > 0) || savedTranslationSession || activeSessionRef?.current) && h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    disabled: isTranslating,
-                    onClick: handleResetTranslateTab,
-                    title: 'Reset Translate tab and clear current text, chapters, and active sessions',
-                    style: {
-                      borderColor: 'rgba(239, 68, 68, 0.35)',
-                      color: '#f87171',
-                      background: 'rgba(239, 68, 68, 0.08)',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                      padding: '4px 10px',
-                      borderRadius: 999,
-                      fontSize: 11,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4
-                    }
-                  }, ic('RotateCcw', 11), 'Reset Tab')
-                ),
-                h('div', {
-                  className: 'chip-act',
-                  style: {
-                    background: glossaryTermCount > 0 ? 'rgba(99, 102, 241, 0.22)' : 'var(--ember-2)',
-                    color: glossaryTermCount > 0 ? '#c7d2fe' : 'var(--paper-dim)',
-                    border: glossaryTermCount > 0 ? '1px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    padding: '5px 12px',
-                    borderRadius: 999
-                  },
-                  onClick: () => setGlossaryCardOpen(v => !v)
-                },
-                  ic('BookOpen', 13),
-                  h('span', null, activeGlossaryId ? `Glossary: ${activeGlossaryId}` : (glossaryTermCount > 0 ? 'Glossary: Custom' : 'Glossary: None')),
-                  h('span', { style: { opacity: 0.85, fontSize: 10.5, fontWeight: 500 } }, `(${glossaryTermCount} terms${smartGlossary ? ' · Smart' : ''})`),
-                  h('span', { style: { fontSize: 9, opacity: 0.7 } }, glossaryCardOpen ? '▲' : '▼')
-                )
-              ),
+      // 3. Unboxed 4-Column Telemetry Strip
+      h('div', { className: 'omni-hairline-strip', style: { marginTop: 8, marginBottom: 8 } },
+        h('div', { className: 'omni-stat-cell' },
+          h('div', { className: 'omni-stat-val' }, activeModelDisplay),
+          h('div', { className: 'omni-stat-lbl' }, 'Model')
+        ),
+        h('div', { className: 'omni-stat-cell' },
+          h('div', { className: 'omni-stat-val' }, chapters?.length > 0 ? `${chapters.length} Ch` : `${concurrency}x ${(chunkSizePreset || 'turbo').toUpperCase()}`),
+          h('div', { className: 'omni-stat-lbl' }, chapters?.length > 0 ? 'Chapters' : 'Speed')
+        ),
+        h('div', { className: 'omni-stat-cell' },
+          h('div', { className: 'omni-stat-val' }, inputTokenCount > 0 ? `~${inputTokenCount.toLocaleString()}` : '0'),
+          h('div', { className: 'omni-stat-lbl' }, 'Tokens')
+        ),
+        h('div', { className: 'omni-stat-cell', style: { cursor: 'pointer' }, onClick: () => setGlossaryCardOpen(v => !v) },
+          h('div', { className: 'omni-stat-val', style: { color: glossaryTermCount > 0 ? 'var(--omni-accent)' : '#F5F5F5' } }, `${glossaryTermCount}`),
+          h('div', { className: 'omni-stat-lbl' }, 'Glossary')
+        )
+      ),
 
-              translateDeckMode === 'text' && h(React.Fragment, null,
-                h('div', { className: 'pane translate-glass-card', onDragOver, onDragLeave, onDrop, style: isDragOver ? { borderColor: 'var(--iris-deep)' } : null },
-                  h('div', { className: 'pane-head' },
-                    h('span', { className: 'lbl', style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                      ic('FileText', 14),
-                      h('span', null, 'Source Text')
-                    ),
-                    h('div', { className: 'pane-acts' },
-                      inputText.trim() && h('button', { type: 'button', className: 'chip-act', disabled, onClick: () => { setInputText(''); setChapters([]); localStorage.removeItem('inputText'); }, style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Trash2', 11), 'Clear'),
-                      h('button', { type: 'button', className: 'chip-act', disabled, onClick: handlePasteFromClipboard, style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Clipboard', 11), 'Paste'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: disabled || uploadingFile, onClick: () => fileInputRef.current && fileInputRef.current.click(), style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Upload', 11), uploadingFile ? 'Loading…' : 'File'),
-                      inputText.trim() && h('span', { className: 'count', style: { background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 999 } }, `${inputCharCount.toLocaleString()} chars · ~${inputTokenCount.toLocaleString()} tok`)
-                    )
-                  ),
-                  h('textarea', {
-                    className: 'pane-textarea', ref: inputRef, value: inputText, disabled,
-                    onChange: e => handleInputChange(e.target.value),
-                    placeholder: 'Paste raw novel prose or drop an EPUB/TXT/DOCX/PDF book here…',
-                    style: { height: `${inputBoxHeight}px` }
-                  }),
-                  h('input', { type: 'file', ref: fileInputRef, onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) processFile(f); }, accept: '.txt,.epub,.docx,.pdf,.md,.html,.xml', style: { display: 'none' } })
-                ),
-                renderBoxResizeBar('input'),
+      // 4. Contextual Hairline Banners (Zero Boxes)
+      error && h('div', { className: 'omni-hairline-row', style: { color: '#F87171' } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 } },
+          ic('AlertCircle', 15),
+          h('span', { style: { fontSize: 12.5, fontWeight: 600 } }, error)
+        ),
+        h('button', { type: 'button', className: 'omni-circle-btn', style: { width: 26, height: 26 }, onClick: () => setError('') }, ic('X', 12))
+      ),
 
-                h('div', { style: { display: 'flex', justifyContent: 'center', margin: '-10px 0', zIndex: 10, position: 'relative' } },
-                  h('button', {
-                    type: 'button',
-                    className: 'deck-swap-circle',
-                    title: 'Swap Languages',
-                    disabled: disabled || srcLang === 'Auto-detect',
-                    onClick: handleSwapLanguages
-                  }, ic(ArrowRightLeft, 16))
-                ),
+      /lnori\.(?:org|com)/i.test(inputText) && h('div', { className: 'omni-hairline-row', style: { flexWrap: 'wrap' } },
+        h('div', { style: { flex: 1, minWidth: 200 } },
+          h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--omni-jade)' } }, 'Official English Link Detected'),
+          h('div', { style: { fontSize: 11.5, color: 'rgba(255,255,255,0.52)' } }, 'Download clean formatted EPUB directly without translating tokens.')
+        ),
+        h('button', {
+          type: 'button',
+          className: 'omni-flat-cta',
+          style: { flex: 'none', height: 34, padding: '0 14px', fontSize: 12 },
+          onClick: () => {
+            const match = inputText.match(/https?:\/\/[^\s\n"']+/);
+            const url = match ? match[0] : inputText.trim();
+            setWebImportUrl(url);
+            setActiveTab('web_importer');
+            handleLnoriDirectEpubDownload(url);
+          }
+        }, 'Download Clean EPUB')
+      ),
 
-                h('div', { className: 'pane translate-glass-card' },
-                  h('div', { className: 'pane-head' },
-                    h('span', { className: 'lbl', style: { display: 'flex', alignItems: 'center', gap: 6, color: '#34d399' } },
-                      ic('Sparkles', 14),
-                      h('span', null, 'Translated Prose')
-                    ),
-                    h('div', { className: 'pane-acts' },
-                      h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); }, style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 11), 'Copy'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim() && (!translatedChapters || translatedChapters.length === 0), onClick: () => {
-                        const docKey = currentDocTitle || fileName || 'translated_doc';
-                        setReaderNovelId(docKey);
-                        setReaderNovelTitle(currentDocTitle || fileName || 'Document');
-                        if (typeof setReaderChapters === 'function') {
-                          const exportChs = (typeof getExportChapters === 'function') ? getExportChapters() : ((translatedChapters && translatedChapters.length > 0) ? translatedChapters : chapters);
-                          if (Array.isArray(exportChs) && exportChs.length > 0) setReaderChapters(exportChs);
-                        }
-                        const savedProg = window.getReadingProgress ? window.getReadingProgress(docKey) : null;
-                        const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
-                        setReaderChapterIdx(resumeIdx);
-                        setReaderOpen(true);
-                        if (savedProg && resumeIdx > 0) {
-                          toast(`Resuming "${currentDocTitle || fileName || 'Document'}" at Chapter ${resumeIdx + 1}!`, 'success');
-                        }
-                      }, style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('BookOpen', 11), 'Reader'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && chapters.length === 0), onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, 'QA'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && (!translatedChapters || translatedChapters.length === 0)), onClick: () => handleOpenDiffModal(0), title: 'Translation Revision Diffs & Rollbacks (§8.6)' }, 'Diffs'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Star', 11), 'Save to Space'),
-                      assembledText.trim() && h('span', { className: 'count', style: { background: 'rgba(52, 211, 153, 0.12)', color: '#34d399', padding: '2px 8px', borderRadius: 999 } }, `${outputWordCount.toLocaleString()} words`)
-                    )
-                  ),
-                  h('textarea', {
-                    className: 'pane-textarea out', ref: outputRef, value: assembledText, disabled: isTranslating, readOnly: isTranslating,
-                    onChange: e => handleAssembledTextChange(e.target.value),
-                    placeholder: 'Translated text will appear here…',
-                    style: { height: `${outputBoxHeight}px` }
-                  }),
-                  renderBoxResizeBar('output')
-                ),
-                renderBoxResizeBar('output')
-              ),
+      (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && !isTranslating && (() => {
+        const s = savedTranslationSession || activeSessionRef.current || activeSession;
+        if (!s) return null;
+        const cCount = s.completedCount || 0;
+        const tCount = s.total || s.totalChunks || '?';
+        const isDelta = Boolean(s.isDeltaUpdate);
+        const deltaLabel = `Ch ${s.deltaStart || (cCount + 1)}-${s.deltaEnd || tCount}`;
+        return h('div', { className: 'omni-hairline-row', style: { flexWrap: 'wrap' } },
+          h('div', { style: { flex: 1, minWidth: 190 } },
+            h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--omni-accent)' } },
+              isDelta ? `Update Staged · ${deltaLabel}` : `Paused Session · ${cCount} / ${tCount} done`
+            ),
+            h('div', { style: { fontSize: 11.5, color: 'rgba(255,255,255,0.52)', marginTop: 2 } },
+              s.title || currentDocTitle || 'Translation Progress Preserved'
+            )
+          ),
+          h('div', { style: { display: 'flex', gap: 8 } },
+            h('button', { type: 'button', className: 'omni-flat-cta', style: { flex: 'none', height: 34, padding: '0 14px', fontSize: 12 }, onClick: () => resumeSavedTranslation(s) },
+              isDelta ? `Translate New (${deltaLabel})` : 'Resume'
+            ),
+            h('button', { type: 'button', className: 'omni-soft-tab', style: { color: '#F87171' }, onClick: () => discardSavedTranslation(s.id) }, 'Discard')
+          )
+        );
+      })(),
 
-              translateDeckMode === 'file' && h(React.Fragment, null,
-                (chapters && chapters.length > 0)
-                  ? h('div', { className: 'translate-book-hero' },
-                      h('div', { className: 'translate-book-cover' },
-                        currentDocCover
-                          ? h('img', { src: currentDocCover, alt: 'Cover' })
-                          : ic('BookOpen', 28)
-                      ),
-                      h('div', { className: 'translate-book-details' },
-                        h('div', { className: 'translate-book-title' },
-                          currentDocTitle || fileName || 'Loaded Book'
-                        ),
-                        h('div', { className: 'translate-book-meta' },
-                          h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700 } }, `${chapters.length} Chapters`),
-                          inputCharCount > 0 && h('span', { className: 'chip' }, `${inputCharCount.toLocaleString()} chars`),
-                          inputTokenCount > 0 && h('span', { className: 'chip' }, `~${inputTokenCount.toLocaleString()} tokens`)
-                        )
-                      ),
-                      h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                        h('button', {
-                          type: 'button',
-                          className: 'chip-act',
-                          disabled,
-                          onClick: () => fileInputRef.current && fileInputRef.current.click(),
-                          style: { display: 'inline-flex', alignItems: 'center', gap: 4 }
-                        }, ic('Upload', 11), 'Change'),
-                        h('button', {
-                          type: 'button',
-                          className: 'chip-act',
-                          disabled,
-                          style: { color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)', display: 'inline-flex', alignItems: 'center', gap: 4 },
-                          onClick: () => { setChapters([]); setInputText(''); setFileName(''); }
-                        }, ic('Trash2', 11), 'Clear')
-                      ),
-                      h('input', { type: 'file', ref: fileInputRef, onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) processFile(f); }, accept: '.txt,.epub,.docx,.pdf,.md,.html,.xml', style: { display: 'none' } })
-                    )
-                  : h('div', {
-                      className: 'studio-dropzone',
-                      onDragOver, onDragLeave, onDrop,
-                      style: {
-                        marginBottom: 16
-                      },
-                      onClick: () => fileInputRef.current && fileInputRef.current.click()
-                    },
-                      h('div', { style: { display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--slate)' } }, ic('BookOpen', 38)),
-                      h('div', { style: { fontWeight: 800, fontSize: 16, color: '#F8FAFC', marginBottom: 6 } }, 'Select or Drop Ebook File'),
-                      h('div', { style: { fontSize: 13, color: '#94A3B8', marginBottom: 16 } }, 'Drag and drop your EPUB, TXT, DOCX, or PDF book here to translate the full novel'),
-                      h('div', { style: { display: 'flex', justifyContent: 'center', gap: 8 } },
-                        h('span', { className: 'chip', style: { padding: '4px 12px' } }, 'EPUB'),
-                        h('span', { className: 'chip', style: { padding: '4px 12px' } }, 'TXT'),
-                        h('span', { className: 'chip', style: { padding: '4px 12px' } }, 'DOCX'),
-                        h('span', { className: 'chip', style: { padding: '4px 12px' } }, 'PDF')
-                      ),
-                      h('input', {
-                        type: 'file',
-                        ref: fileInputRef,
-                        onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) processFile(f); },
-                        accept: '.txt,.epub,.docx,.pdf,.md,.html,.xml',
-                        style: { display: 'none' }
-                      })
-                    ),
+      // 5. Collapsible Glossary & Prompt Rules Drawer (Frameless Hairline Layout)
+      glossaryCardOpen && h('div', { style: { padding: '12px 0', borderBottom: '0.6px solid var(--omni-hairline)' } },
+        h('div', { className: 'omni-section-label-row', style: { marginTop: 0 } },
+          h('span', { className: 'omni-section-label' }, `Glossary & Profiles (${glossaryTermCount} terms)`),
+          h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '2px 8px', fontSize: 11 }, onClick: () => setGlossaryCardOpen(false) }, 'Done')
+        ),
+        h('div', { className: 'omni-soft-tabs', style: { paddingBottom: 8 } },
+          ['ri', 'lotm', 'cote', 'xianxia'].map(p => h('button', {
+            key: p,
+            type: 'button',
+            className: 'omni-soft-tab',
+            disabled,
+            onClick: () => applyGlossaryPreset(p)
+          }, `${p.toUpperCase()} Preset`))
+        ),
+        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 } },
+          h('button', { type: 'button', className: 'omni-soft-tab active', disabled, onClick: () => setGlossaryEditorOpen(true) }, 'Full Editor'),
+          h('button', { type: 'button', className: 'omni-soft-tab', disabled, onClick: handleOpenAutoGlossary }, 'AI Auto-Extract'),
+          h('button', { type: 'button', className: 'omni-soft-tab', disabled: disabled || isAuditingConsistency, onClick: handleRunConsistencyCheck }, isAuditingConsistency ? 'Auditing...' : 'Verify Names'),
+          h('button', { type: 'button', className: 'omni-soft-tab', style: { color: '#F87171' }, disabled, onClick: () => { setTerminology(''); localStorage.removeItem('terminology'); setActiveGlossaryId(null); localStorage.removeItem('activeGlossaryId'); toast('Glossary cleared.', 'info'); } }, 'Clear')
+        ),
+        h('div', { className: 'omni-hairline-row', style: { minHeight: 44, padding: '6px 0', cursor: 'default' } },
+          h('span', { style: { fontSize: 12.5, color: '#F5F5F5' } }, 'Smart Glossary Filter'),
+          h('button', { type: 'button', className: `switch ${smartGlossary ? 'on' : ''}`, onClick: () => { if (!disabled) { setSmartGlossary(!smartGlossary); localStorage.setItem('smartGlossary', !smartGlossary); } } })
+        ),
+        h('div', { style: { display: 'flex', gap: 8, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' } },
+          activeGlossaryId && h('button', { type: 'button', className: 'omni-flat-cta', style: { flex: 'none', height: 34, padding: '0 12px', fontSize: 12 }, disabled, onClick: () => handleSaveGlossary(activeGlossaryId) }, `Update "${activeGlossaryId}"`),
+          h('div', { className: 'omni-search-bar', style: { flex: 1, minWidth: 140, height: 36, marginBottom: 0 } },
+            h('input', { type: 'text', value: newGlossaryName, disabled, onChange: e => setNewGlossaryName(e.target.value), placeholder: 'Save terms as profile...' })
+          ),
+          h('button', { type: 'button', className: 'omni-soft-tab active', disabled, onClick: () => handleSaveGlossary(newGlossaryName) }, 'Save'),
+          activeGlossaryId && h('button', { type: 'button', className: 'omni-soft-tab', disabled, onClick: handleUnloadGlossary }, 'Unload')
+        ),
+        savedGlossaries.length > 0 && h('div', { style: { marginTop: 8 } },
+          savedGlossaries.map(g => h('div', { key: g.name, className: 'omni-hairline-row', style: { minHeight: 42, padding: '6px 0' } },
+            h('span', { style: { fontSize: 12.5, fontWeight: activeGlossaryId === g.name ? 700 : 500, color: activeGlossaryId === g.name ? 'var(--omni-accent)' : '#F5F5F5' }, onClick: () => handleLoadGlossary(g) },
+              `${g.name}${activeGlossaryId === g.name ? ' (Active)' : ''}${defaultGlossaryName === g.name ? ' (Default)' : ''}`
+            ),
+            h('div', { style: { display: 'flex', gap: 6 } },
+              h('button', { type: 'button', className: 'omni-soft-tab', style: { fontSize: 11, padding: '3px 8px' }, disabled, onClick: () => handleLoadGlossary(g) }, 'Load'),
+              h('button', { type: 'button', className: 'omni-soft-tab', style: { fontSize: 11, padding: '3px 8px' }, disabled, onClick: () => { localStorage.setItem('defaultGlossaryName', g.name); setDefaultGlossaryName(g.name); toast(`Default: ${g.name}`); } }, 'Default'),
+              h('button', { type: 'button', className: 'omni-circle-btn', style: { width: 26, height: 26, color: '#F87171' }, disabled, onClick: () => handleDeleteGlossary(g.name) }, ic('X', 11))
+            )
+          )),
+          defaultGlossaryName && h('button', { type: 'button', className: 'omni-soft-tab', style: { fontSize: 11, color: '#F87171', marginTop: 4 }, disabled, onClick: clearDefaultGloss }, 'Clear Default Profile')
+        ),
+        h('div', { style: { marginTop: 10 } },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
+            h('span', { className: 'omni-section-label' }, 'Custom Instructions'),
+            h('div', { style: { display: 'flex', gap: 6 } },
+              h('button', { type: 'button', className: 'omni-soft-tab', style: { fontSize: 11, padding: '2px 8px' }, disabled, onClick: () => applyGlossaryPreset('literary') }, 'Literary'),
+              h('button', { type: 'button', className: 'omni-soft-tab', style: { fontSize: 11, padding: '2px 8px' }, disabled, onClick: () => applyGlossaryPreset('dialogue') }, 'Dialogue')
+            )
+          ),
+          h('textarea', {
+            ref: instructionsRef,
+            value: customInstructions,
+            disabled,
+            onChange: e => { setCustomInstructions(e.target.value); localStorage.setItem('customInstructions', e.target.value); },
+            placeholder: 'e.g. "Formal literary prose", "Keep honorifics"...',
+            style: { width: '100%', height: 64, background: 'rgba(255,255,255,0.04)', border: '0.6px solid var(--omni-hairline)', borderRadius: 6, padding: 8, color: '#F5F5F5', fontSize: 12.5, outline: 'none' }
+          })
+        )
+      ),
 
-                (assembledText.trim() || (translatedChapters && translatedChapters.length > 0)) && h('div', { className: 'pane translate-glass-card' },
-                  h('div', { className: 'pane-head' },
-                    h('span', { className: 'lbl', style: { display: 'flex', alignItems: 'center', gap: 6, color: '#34d399' } },
-                      ic('Sparkles', 14),
-                      h('span', null, 'Translated Output')
-                    ),
-                    h('div', { className: 'pane-acts' },
-                      h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim(), onClick: () => { if (assembledText) copyText(assembledText).then(() => toast('Copied!')); }, style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 11), 'Copy'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: !assembledText.trim() && (!translatedChapters || translatedChapters.length === 0), onClick: () => {
-                        const docKey = currentDocTitle || fileName || 'translated_doc';
-                        setReaderNovelId(docKey);
-                        setReaderNovelTitle(currentDocTitle || fileName || 'Document');
-                        if (typeof setReaderChapters === 'function') {
-                          const exportChs = (typeof getExportChapters === 'function') ? getExportChapters() : ((translatedChapters && translatedChapters.length > 0) ? translatedChapters : chapters);
-                          if (Array.isArray(exportChs) && exportChs.length > 0) setReaderChapters(exportChs);
-                        }
-                        const savedProg = window.getReadingProgress ? window.getReadingProgress(docKey) : null;
-                        const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
-                        setReaderChapterIdx(resumeIdx);
-                        setReaderOpen(true);
-                        if (savedProg && resumeIdx > 0) {
-                          toast(`Resuming "${currentDocTitle || fileName || 'Document'}" at Chapter ${resumeIdx + 1}!`, 'success');
-                        }
-                      }, style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('BookOpen', 11), 'Reader'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && chapters.length === 0), onClick: handleOpenActiveQaModal, title: 'Audit translation for CJK leaks, empty chapters, loops, and AI refusals' }, 'QA'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || (!assembledText.trim() && (!translatedChapters || translatedChapters.length === 0)), onClick: () => handleOpenDiffModal(0), title: 'Translation Revision Diffs & Rollbacks (§8.6)' }, 'Diffs'),
-                      h('button', { type: 'button', className: 'chip-act', disabled: isTranslating || !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace, style: { borderColor: 'rgba(245, 158, 11, 0.4)', color: '#f59e0b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Star', 11), 'Save to Space'),
-                      assembledText.trim() && h('span', { className: 'count', style: { background: 'rgba(52, 211, 153, 0.12)', color: '#34d399', padding: '2px 8px', borderRadius: 999 } }, `${outputWordCount.toLocaleString()} words`)
-                    )
-                  ),
-                  h('textarea', {
-                    className: 'pane-textarea out', ref: outputRef, value: assembledText, disabled: isTranslating, readOnly: isTranslating,
-                    onChange: e => handleAssembledTextChange(e.target.value),
-                    placeholder: 'Translated text will appear here…',
-                    style: { height: `${outputBoxHeight}px` }
-                  }),
-                  renderBoxResizeBar('output')
-                )
-              ),
+      // 6. Option A: Editorial Underline Pane Switcher (Source / Translated / Live Stream)
+      h('div', { className: 'omni-underline-tabs' },
+        h('button', { type: 'button', className: `omni-underline-tab ${activePaneTab === 'source' ? 'active' : ''}`, onClick: () => setActivePaneTab('source') },
+          'Source', inputCharCount > 0 ? ` (${Math.round(inputCharCount / 1000)}k)` : ''
+        ),
+        h('button', { type: 'button', className: `omni-underline-tab ${activePaneTab === 'translated' ? 'active' : ''}`, onClick: () => setActivePaneTab('translated') },
+          'Translated', outputWordCount > 0 ? ` (${outputWordCount.toLocaleString()}w)` : ''
+        ),
+        h('button', { type: 'button', className: `omni-underline-tab ${activePaneTab === 'stream' ? 'active' : ''}`, onClick: () => setActivePaneTab('stream') },
+          isTranslating ? `Live Stream · ${progress}%` : 'Live Stream'
+        )
+      ),
 
-              // ═══ GLOSSARY & BOOK PROFILES PANEL (TRANSLATE SCREEN) ═══
-              h('div', { className: 'settings-grouped-card', style: { marginTop: 14, borderColor: glossaryTermCount > 0 ? 'rgba(99, 102, 241, 0.4)' : 'rgba(255, 255, 255, 0.08)' } },
-                h('div', { className: 'card-title', style: { marginBottom: glossaryCardOpen ? 12 : 0 } },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, ic('BookOpen', 16)),
-                    h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'Glossary & Profiles'),
-                    activeGlossaryId
-                      ? h('span', { className: 'badge', style: { background: 'var(--accent, #6366f1)', color: '#fff', fontSize: 10.5, padding: '2px 8px' } }, `Active: ${activeGlossaryId}`)
-                      : (glossaryTermCount > 0
-                          ? h('span', { className: 'badge', style: { background: 'rgba(99, 102, 241, 0.25)', color: '#a5b4fc', fontSize: 10.5, padding: '2px 8px' } }, 'Active: Custom')
-                          : h('span', { className: 'count', style: { fontSize: 10.5 } }, 'None Active')
-                        )
-                  ),
-                  h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                    h('button', { type: 'button', className: 'mini-btn', disabled, onClick: () => setGlossaryEditorOpen(true), style: { fontSize: 11, padding: '4px 10px', borderRadius: 999 } }, 'Editor'),
-                    h('button', {
-                      type: 'button',
-                      className: 'chip-act',
-                      onClick: () => setGlossaryCardOpen(v => !v),
-                      style: { fontSize: 11, borderRadius: 999 }
-                    }, glossaryCardOpen ? 'Collapse' : 'Expand')
-                  )
-                ),
-                glossaryCardOpen && h(React.Fragment, null,
-                  // Quick Preset Chips
-                  h('div', { className: 'studio-pill-bar', style: { marginBottom: 10, padding: 3 } },
-                    h('button', { type: 'button', className: 'studio-pill-btn', style: { padding: '7px 10px', fontSize: 11.5 }, disabled, onClick: () => applyGlossaryPreset('ri') }, 'RI Preset'),
-                    h('button', { type: 'button', className: 'studio-pill-btn', style: { padding: '7px 10px', fontSize: 11.5 }, disabled, onClick: () => applyGlossaryPreset('lotm') }, 'LOTM Preset'),
-                    h('button', { type: 'button', className: 'studio-pill-btn', style: { padding: '7px 10px', fontSize: 11.5 }, disabled, onClick: () => applyGlossaryPreset('cote') }, 'COTE Preset'),
-                    h('button', { type: 'button', className: 'studio-pill-btn', style: { padding: '7px 10px', fontSize: 11.5 }, disabled, onClick: () => applyGlossaryPreset('xianxia') }, 'Xianxia Preset')
-                  ),
+      // PANE 1: Full-Bleed Source Canvas
+      activePaneTab === 'source' && h('div', { onDragOver, onDragLeave, onDrop, style: isDragOver ? { outline: '1px dashed var(--omni-accent)', outlineOffset: 4 } : null },
+        chapters && chapters.length > 0 && h('div', { className: 'omni-hairline-row' },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 } },
+            currentDocCover && h('div', { className: 'omni-poster-frame', style: { width: 34, height: 51 } }, h('img', { src: currentDocCover, alt: 'Cover' })),
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h('div', { style: { fontSize: 13.5, fontWeight: 700, color: '#F5F5F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, currentDocTitle || fileName || 'Loaded Ebook'),
+              h('div', { style: { fontSize: 11.5, color: 'rgba(255,255,255,0.48)' } }, `${chapters.length} chapters loaded`)
+            )
+          ),
+          h('button', {
+            type: 'button',
+            className: 'omni-soft-tab',
+            style: { color: '#F87171' },
+            disabled,
+            onClick: () => { setChapters([]); setInputText(''); setFileName(''); }
+          }, 'Clear Book')
+        ),
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0 0', gap: 8 } },
+          h('div', { style: { display: 'flex', gap: 6 } },
+            h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '4px 9px', fontSize: 11.5 }, disabled, onClick: handlePasteFromClipboard }, 'Paste'),
+            h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '4px 9px', fontSize: 11.5 }, disabled: disabled || uploadingFile, onClick: () => fileInputRef.current?.click() }, uploadingFile ? 'Loading...' : 'Pick File'),
+            inputText.trim() && h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '4px 9px', fontSize: 11.5, color: '#F87171' }, disabled, onClick: () => { setInputText(''); setChapters([]); localStorage.removeItem('inputText'); } }, 'Clear')
+          ),
+          inputCharCount > 0 && h('span', { style: { fontSize: 11, color: 'rgba(255,255,255,0.42)' } }, `${inputCharCount.toLocaleString()} chars`)
+        ),
+        h('textarea', {
+          className: 'omni-prose-textarea',
+          ref: inputRef,
+          value: inputText,
+          disabled,
+          onChange: e => handleInputChange(e.target.value),
+          placeholder: 'Paste raw story prose here, or tap Upload above to import EPUB, TXT, DOCX, or PDF...',
+          style: { height: `${Math.max(260, inputBoxHeight || 260)}px` }
+        }),
+        renderBoxResizeBar('input')
+      ),
 
-                  // Quick Term Bar
-                  h('div', {
-                    className: 'mini-input',
-                    style: { cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: disabled ? 0.6 : 1 },
-                    onClick: () => { if (!disabled) setGlossaryEditorOpen(true); }
-                  },
-                    h('span', null, `${glossaryTermCount} terms loaded · tap to open full table editor`),
-                    h('span', { style: { fontSize: 11, color: 'var(--iris)', fontWeight: 600 } }, 'Edit')
-                  ),
-
-                  // Controls: AI Auto-Extract, Consistency Audit, Full Editor, Clear, Smart Filter Toggle
-                  h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn',
-                      style: { background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', border: '1px solid currentColor', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
-                      disabled,
-                      onClick: handleOpenAutoGlossary
-                    }, ic('Sparkles', 12), ' AI Auto-Extract'),
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn',
-                      style: { background: 'rgba(16, 185, 129, 0.2)', color: 'var(--pine)', border: '1px solid currentColor', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
-                      onClick: handleRunConsistencyCheck,
-                      disabled: disabled || isAuditingConsistency
-                    }, isAuditingConsistency ? 'Auditing…' : [ic('Search', 12), ' Verify Names']),
-                    h('button', { type: 'button', className: 'mini-btn', disabled, onClick: () => setGlossaryEditorOpen(true) }, 'Open Full Editor'),
-                    h('button', { type: 'button', className: 'mini-btn ghost', disabled, onClick: () => { setTerminology(''); localStorage.removeItem('terminology'); setActiveGlossaryId(null); localStorage.removeItem('activeGlossaryId'); toast('Glossary cleared.', 'info'); } }, 'Clear'),
-                    switchRow('Smart Glossary Filter', smartGlossary, (v) => { if (!disabled) { setSmartGlossary(v); localStorage.setItem('smartGlossary', v); } })
-                  ),
-
-                  // Save Profile Row
-                  h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' } },
-                    activeGlossaryId && h('button', {
-                      type: 'button',
-                      className: 'mini-btn',
-                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 },
-                      disabled,
-                      onClick: () => handleSaveGlossary(activeGlossaryId)
-                    }, ic('Save', 12), `Save to "${activeGlossaryId}"`),
-                    h('input', { type: 'text', value: newGlossaryName, disabled, onChange: e => setNewGlossaryName(e.target.value), placeholder: activeGlossaryId ? 'Or save as new profile…' : 'Save current terms as profile name…', style: { background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '8px 10px', fontSize: 12, color: 'var(--paper-dim)', outline: 'none', flex: 1, minWidth: 140 } }),
-                    h('button', { type: 'button', className: 'mini-btn ghost', disabled, onClick: () => handleSaveGlossary(newGlossaryName) }, 'Save Profile'),
-                    activeGlossaryId && h('button', { type: 'button', className: 'mini-btn ghost', disabled, onClick: handleUnloadGlossary }, 'Unload')
-                  ),
-
-                  // Saved Profiles List
-                  savedGlossaries.length > 0 && h(React.Fragment, null,
-                    h('div', { className: 'card-title', style: { marginTop: 12, fontSize: 12 } },
-                      h('span', null, `Saved Book Profiles (${savedGlossaries.length})`)
-                    ),
-                    savedGlossaries.map(g => h('div', { key: g.name, className: 'set-row', style: { padding: '5px 0' } },
-                      h('span', { className: 'l', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: activeGlossaryId === g.name ? 700 : 400, color: activeGlossaryId === g.name ? 'var(--iris)' : 'inherit' } },
-                        `${g.name}${activeGlossaryId === g.name ? ' (Active)' : ''}${defaultGlossaryName === g.name ? ' (Default)' : ''}`
-                      ),
-                      h('div', { className: 'pane-acts' },
-                        h('button', { type: 'button', className: `chip-act ${activeGlossaryId === g.name ? 'active' : ''}`, disabled, onClick: () => handleLoadGlossary(g) }, activeGlossaryId === g.name ? 'Loaded' : 'Load'),
-                        h('button', { type: 'button', className: 'chip-act', disabled, onClick: () => { localStorage.setItem('defaultGlossaryName', g.name); setDefaultGlossaryName(g.name); toast(`Set "${g.name}" as default.`); } }, 'Default'),
-                        h('button', { type: 'button', className: 'chip-act', disabled, onClick: () => handleDeleteGlossary(g.name), style: { display: 'inline-flex', alignItems: 'center' } }, ic('X', 11))
-                      )
-                    )),
-                    defaultGlossaryName && h('div', { style: { marginTop: 6 } },
-                      h('button', { type: 'button', className: 'mini-btn danger', disabled, style: { fontSize: 11, padding: '3px 8px' }, onClick: clearDefaultGloss }, 'Clear Default Profile')
-                    )
-                  ),
-
-                  // Custom Instructions Box
-                  h('div', { style: { marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--hairline)' } },
-                    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
-                      h('span', { style: { fontSize: 12, fontWeight: 600 } }, 'Custom Translation Instructions'),
-                      h('div', { className: 'seg' },
-                        h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('literary') }, 'Literary'),
-                        h('button', { type: 'button', className: 'seg-btn', disabled, onClick: () => applyGlossaryPreset('dialogue') }, 'Dialogue')
-                      )
-                    ),
-                    h('textarea', {
-                      className: 'mini-input', ref: instructionsRef, value: customInstructions, disabled,
-                      onChange: e => { setCustomInstructions(e.target.value); localStorage.setItem('customInstructions', e.target.value); },
-                      placeholder: 'e.g. "Use formal tone", "Keep Chinese honorifics", "Pallez speaks like an old gentleman"',
-                      style: { width: '100%', height: 60, resize: 'vertical' }
-                    })
-                  )
-                )
-              ),
-
-              isTranslating && h('div', { className: 'settings-grouped-card', style: { borderColor: 'rgba(124,135,255,.45)' } },
-                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 } },
-                  h('span', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--iris)' } }, progressLabel || 'Translating…'),
-                  h('div', { style: { display: 'flex', gap: 10, alignItems: 'center' } },
-                    h('span', { className: 'count' }, `${Math.floor(elapsedSec / 60)}:${String(elapsedSec % 60).padStart(2, '0')}`),
-                    h('button', { type: 'button', className: 'mini-btn secondary', onClick: handlePauseTranslation, title: 'Pause translation and save state to resume anytime', style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Pause', 12), 'Pause'),
-                    h('button', { type: 'button', className: 'mini-btn danger', onClick: cancelTranslation }, 'Cancel')
-                  )
-                ),
-                h('div', { className: 'mini-progress' }, h('i', { style: { width: `${progress}%` } })),
-                h('div', { className: 'count', style: { marginTop: 8 } }, `${progress}%`)
-              ),
-
-              !isTranslating && (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && (() => {
-                const session = savedTranslationSession || activeSessionRef.current || activeSession;
-                const completedCount = session?.completedCount || (translatedChapters || []).filter(c => c && (c.content || c.text)).length || 0;
-                const totalCount = session?.total || session?.totalChunks || (chapters ? chapters.length : 1);
-                const isDelta = Boolean(session?.isDeltaUpdate);
-                const pct = totalCount > 0 ? Math.min(100, Math.round((completedCount / totalCount) * 100)) : (progress || 0);
-                const sessionTitle = session?.title || (fileName && fileName.trim()) || activeNovelRecord?.title || 'Novel Translation';
-                const deltaLabel = `Ch ${session?.deltaStart || (completedCount + 1)}–${session?.deltaEnd || totalCount}`;
-                return h('div', {
-                  className: 'settings-grouped-card',
-                  style: {
-                    background: isDelta
-                      ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.10))'
-                      : 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(99, 102, 241, 0.10))',
-                    borderColor: isDelta ? '#3b82f6' : '#f59e0b',
-                    borderWidth: '1.5px',
-                    boxShadow: isDelta ? '0 4px 16px rgba(59, 130, 246, 0.15)' : '0 4px 16px rgba(245, 158, 11, 0.15)',
-                    marginBottom: 14,
-                    padding: '14px 16px'
-                  }
-                },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                      ic(isDelta ? 'Zap' : 'Pause', 16),
-                      h('div', null,
-                        h('div', { style: { fontWeight: 800, fontSize: 13.5, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 6 } },
-                          isDelta ? 'Novel Update Staged' : 'Translation Paused',
-                          h('span', { className: 'badge', style: { background: isDelta ? '#2563eb' : '#f59e0b', color: isDelta ? '#fff' : '#000', fontWeight: 700 } },
-                            isDelta ? `${deltaLabel} waiting to translate` : `${completedCount} / ${totalCount} completed`
-                          )
-                        ),
-                        h('div', { style: { fontSize: 11.5, opacity: 0.8, marginTop: 2 } },
-                          isDelta
-                            ? `${sessionTitle} · ${completedCount} chapters already translated · ${Math.max(0, totalCount - completedCount)} new chapters staged`
-                            : `${sessionTitle} · Progress safely preserved in database`
-                        )
-                      )
-                    ),
-                    h('span', { className: 'count', style: { fontWeight: 700, color: isDelta ? '#3b82f6' : '#f59e0b' } }, `${pct}%`)
-                  ),
-                  h('div', { className: 'mini-progress', style: { background: isDelta ? 'rgba(59, 130, 246, 0.2)' : 'rgba(245, 158, 11, 0.2)', height: 8, borderRadius: 4, marginBottom: 12 } },
-                    h('i', { style: { width: `${pct}%`, background: isDelta ? 'linear-gradient(90deg, #2563eb, #7c3aed)' : 'linear-gradient(90deg, #f59e0b, #6366f1)', borderRadius: 4 } })
-                  ),
-                  h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-                    h('button', {
-                      type: 'button',
-                      className: 'btn-primary',
-                      style: {
-                        background: isDelta ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: 13,
-                        padding: '9px 18px',
-                        flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
-                        boxShadow: isDelta ? '0 2px 10px rgba(124, 58, 237, 0.35)' : '0 2px 10px rgba(16, 185, 129, 0.35)',
-                        border: 'none',
-                        cursor: 'pointer',
-                        borderRadius: 8
-                      },
-                      onClick: () => resumeSavedTranslation(session)
-                    }, isDelta ? [ic('Play', 12), ` Translate Only New Chapters (${deltaLabel})`] : [ic('Play', 12), ' Resume Translation']),
-                    h('button', {
-                      type: 'button',
-                      className: 'chip-act',
-                      style: { padding: '9px 14px', fontSize: 12, borderRadius: 8 },
-                      title: 'Discard staged/paused session and start over',
-                      onClick: () => discardSavedTranslation(session?.id)
-                    }, 'Discard')
-                  )
-                );
-              })(),
-
-              // ═══ CELEBRATORY COMPLETION & EXPORT CARD ═══
-              !isTranslating && !(savedTranslationSession || isTranslationPaused || activeSessionRef.current) && assembledText && translatedChapters && translatedChapters.filter(c => c && (c.content || c.text)).length > 0 && (activeNovelRecord || (chapters && chapters.length > 0)) && (() => {
-                const transCount = translatedChapters.filter(c => c && (c.content || c.text)).length;
-                const novelTitle = (activeNovelRecord && activeNovelRecord.title) || (fileName && fileName.trim()) || 'Translated Novel';
-                const cleanNT = (typeof window !== 'undefined' && window.normalizeTitleKey)
-                  ? window.normalizeTitleKey(novelTitle)
-                  : String(novelTitle || '').replace(/\.[^/.]+$/, '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-                const historyMatch = (typeof webImportHistory !== 'undefined' && Array.isArray(webImportHistory))
-                  ? webImportHistory.find(n => {
-                      const nt = (typeof window !== 'undefined' && window.normalizeTitleKey)
-                        ? window.normalizeTitleKey(n?.title)
-                        : String(n?.title || '').replace(/\s*\((?:Translated|Translation)\)/gi, '').trim().toLowerCase();
-                      return nt && (nt === cleanNT || cleanNT.includes(nt) || nt.includes(cleanNT)) && n.cover;
-                    })
-                  : null;
-                const effectiveCover = currentDocCover || activeNovelRecord?.cover || activeCrawlSession?.cover || webImportData?.cover || historyMatch?.cover || (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_current_doc_cover') : '') || '';
-
-                const handleCoverFileSelect = (e) => {
-                  const file = e.target?.files?.[0];
-                  if (!file) return;
-                  const r = new FileReader();
-                  r.onload = ev => {
-                    const dataUrl = ev.target.result;
-                    setCurrentDocCover(dataUrl);
-                    if (activeNovelRecord) {
-                      activeNovelRecord.cover = dataUrl;
-                    }
-                    toast('EPUB cover art updated!', 'success');
-                  };
-                  r.readAsDataURL(file);
+      // PANE 2: Full-Bleed Translated Canvas
+      activePaneTab === 'translated' && h('div', null,
+        hasCompletedTranslation && h('div', { className: 'omni-hairline-row', style: { flexWrap: 'wrap' } },
+          h('div', { style: { flex: 1, minWidth: 180 } },
+            h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--omni-jade)' } }, 'Translation Complete & Saved'),
+            h('div', { style: { fontSize: 11.5, color: 'rgba(255,255,255,0.52)' } }, `${translatedChapters.filter(c => c && (c.content || c.text)).length} chapters ready`)
+          ),
+          h('label', { className: 'omni-soft-tab active', style: { cursor: 'pointer', fontSize: 11.5 } },
+            currentDocCover ? 'Change Cover' : 'Add Cover',
+            h('input', {
+              type: 'file',
+              accept: 'image/*',
+              style: { display: 'none' },
+              onChange: (e) => {
+                const file = e.target?.files?.[0];
+                if (!file) return;
+                const r = new FileReader();
+                r.onload = ev => {
+                  setCurrentDocCover(ev.target.result);
+                  if (activeNovelRecord) activeNovelRecord.cover = ev.target.result;
+                  toast('Cover updated.', 'success');
                 };
+                r.readAsDataURL(file);
+              }
+            })
+          )
+        ),
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0 0', flexWrap: 'wrap', gap: 6 } },
+          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+            h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '4px 9px', fontSize: 11.5 }, disabled: !assembledText.trim(), onClick: () => copyText(assembledText).then(() => toast('Copied!')) }, 'Copy'),
+            h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '4px 9px', fontSize: 11.5 }, disabled: isTranslating || (!assembledText.trim() && (!translatedChapters || !translatedChapters.length)), onClick: () => handleOpenDiffModal(0) }, 'Diffs'),
+            h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '4px 9px', fontSize: 11.5, color: 'var(--omni-accent)' }, disabled: isTranslating || !assembledText.trim(), onClick: handleSaveTranslationToLibrarySpace }, 'Save to Space')
+          ),
+          assembledText.trim() && h('span', { style: { fontSize: 11, color: 'var(--omni-jade)' } }, `${outputWordCount.toLocaleString()} words`)
+        ),
+        h('textarea', {
+          className: 'omni-prose-textarea',
+          ref: outputRef,
+          value: assembledText,
+          disabled: isTranslating,
+          readOnly: isTranslating,
+          onChange: e => handleAssembledTextChange(e.target.value),
+          placeholder: 'Translated prose will appear here cleanly without boxes...',
+          style: { height: `${Math.max(280, outputBoxHeight || 280)}px` }
+        }),
+        renderBoxResizeBar('output')
+      ),
 
-                return h('div', {
-                  className: 'settings-grouped-card',
-                  style: {
-                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(99, 102, 241, 0.12))',
-                    borderColor: '#22c55e',
-                    borderWidth: '1.5px',
-                    boxShadow: '0 4px 16px rgba(34, 197, 94, 0.15)',
-                    marginBottom: 14,
-                    padding: '16px 18px'
-                  }
-                },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
-                      effectiveCover
-                        ? h('div', { style: { position: 'relative', width: 44, height: 60, flexShrink: 0, borderRadius: 6, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)' } },
-                            h('img', { src: effectiveCover, alt: 'Cover', style: { width: '100%', height: '100%', objectFit: 'cover' } })
-                          )
-                        : h('div', {
-                            style: {
-                              width: 44,
-                              height: 60,
-                              flexShrink: 0,
-                              borderRadius: 6,
-                              background: 'linear-gradient(135deg, #10b981, #059669)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
-                              color: '#fff'
-                            }
-                          }, ic('CheckCircle2', 22)),
-                      h('div', null,
-                        h('div', { style: { fontWeight: 800, fontSize: 14, color: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 8 } },
-                          'Translation Complete & Saved to Library',
-                          h('span', { className: 'badge', style: { background: '#22c55e', color: '#000', fontWeight: 700 } }, `${transCount} Chapters`)
-                        ),
-                        h('div', { style: { fontSize: 11.5, opacity: 0.85, marginTop: 2 } },
-                          `${novelTitle} · All progress safely preserved in database`
-                        )
-                      )
-                    ),
-                    h('label', {
-                      className: 'chip-act',
-                      style: { cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(34, 197, 94, 0.4)', background: 'var(--bg-card-hover, rgba(255, 255, 255, 0.08))' },
-                      title: 'Upload or replace EPUB cover art'
-                    },
-                      h('span', null, effectiveCover ? 'Change Cover' : 'Add Cover'),
-                      h('input', {
-                        type: 'file',
-                        accept: 'image/*',
-                        style: { display: 'none' },
-                        onChange: handleCoverFileSelect
-                      })
-                    )
-                  ),
-                  h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' } },
-                    h('button', {
-                      type: 'button',
-                      className: 'btn-primary',
-                      style: {
-                        background: 'linear-gradient(135deg, #22c55e, #15803d)',
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: 13,
-                        padding: '9px 18px',
-                        flex: 1,
-                        minWidth: 200,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
-                        boxShadow: '0 2px 10px rgba(34, 197, 94, 0.35)',
-                        border: 'none',
-                        borderRadius: 8,
-                        cursor: 'pointer'
-                      },
-                      onClick: handleDownloadEPUB
-                    }, ic('Download', 13), ` Download Updated EPUB (${transCount} Chapters)`),
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn',
-                      style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '9px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 },
-                      onClick: () => {
-                        const docKey = currentDocTitle || fileName || 'translated_doc';
-                        setReaderNovelId(docKey);
-                        setReaderNovelTitle(currentDocTitle || fileName || 'Document');
-                        if (typeof setReaderChapters === 'function') {
-                          const exportChs = (typeof getExportChapters === 'function') ? getExportChapters() : ((translatedChapters && translatedChapters.length > 0) ? translatedChapters : chapters);
-                          if (Array.isArray(exportChs) && exportChs.length > 0) setReaderChapters(exportChs);
-                        }
-                        const savedProg = window.getReadingProgress ? window.getReadingProgress(docKey) : null;
-                        const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
-                        setReaderChapterIdx(resumeIdx);
-                        setReaderOpen(true);
-                        if (savedProg && resumeIdx > 0) {
-                          toast(`Resuming "${currentDocTitle || fileName || 'Document'}" at Chapter ${resumeIdx + 1}!`, 'success');
-                        }
-                      }
-                    }, ic('BookOpen', 13), ' Read in Reader'),
-                    h('button', {
-                      type: 'button',
-                      className: 'chip-act',
-                      style: { borderColor: 'rgba(245, 158, 11, 0.5)', color: '#f59e0b', fontWeight: 600, padding: '9px 14px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 },
-                      onClick: handleSaveTranslationToLibrarySpace
-                    }, ic('Star', 13), ' Save to Space')
-                  )
-                );
-              })(),
+      // PANE 3: Live Stream, Progress, Token Telemetry & Logs
+      activePaneTab === 'stream' && h('div', { style: { paddingTop: 12 } },
+        isTranslating ? h('div', { style: { paddingBottom: 14, borderBottom: '0.6px solid var(--omni-hairline)' } },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
+            h('span', { style: { fontSize: 13.5, fontWeight: 700, color: 'var(--omni-accent)' } }, progressLabel || 'Translating...'),
+            h('span', { style: { fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: 'rgba(255,255,255,0.65)' } }, `${progress}% · ${Math.floor(elapsedSec / 60)}:${String(elapsedSec % 60).padStart(2, '0')}`)
+          ),
+          h('div', { className: 'omni-hero-prog-track', style: { height: 4 } },
+            h('div', { className: 'omni-hero-prog-fill', style: { width: `${progress}%` } })
+          ),
+          h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
+            h('button', { type: 'button', className: 'omni-soft-tab active', onClick: handlePauseTranslation }, 'Pause & Save'),
+            h('button', { type: 'button', className: 'omni-soft-tab', style: { color: '#F87171' }, onClick: cancelTranslation }, 'Cancel')
+          )
+        ) : null,
 
-              lastUsageStats && !isTranslating && h('div', { className: 'settings-grouped-card', style: { borderColor: 'var(--accent, #6366f1)' } },
-                h('div', { className: 'card-title' },
-                  h('span', { style: { fontWeight: 700 } }, 'Last Translation Summary'),
-                  h('div', { style: { display: 'flex', gap: 6 } },
-                    h('button', { type: 'button', className: 'chip-act', title: 'Copy Report & Logs to Clipboard', onClick: () => copyDiagnosticsReport(), style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Clipboard', 12), 'Copy Report'),
-                    h('button', { type: 'button', className: 'chip-act', title: 'Open Live Logs Viewer', onClick: () => setLogsModalOpen(true), style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('FileText', 12), 'Logs'),
-                    h('button', { type: 'button', className: 'chip-act', onClick: () => setLastUsageStats(null) }, ic('X', 12))
-                  )
-                ),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Model'), h('span', { className: 'count' }, `${lastUsageStats.provider || ''} · ${lastUsageStats.model || ''}`)),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Engine Mode'), h('span', { className: 'count' }, `Thinking: ${lastUsageStats.enableThinking ? 'ON' : 'OFF'} · Stream: ${lastUsageStats.enableStreaming ? 'ON' : 'OFF'}`)),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Pipeline Config'), h('span', { className: 'count' }, `Context: ${lastUsageStats.contextAware ? 'ON' : 'OFF'} · ${lastUsageStats.concurrency || 1} Stream(s)`)),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Chunk Size'), h('span', { className: 'count' }, `${(lastUsageStats.chunkSizePreset || 'turbo').toUpperCase()}`)),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Smart Glossary'), h('span', { className: 'count' }, `${lastUsageStats.smartGlossary ? 'ON' : 'OFF'} (${lastUsageStats.glossaryTermCount || 0} terms loaded)`)),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Tokens'), h('span', { className: 'count', style: { fontWeight: 700 } }, `${(lastUsageStats.totalTokens || 0).toLocaleString()} (${(lastUsageStats.promptTokens || 0).toLocaleString()} in · ${(lastUsageStats.outputTokens || 0).toLocaleString()} out)`)),
-                lastUsageStats.breakdown && h('div', {
-                  style: {
-                    background: 'var(--bg-card-hover, rgba(255, 255, 255, 0.04))',
-                    border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
-                    borderRadius: 8,
-                    padding: '8px 12px',
-                    margin: '6px 0 8px 0',
-                    fontSize: 12,
-                    lineHeight: 1.6
-                  }
-                },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontWeight: 600, color: 'var(--accent, #6366f1)' } },
-                    h('span', null, 'Token Breakdown'),
-                    h('span', { style: { fontSize: 11, opacity: 0.8 } }, `${lastUsageStats.promptTokens.toLocaleString()} in · ${lastUsageStats.outputTokens.toLocaleString()} out`)
-                  ),
-                  lastUsageStats.breakdown.glossaryTokens > 0 && h('div', { style: { display: 'flex', justifyContent: 'space-between', color: '#38bdf8' } },
-                    h('span', null, '├─ Injected Glossary'),
-                    h('span', { style: { fontFamily: 'monospace', fontWeight: 600 } }, `${lastUsageStats.breakdown.glossaryTokens.toLocaleString()} (${lastUsageStats.breakdown.glossaryPct}%)`)
-                  ),
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', color: '#4ade80' } },
-                    h('span', null, '├─ Raw Source Text'),
-                    h('span', { style: { fontFamily: 'monospace', fontWeight: 600 } }, `${lastUsageStats.breakdown.sourceTokens.toLocaleString()} (${lastUsageStats.breakdown.sourcePct}%)`)
-                  ),
-                  lastUsageStats.breakdown.genderTokens > 0 && h('div', { style: { display: 'flex', justifyContent: 'space-between', color: '#f472b6' } },
-                    h('span', null, '├─ Gender Lock Protocol'),
-                    h('span', { style: { fontFamily: 'monospace', fontWeight: 600 } }, `${lastUsageStats.breakdown.genderTokens.toLocaleString()} (${lastUsageStats.breakdown.genderPct}%)`)
-                  ),
-                  lastUsageStats.breakdown.contextTokens > 0 && h('div', { style: { display: 'flex', justifyContent: 'space-between', color: '#fbbf24' } },
-                    h('span', null, '├─ Context-Aware Memory'),
-                    h('span', { style: { fontFamily: 'monospace', fontWeight: 600 } }, `${lastUsageStats.breakdown.contextTokens.toLocaleString()} (${lastUsageStats.breakdown.contextPct}%)`)
-                  ),
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary, #94a3b8)' } },
-                    h('span', null, '└─ System & Rules Overhead'),
-                    h('span', { style: { fontFamily: 'monospace', fontWeight: 600 } }, `${lastUsageStats.breakdown.systemTokens.toLocaleString()} (${lastUsageStats.breakdown.systemPct}%)`)
-                  )
-                ),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Cost'), h('span', { className: 'count' }, lastUsageStats.cost || '$0.0000')),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Time & Speed'), h('span', { className: 'count' }, `${lastUsageStats.duration || ''}${lastUsageStats.speed ? ' · ' + lastUsageStats.speed : ''}`)),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Words Translated'), h('span', { className: 'count' }, outputWordCount.toLocaleString()))
-              ),
+        lastUsageStats && h('div', { style: { paddingBottom: 12, borderBottom: '0.6px solid var(--omni-hairline)' } },
+          h('div', { className: 'omni-section-label-row' },
+            h('span', { className: 'omni-section-label' }, 'Last Translation Summary'),
+            h('div', { style: { display: 'flex', gap: 6 } },
+              h('button', { type: 'button', className: 'omni-soft-tab active', style: { fontSize: 11, padding: '2px 8px' }, onClick: copyDiagnosticsReport }, 'Copy Report'),
+              h('button', { type: 'button', className: 'omni-soft-tab', style: { fontSize: 11, padding: '2px 8px', color: '#F87171' }, onClick: () => setLastUsageStats(null) }, 'Dismiss')
+            )
+          ),
+          h('div', { className: 'omni-hairline-row', style: { minHeight: 40, padding: '6px 0' } }, h('span', { style: { fontSize: 12.5, color: 'rgba(255,255,255,0.55)' } }, 'Model'), h('span', { style: { fontSize: 12.5, fontWeight: 650 } }, `${lastUsageStats.provider || ''} · ${lastUsageStats.model || ''}`)),
+          h('div', { className: 'omni-hairline-row', style: { minHeight: 40, padding: '6px 0' } }, h('span', { style: { fontSize: 12.5, color: 'rgba(255,255,255,0.55)' } }, 'Tokens'), h('span', { style: { fontSize: 12.5, fontWeight: 650 } }, `${(lastUsageStats.totalTokens || 0).toLocaleString()} (${(lastUsageStats.promptTokens || 0).toLocaleString()} in / ${(lastUsageStats.outputTokens || 0).toLocaleString()} out)`)),
+          h('div', { className: 'omni-hairline-row', style: { minHeight: 40, padding: '6px 0', borderBottom: 'none' } }, h('span', { style: { fontSize: 12.5, color: 'rgba(255,255,255,0.55)' } }, 'Cost & Duration'), h('span', { style: { fontSize: 12.5, fontWeight: 650 } }, `${lastUsageStats.cost || '$0.0000'} · ${lastUsageStats.duration || ''}`))
+        ),
 
-              // ═══ TRANSLATOR BOTTOM LOGS PANEL ═══
-              h('div', { className: 'settings-grouped-card', style: { marginTop: 12, marginBottom: 12 } },
-                h('div', { className: 'card-title', style: { marginBottom: showLiveLogs ? 8 : 0 } },
-                  h('span', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                    ic('FileText', 14),
-                    h('span', { style: { fontWeight: 700 } }, 'Live Diagnostics & API Logs'),
-                    h('span', { className: 'count', style: { fontSize: 10 } }, `${liveLogs.length} events`)
-                  ),
-                  h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                    h('button', {
-                      type: 'button',
-                      className: 'chip-act',
-                      title: 'Copy All Logs to Clipboard',
-                      onClick: copyLogsWithReport,
-                      style: { display: 'inline-flex', alignItems: 'center', gap: 4 }
-                    }, ic('Copy', 11), 'Copy Logs'),
-                    showLiveLogs && h('button', {
-                      type: 'button',
-                      className: 'chip-act',
-                      title: 'Clear Logs',
-                      onClick: () => {
-                        window.AppLogger?.clear();
-                        toast('Logs cleared', 'info');
-                      },
-                      style: { display: 'inline-flex', alignItems: 'center', gap: 4 }
-                    }, ic('Trash2', 11), 'Clear'),
-                    h('button', {
-                      type: 'button',
-                      className: `chip-act ${showLiveLogs ? 'active' : ''}`,
-                      onClick: () => setShowLiveLogs(v => !v),
-                      style: showLiveLogs ? { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 } : {}
-                    }, showLiveLogs ? 'Hide Logs' : 'View Logs')
-                  )
-                ),
-                showLiveLogs && h('div', {
-                  ref: logsContainerRef,
-                  style: {
-                    maxHeight: 220,
-                    overflowY: 'auto',
-                    background: '#07090e',
-                    color: '#e2e8f0',
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 10.5,
-                    lineHeight: 1.5,
-                    padding: 10,
-                    borderRadius: 8,
-                    border: '1px solid var(--hairline)',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word'
-                  }
-                },
-                  liveLogs.length === 0
-                    ? h('div', { style: { color: '#64748b', textAlign: 'center', padding: '20px 0' } }, 'Ready. Run a translation to see live API calls, key leases, and responses.')
-                    : liveLogs.map((l, idx) => {
-                        const color = l.level === 'warn' ? '#f59e0b' : (l.level === 'error' ? '#ef4444' : '#38bdf8');
-                        let det = '';
-                        if (l.details) {
-                          if (typeof l.details === 'object' && l.details.matchedTerms) {
-                            det = ` (${l.details.matchedCount || l.details.matchedTerms.length} terms matched)`;
-                          } else {
-                            const raw = typeof l.details === 'object' ? JSON.stringify(l.details) : String(l.details);
-                            det = raw.length > 140 ? ' ' + raw.slice(0, 140) + '…' : ' ' + raw;
-                          }
-                        }
-                        return h('div', { key: idx, style: { padding: '2px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' } },
-                          h('span', { style: { color: '#64748b' } }, `[${l.time}] `),
-                          h('span', { style: { color, fontWeight: 700 } }, `[${(l.tag || 'INFO').toUpperCase()}] `),
-                          h('span', { style: { color: '#cbd5e1' } }, l.message),
-                          det && h('span', { style: { color: '#94a3b8', fontSize: 10 } }, det)
-                        );
-                      })
-                )
-              ),
+        h('div', { className: 'omni-section-label-row' },
+          h('span', { className: 'omni-section-label' }, `Live Stream & API Logs (${liveLogs.length})`),
+          h('div', { style: { display: 'flex', gap: 6 } },
+            h('button', { type: 'button', className: 'omni-soft-tab', style: { fontSize: 11, padding: '2px 8px' }, onClick: copyLogsWithReport }, 'Copy'),
+            h('button', { type: 'button', className: 'omni-soft-tab active', style: { fontSize: 11, padding: '2px 8px' }, onClick: () => setLogsModalOpen(true) }, 'Full Logs')
+          )
+        ),
+        assembledText && h('div', {
+          style: {
+            fontFamily: "'Literata', Georgia, serif",
+            fontSize: 13.5,
+            lineHeight: 1.65,
+            color: 'rgba(255,255,255,0.82)',
+            maxHeight: 200,
+            overflowY: 'auto',
+            whiteSpace: 'pre-wrap',
+            padding: '10px 0',
+            borderBottom: '0.6px solid var(--omni-hairline)'
+          }
+        }, assembledText.slice(-2600)),
+        h('div', {
+          ref: logsContainerRef,
+          style: {
+            maxHeight: 190,
+            overflowY: 'auto',
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: 10.5,
+            lineHeight: 1.5,
+            padding: '10px 0',
+            color: 'rgba(255,255,255,0.68)'
+          }
+        },
+          liveLogs.length === 0
+            ? 'Ready. Start translating to watch live model chunks and key rotation events.'
+            : liveLogs.slice(-30).map((l, idx) => h('div', { key: idx, style: { padding: '2px 0' } },
+                `[${l.time}] [${(l.tag || 'INFO').toUpperCase()}] ${l.message}`
+              ))
+        )
+      ),
 
-              chapters.length > 0 && h('div', { className: 'count', style: { margin: '0 2px 8px' } }, `${chapters.length} chapters loaded`),
-
-              h('div', { className: 'actionbar', style: { display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'center', maxWidth: 640, margin: '12px auto 20px auto', width: '100%' } },
-                (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && !isTranslating ? (() => {
-                  const s = savedTranslationSession || activeSessionRef.current || activeSession;
-                  const cCount = s?.completedCount || 0;
-                  const tCount = s?.total || s?.totalChunks || '?';
-                  const isDelta = Boolean(s?.isDeltaUpdate);
-                  const deltaLabel = `Ch ${s?.deltaStart || (cCount + 1)}–${s?.deltaEnd || tCount}`;
-                  return h(React.Fragment, null,
-                    h('button', {
-                      type: 'button',
-                      className: 'deck-fab-translate',
-                      style: {
-                        background: isDelta ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #10b981, #059669)',
-                        margin: 0,
-                        flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8
-                      },
-                      onClick: () => resumeSavedTranslation(s)
-                    },
-                      ic('Play', 14),
-                      h('span', null, isDelta ? `Translate New Chapters (${deltaLabel})` : `Resume Translation (${cCount}/${tCount} done)`)
-                    ),
-                    h('button', {
-                      type: 'button',
-                      className: 'chip-act',
-                      style: { padding: '8px 14px', fontSize: 12, borderRadius: 999 },
-                      title: 'Discard staged/paused session and start fresh',
-                      onClick: () => discardSavedTranslation(s?.id)
-                    }, 'Start New')
-                  );
-                })() : h('button', {
-                  type: 'button',
-                  className: 'deck-fab-translate',
-                  style: { margin: 0, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
-                  disabled: isTranslating ? false : (!inputText.trim() && (!chapters || chapters.length === 0)),
-                  onClick: () => {
-                    if (isTranslating) handlePauseTranslation();
-                    else handleStartTranslation();
-                  }
-                },
-                  isTranslating ? ic('Pause', 16) : ic('Languages', 16),
-                  h('span', null, isTranslating ? 'Pause Translation' : (inputText.trim() ? `Translate Text (${inputCharCount.toLocaleString()} chars)` : 'Translate with AI'))
-                ),
-                h('button', {
-                  type: 'button',
-                  className: 'chip-act',
-                  style: { padding: '10px 14px', fontSize: 12.5, background: 'rgba(99, 102, 241, 0.15)', borderColor: 'var(--iris)', color: 'var(--iris)', fontWeight: 700, borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 6 },
-                  disabled: isTranslating || (!inputText.trim() && (!chapters || chapters.length === 0)),
-                  onClick: handleOpenCostEstimator,
-                  title: 'Calculate exact tokens, model costs, and time projections before translating'
-                }, ic('Clock', 13), 'Estimate'),
-                h('button', { type: 'button', className: 'overflow', title: 'More actions & export', disabled: isTranslating, onClick: () => setSheetOpen(true), style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' } }, ic('Sliders', 15))
-              )
-            
+      // 7. Flat Inline Action Bar
+      h('div', { className: 'omni-cta-row', style: { marginTop: 14, marginBottom: 16 } },
+        (savedTranslationSession || isTranslationPaused || activeSessionRef.current) && !isTranslating
+          ? (() => {
+              const s = savedTranslationSession || activeSessionRef.current || activeSession;
+              return h('button', { type: 'button', className: 'omni-flat-cta', onClick: () => resumeSavedTranslation(s) },
+                ic('Play', 14), s?.isDeltaUpdate ? 'Translate New Chapters' : 'Resume Translation'
+              );
+            })()
+          : h('button', {
+              type: 'button',
+              className: 'omni-flat-cta',
+              disabled: isTranslating ? false : (!inputText.trim() && (!chapters || chapters.length === 0)),
+              onClick: () => isTranslating ? handlePauseTranslation() : handleStartTranslation()
+            }, ic(isTranslating ? 'Pause' : 'Languages', 15), isTranslating ? 'Pause Translation' : (chapters?.length > 0 ? `Translate Ebook (${chapters.length} Ch)` : 'Translate Text')),
+        h('button', { type: 'button', className: 'omni-flat-icon-btn', title: 'Cost & Token Estimator', disabled: isTranslating || (!inputText.trim() && (!chapters || !chapters.length)), onClick: handleOpenCostEstimator }, ic('Clock', 16)),
+        h('button', { type: 'button', className: 'omni-flat-icon-btn', title: 'QA Health Audit', disabled: isTranslating || (!assembledText.trim() && !chapters.length), onClick: handleOpenActiveQaModal }, ic('Activity', 16)),
+        h('button', { type: 'button', className: 'omni-flat-icon-btn', title: 'Open in Reader', disabled: !assembledText.trim() && (!translatedChapters || !translatedChapters.length) && (!chapters || !chapters.length), onClick: openTranslatedInReader }, ic('BookOpen', 16)),
+        h('button', { type: 'button', className: 'omni-flat-icon-btn', title: 'Export EPUB / Formats', disabled: isTranslating, onClick: () => assembledText.trim() ? setSheetOpen(true) : handleDownloadEPUB() }, ic('Download', 16))
+      )
     );
   }
 

@@ -355,7 +355,16 @@
         return true;
       }
 
-      // 7. React App Modals & Overlays
+      // 7. React App Modals, Artwork Picker, Multi-Select & Settings Sub-Views
+      if (typeof global.closeOmniArtworkPicker === 'function' && global.closeOmniArtworkPicker()) {
+        return true;
+      }
+      if (typeof global.exitLibraryMultiSelect === 'function' && global.exitLibraryMultiSelect()) {
+        return true;
+      }
+      if (typeof global.exitSettingsSubView === 'function' && global.exitSettingsSubView()) {
+        return true;
+      }
       if (typeof actions.closeActiveModal === 'function') {
         const handled = actions.closeActiveModal();
         if (handled) return true;

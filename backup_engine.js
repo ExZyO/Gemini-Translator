@@ -267,6 +267,11 @@
         'darkMode', 'amoledMode', 'deviceWakeLock', 'downloadedOnly', 'incognitoMode',
         'activeTab', 'studioSubTab', 'inputBoxHeight', 'outputBoxHeight', 'instructionsBoxHeight',
         'glossaryBoxHeight', 'glossaryCardOpen', 'showLiveLogs',
+        // OmniTrack Visual Theme, Layouts & Custom Artwork Map
+        'omni_theme_id', 'omni_custom_hex_1', 'omni_custom_hex_2',
+        'omni_library_layout', 'omni_details_header', 'omni_discover_layout',
+        'omni_hero_blur', 'omni_glass_sheen', 'omni_poster_radius',
+        'omni_hero_autoscroll', 'omni_hero_interval', 'gemini_novel_artwork_map',
         // Cloud & Sync
         'cloudProvider', 'webdavUrl', 'webdavUser', 'webdavPath', 'webdavAutoSync', 'webdavLastSync',
         'gdrive_client_id', 'gdrive_folder_mode', 'gdrive_auto_sync', 'gdrive_last_sync',
@@ -281,7 +286,7 @@
             const k = localStorage.key(i);
             if (!k) continue;
             if (PREFERENCE_KEYS.includes(k) ||
-                k.startsWith('gemini_') || k.startsWith('reader') || k.startsWith('epub') ||
+                k.startsWith('gemini_') || k.startsWith('omni_') || k.startsWith('reader') || k.startsWith('epub') ||
                 k.startsWith('gdrive_') || k.startsWith('webdav') || k.startsWith('lnreader_') ||
                 k.startsWith('tm_') || k.startsWith('telemetry_')) {
               if (!PREFERENCE_KEYS.includes(k)) PREFERENCE_KEYS.push(k);
@@ -1007,13 +1012,25 @@
         novelCount = data.novelLibrary.length;
       }
 
-      if (data.webImportHistory && Array.isArray(data.webImportHistory)) {
-        const normalizedHistory = data.webImportHistory.map(item => ({
-          ...item,
-          sourceUrl: item.sourceUrl || item.url || '',
-          url: item.sourceUrl || item.url || '',
-          sources: Array.isArray(item.sources) && item.sources.length > 0 ? item.sources : (item.sourceUrl ? [{ url: item.sourceUrl, label: 'Source 1', active: true }] : [])
-        }));
+      if (data.webImportHistory && Array.isArray(data.webImportHistory) && data.webImportHistory.length > 0) {
+        const libraryList = Array.isArray(data.novelLibrary) ? data.novelLibrary : [];
+        const normalizedHistory = data.webImportHistory.map(item => {
+          const itemTitle = String(item.title || '').trim().toLowerCase();
+          const matchedNovel = libraryList.find(n => (item.id && n.id === item.id) || (itemTitle && String(n.title || '').trim().toLowerCase() === itemTitle)) || {};
+          return {
+            ...item,
+            coverUrl: item.coverUrl || matchedNovel.coverUrl || '',
+            customCover: item.customCover || matchedNovel.customCover || '',
+            customBanner: item.customBanner || matchedNovel.customBanner || '',
+            bannerFocalX: item.bannerFocalX !== undefined ? item.bannerFocalX : (matchedNovel.bannerFocalX !== undefined ? matchedNovel.bannerFocalX : 50),
+            bannerFocalY: item.bannerFocalY !== undefined ? item.bannerFocalY : (matchedNovel.bannerFocalY !== undefined ? matchedNovel.bannerFocalY : 50),
+            bannerZoom: item.bannerZoom !== undefined ? item.bannerZoom : (matchedNovel.bannerZoom !== undefined ? matchedNovel.bannerZoom : 1),
+            artworkRole: item.artworkRole || matchedNovel.artworkRole || '',
+            sourceUrl: item.sourceUrl || item.url || '',
+            url: item.sourceUrl || item.url || '',
+            sources: Array.isArray(item.sources) && item.sources.length > 0 ? item.sources : (item.sourceUrl ? [{ url: item.sourceUrl, label: 'Source 1', active: true }] : [])
+          };
+        });
         if (setters.setWebImportHistory) setters.setWebImportHistory(normalizedHistory);
         try { localStorage.setItem('gemini_web_import_history_meta', JSON.stringify(normalizedHistory)); } catch (e) {}
         if (novelCount === 0) novelCount = normalizedHistory.length;
@@ -1024,6 +1041,13 @@
           author: n.author || 'Author',
           summary: (n.summary || '').substring(0, 300),
           cover: n.cover || '',
+          coverUrl: n.coverUrl || '',
+          customCover: n.customCover || '',
+          customBanner: n.customBanner || '',
+          bannerFocalX: n.bannerFocalX !== undefined ? n.bannerFocalX : 50,
+          bannerFocalY: n.bannerFocalY !== undefined ? n.bannerFocalY : 50,
+          bannerZoom: n.bannerZoom !== undefined ? n.bannerZoom : 1,
+          artworkRole: n.artworkRole || '',
           tags: n.tags || [],
           chapterCount: n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0),
           totalChapterCount: n.totalChapterCount || (n.chapterList ? n.chapterList.length : (n.chapterCount || (n.rawChapters ? n.rawChapters.length : 0))),
@@ -1299,6 +1323,11 @@
       }
 
       // Reactive event notification so library and components refresh without reload
+      try {
+        if (window.OmniThemeEngine && typeof window.OmniThemeEngine.reload === 'function') {
+          window.OmniThemeEngine.reload();
+        }
+      } catch (e) {}
       try {
         window.dispatchEvent(new CustomEvent('gemini:novel-db-change', { detail: { action: 'restore', source: 'backup' } }));
       } catch (e) {}

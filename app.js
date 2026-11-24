@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.51';
+    let VERSION = '8.22.52';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1081,7 +1081,7 @@
 
       // --- UI State ---
       const [darkMode, setDarkMode] = useState(() => { const s = localStorage.getItem('darkMode'); return s !== null ? s === 'true' : window.matchMedia('(prefers-color-scheme:dark)').matches });
-      const [amoledMode, setAmoledMode] = useState(() => localStorage.getItem('amoledMode') === 'true');
+      const [amoledMode, setAmoledMode] = useState(() => localStorage.getItem('amoledMode') !== 'false');
       useEffect(() => {
         localStorage.setItem('amoledMode', String(amoledMode));
         if (amoledMode) {
@@ -1178,7 +1178,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8550);
+      const [appVersionCode, setAppVersionCode] = useState(8563);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [assignWebsiteModalNovel, setAssignWebsiteModalNovel] = useState(null);
@@ -2624,6 +2624,7 @@
 
       useEffect(() => {
         try {
+          window.OmniThemeEngine?.init?.();
           window.NativeBridge?.requestNotificationPermission?.();
           window.NativeBridge?.requestPersistentStorage?.();
           window.GeminiNovelDB?.requestPersistentStorage?.();
@@ -2655,18 +2656,7 @@
 
       const chipSelectStyle = { background: 'var(--void)', border: '1px solid var(--hairline)', color: 'var(--paper-dim)', borderRadius: 8, padding: '4px 6px', fontSize: 11, outline: 'none', maxWidth: 170 };
 
-      const tabTitle = activeTab === 'history' ? 'Bookshelf' : activeTab === 'web_importer' ? 'Discover' : activeTab === 'text' ? 'Translate' : activeTab === 'studio' ? 'Studio' : 'Settings';
-      const tabSub = activeTab === 'history'
-        ? 'Your offline library, reading positions & audiobooks'
-        : activeTab === 'web_importer'
-        ? 'Web novels, light novels, classics & audiobooks'
-        : activeTab === 'text'
-        ? `${provider.toUpperCase()} · ${model}`
-        : activeTab === 'studio'
-        ? 'Lossless EPUB inspection, splitting & merging'
-        : 'AI models, cloud sync & reader defaults';
-
-      const navItems = [['history', 'Bookshelf', Library], ['web_importer', 'Discover', Globe], ['text', 'Translate', Languages], ['studio', 'Studio', Layers], ['settings', 'Settings', Settings]];
+      const navItems = [['history', 'Library', Library], ['web_importer', 'Discover', Globe], ['text', 'Translate', Languages], ['studio', 'Studio', Layers], ['settings', 'Settings', Settings]];
       const appTabProps = {
         activeTab,
         // Tab 1: Translation
@@ -2735,7 +2725,7 @@
         history, filteredHistory, loadFromHistory, deleteHistoryItem, clearHistory, novelUpdateBadges,
 
         // Tab 5: Settings
-        appVersion, appVersionCode, checkForAppUpdate, downloadedOnly, setDownloadedOnly,
+        appVersion, appVersionCode, checkForAppUpdate, availableUpdate, isUpdating, handlePerformUpdate, downloadedOnly, setDownloadedOnly,
         incognitoMode, setIncognitoMode, settingsCategory, setSettingsCategory,
         provider, setProvider, apiKeysByProvider, activeKeyIds, showKeys, setShowKeys,
         addApiKey, deleteApiKey, updateApiKey, setActiveKey, testSingleKey, handleTestAllKeys,
@@ -2770,70 +2760,42 @@
       return h(React.Fragment, null,
         h('div', { className: 'tl-app' },
 
-          // ── HEADER ──
-          h('header', { className: 'tl-head' },
-            h('div', { className: 'tl-head-inner' },
-              h('div', null,
-                h('div', { className: 'tl-title' }, tabTitle),
-                h('div', { className: 'tl-subtitle' }, tabSub)
-              ),
-              h('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-                h('button', { type: 'button', className: 'version-chip', title: 'Check for updates', onClick: () => checkForAppUpdate(true) },
-                  `v${appVersion}`, availableUpdate ? h('span', { className: 'dot' }) : null
-                ),
-                h('button', {
-                  type: 'button',
-                  className: 'icon-btn',
-                  title: availableUpdate?.isBuilding
-                    ? `Update ${availableUpdate.latestVersion} is compiling on GitHub Actions (~2 mins) — tap to view live build`
-                    : 'GitHub Actions (Builds & Workflow Runs)',
-                  onClick: () => {
-                    const url = availableUpdate?.actionsUrl || 'https://github.com/ExZyO/Gemini-Translator/actions';
-                    window.open(url, '_blank');
-                  }
-                }, availableUpdate?.isBuilding ? ic(Loader2, 16, 'animate-spin') : ic(Activity, 16))
-              )
-            )
-          ),
-
-          // ── UPDATE BANNER ──
-          availableUpdate && h('div', { className: 'tl-wrap', style: { marginTop: 16 } },
-            h('div', { className: 'card', style: { borderColor: availableUpdate.isBuilding ? 'rgba(234,179,8,.6)' : 'rgba(124,135,255,.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 0 } },
-              h('div', null,
-                h('div', { style: { fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 } },
+          // ── UPDATE BANNER (Visible only when update exists or compiling) ──
+          availableUpdate && h('div', { className: 'tl-wrap', style: { paddingTop: 'calc(env(safe-area-inset-top, 10px) + 12px)', paddingBottom: 0 } },
+            h('div', { className: 'omni-hairline-row', style: { borderTop: '0.6px solid var(--omni-hairline)', flexWrap: 'wrap', gap: 10 } },
+              h('div', { style: { flex: 1, minWidth: 180 } },
+                h('div', { style: { fontWeight: 700, fontSize: 13, color: '#F5F5F5', display: 'flex', alignItems: 'center', gap: 6 } },
                   availableUpdate.isBuilding ? ic(Loader2, 14, 'animate-spin') : null,
                   availableUpdate.isBuilding ? `Update Compiling: ${availableUpdate.latestVersion}` : `Update Ready: ${availableUpdate.latestVersion}`
                 ),
-                h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } },
+                h('div', { style: { fontSize: 11.5, color: 'rgba(255, 255, 255, 0.54)', marginTop: 2 } },
                   availableUpdate.isBuilding
-                    ? 'GitHub Actions is building the new release APK (~2 mins). Auto-refreshing...'
-                    : 'Tap to install the latest features and fixes.'
+                    ? 'GitHub Actions is compiling the release APK (~2 mins). Auto-refreshing...'
+                    : 'Tap to install the latest redesign, features, and fixes.'
                 )
               ),
               h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
                 availableUpdate.isBuilding ? h('button', {
                   type: 'button',
-                  className: 'mini-btn ghost',
-                  title: 'View live compile progress on GitHub Actions',
+                  className: 'omni-soft-tab active',
                   onClick: () => window.open(availableUpdate?.actionsUrl || 'https://github.com/ExZyO/Gemini-Translator/actions', '_blank')
                 }, 'Build Status') : null,
-                h('button', { type: 'button', className: 'mini-btn', disabled: isUpdating, onClick: handlePerformUpdate }, isUpdating ? 'Downloading…' : 'Update Now'),
+                h('button', { type: 'button', className: 'omni-flat-cta', style: { height: 34, flex: 'none', padding: '0 14px', fontSize: 12 }, disabled: isUpdating, onClick: handlePerformUpdate }, isUpdating ? 'Downloading…' : 'Update Now'),
                 h('button', {
                   type: 'button',
-                  className: 'mini-btn ghost',
-                  title: 'Download APK directly using your device browser',
+                  className: 'omni-soft-tab',
                   onClick: () => {
-                    const apkUrl = availableUpdate?.releasePage || availableUpdate?.apkUrl || "https://github.com/ExZyO/Gemini-Translator/releases/latest";
+                    const apkUrl = availableUpdate?.releasePage || availableUpdate?.apkUrl || 'https://github.com/ExZyO/Gemini-Translator/releases/latest';
                     window.AppLogger?.log('info', 'Updater', 'Opening browser download: ' + apkUrl);
                     window.open(apkUrl, '_blank');
                   }
-                }, 'Browser Download'),
-                h('button', { type: 'button', className: 'icon-btn', onClick: () => setAvailableUpdate(null) }, ic(X, 14))
+                }, 'Browser'),
+                h('button', { type: 'button', className: 'omni-circle-btn', style: { width: 30, height: 30 }, onClick: () => setAvailableUpdate(null) }, ic(X, 14))
               )
             )
           ),
 
-          h('main', { className: 'tl-wrap', style: { paddingTop: 16 } },
+          h('main', { className: 'tl-wrap', style: { paddingTop: 0 } },
             // Live Crawl Banner if active crawl in progress
             (isFetchingUrl || isFetchingPaused) && activeCrawlSession && h('div', {
               className: 'live-crawl-banner',
@@ -2932,8 +2894,9 @@
           readerNovelId, readerNovelTitle, readerChapters, setReaderChapters, handleRunConsistencyCheck, handleOpenActiveQaModal, handleOpenDiffModal,
           handleTranslateSingleChapter, handleDownloadEPUB,
 
-          // Library Novel Action Sheet
-          activeBookMenuNovel, setActiveBookMenuNovel, getNovelFolderOptions, setRenameModalNovel,
+          // Library Novel Action Sheet (Editorial Book Details)
+          activeBookMenuNovel, setActiveBookMenuNovel, activeNovelRecord, setActiveNovelRecord,
+          currentDocTitle, setCurrentDocCover, getNovelFolderOptions, setRenameModalNovel,
           setNewNovelTitleInput, setAssignWebsiteModalNovel, setNewNovelWebsiteUrlInput, getCustomTitle, loadFullNovel, setActiveTab, setStudioSubTab,
           handleCheckNovelUpdate, handleDownloadNewChapters, handleUpdateTranslateAndMakeEpub, novelUpdateBadges,
           handleOpenContinuationForNovel, handleOpenAutoGlossary,

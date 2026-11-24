@@ -1,3 +1,9 @@
+/**
+ * app_tab_settings.js - OmniTrack Pure-AMOLED Drill-Down Settings Hub
+ * Presents a searchable frameless hairline menu (Appearance & Layout, AI & Translation Engine,
+ * Sync, Storage & System) that opens dedicated full-screen #000000 sub-views while preserving
+ * 100% of engine, key pool, QA/TM, recipe, OPDS, TTS, Cloud Sync, Storage, and System controls.
+ */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
     module.exports = factory();
@@ -9,47 +15,34 @@
   'use strict';
 
   function TabSettings(props) {
-    const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
-    const toast = window.toast || function() {};
-    const ic = window.ic || function() { return null; };
-    const btn = window.btn || function(p, ...ch) { return h('button', p, ...ch); };
+    const ReactObj = typeof React !== 'undefined' ? React : (typeof window !== 'undefined' ? window.React : {});
+    const h = ReactObj.createElement;
+    const useState = ReactObj.useState || function (v) { return [typeof v === 'function' ? v() : v, function () {}]; };
+    const useEffect = ReactObj.useEffect || function () {};
+    const useRef = ReactObj.useRef || function (v) { return { current: v }; };
 
-    const switchRow = (label, checked, onChange) => h('div', { className: 'set-row' },
-      h('span', { className: 'l', style: { fontWeight: 500 } }, label),
-      h('button', { type: 'button', className: `switch ${checked ? 'on' : ''}`, onClick: () => onChange(!checked), 'aria-pressed': checked })
-    );
-
-    const chipSelectStyle = {
-      background: 'rgba(255, 255, 255, 0.05)',
-      border: '1px solid rgba(255, 255, 255, 0.12)',
-      color: '#F8FAFC',
-      borderRadius: 12,
-      padding: '7px 12px',
-      fontSize: 12.5,
-      fontWeight: 600,
-      outline: 'none',
-      maxWidth: 220,
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
-      cursor: 'pointer'
-    };
-    const fontThemes = [{ id: 'literata', label: 'Literata' }, { id: 'georgia', label: 'Georgia' }, { id: 'inter', label: 'Inter' }, { id: 'none', label: 'Default' }];
+    const toast = (typeof window !== 'undefined' && window.toast) ? window.toast : function () {};
+    const ic = (typeof window !== 'undefined' && window.ic) ? window.ic : function () { return null; };
 
     const {
       appVersion,
       appVersionCode,
       checkForAppUpdate,
-      handleResetSettings = function() {},
+      availableUpdate,
+      isUpdating,
+      handlePerformUpdate,
+      handleResetSettings = function () {},
       downloadedOnly,
       setDownloadedOnly,
       incognitoMode,
       setIncognitoMode,
       settingsCategory,
       setSettingsCategory,
-      provider,
+      provider = 'gemini',
       setProvider,
-      apiKeysByProvider,
-      activeKeyIds,
-      showKeys,
+      apiKeysByProvider = {},
+      activeKeyIds = {},
+      showKeys = {},
       setShowKeys,
       addApiKey,
       deleteApiKey,
@@ -57,7 +50,7 @@
       setActiveKey,
       testSingleKey,
       handleTestAllKeys,
-      keyHealth,
+      keyHealth = {},
       setKeyHealth,
       testingKeys,
       setBulkKeyModalOpen,
@@ -101,7 +94,7 @@
       translationMemoryEnabled,
       setTranslationMemoryEnabled,
       refreshTmStats,
-      tmStats,
+      tmStats = {},
       handleClearTm,
       handleExportTmx,
       snapshotsEnabled,
@@ -126,15 +119,14 @@
       setEpubIncludeImages,
       epubFixedFilename,
       setEpubFixedFilename,
-      storageDiag,
+      storageDiag = {},
       storageLoading,
       refreshStorageDiag,
-      history,
       webImportHistory,
       exportFullBackup,
       importFullBackup,
       pasteAndRestoreBackup,
-      trashCount,
+      trashCount = 0,
       handleEmptyTrash,
       cloudProvider,
       setCloudProvider,
@@ -191,18 +183,57 @@
       handleInstallPWA,
       confirmAction,
       openSiteRecipeEditor,
-      DEFAULT_GEMINI_MODELS,
-      DEFAULT_DEEPSEEK_MODELS
+      DEFAULT_GEMINI_MODELS = [],
+      DEFAULT_DEEPSEEK_MODELS = []
     } = props;
 
-    const [newFallbackModelText, setNewFallbackModelText] = (React.useState || window.React.useState)('');
-    const [pointerMode, setPointerMode] = (React.useState || window.React.useState)(() => {
-      try { return localStorage.getItem('gemini_storage_pointer_mode') !== 'false'; } catch(e) { return true; }
+    const ThemeEngine = (typeof window !== 'undefined' && window.OmniThemeEngine) ? window.OmniThemeEngine : null;
+    const omniPrefs = ThemeEngine && typeof ThemeEngine.useOmniPrefs === 'function'
+      ? ThemeEngine.useOmniPrefs()
+      : { themeId: 'WHITE', libraryLayout: 'editorial', detailsHeader: 'jacket', discoverLayout: 'grid', heroBlur: 24 };
+    const activePalette = ThemeEngine && typeof ThemeEngine.getPalette === 'function'
+      ? ThemeEngine.getPalette(omniPrefs.themeId, omniPrefs)
+      : { id: 'WHITE', name: 'Monochrome', accent: '#F5F5F5', variant: '#C8C4BC', onAccent: '#000000' };
+
+    const [activeSubView, setActiveSubView] = useState(null);
+    const [settingsQuery, setSettingsQuery] = useState('');
+    const [newFallbackModelText, setNewFallbackModelText] = useState('');
+    const [pointerMode, setPointerMode] = useState(() => {
+      try { return localStorage.getItem('gemini_storage_pointer_mode') !== 'false'; } catch (_) { return true; }
     });
-    const [updateGraceWindow, setUpdateGraceWindow] = (React.useState || window.React.useState)(() => {
-      try { return localStorage.getItem('gemini_update_grace_window') === 'true'; } catch(e) { return false; }
+    const [updateGraceWindow, setUpdateGraceWindow] = useState(() => {
+      try { return localStorage.getItem('gemini_update_grace_window') === 'true'; } catch (_) { return false; }
     });
-    const [optimizingStorage, setOptimizingStorage] = (React.useState || window.React.useState)(false);
+    const [optimizingStorage, setOptimizingStorage] = useState(false);
+
+    const activeSubViewRef = useRef(activeSubView);
+    activeSubViewRef.current = activeSubView;
+
+    // Register Android back button drill-out handler
+    useEffect(() => {
+      if (typeof window === 'undefined') return undefined;
+      window.exitSettingsSubView = () => {
+        if (activeSubViewRef.current) {
+          setActiveSubView(null);
+          return true;
+        }
+        return false;
+      };
+      return () => {
+        if (window.exitSettingsSubView) delete window.exitSettingsSubView;
+      };
+    }, []);
+
+    // Keep legacy settingsCategory in sync if another caller sets it
+    useEffect(() => {
+      if (settingsCategory && settingsCategory !== 'all') {
+        const valid = ['engine', 'sources', 'quality', 'display', 'backup', 'system', 'visual'];
+        if (valid.includes(settingsCategory)) {
+          setActiveSubView(settingsCategory);
+          if (typeof setSettingsCategory === 'function') setSettingsCategory('all');
+        }
+      }
+    }, [settingsCategory]);
 
     const handleOptimizeStorage = async () => {
       if (!window.GeminiNovelDB) return;
@@ -221,7 +252,6 @@
           const hasDiskPath = Boolean((uri && uri.trim().length > 5) || (path && path.trim().length > 5));
           const hasFullChapters = Array.isArray(novel.chapters) && novel.chapters.some(c => c && (c.text || c.content));
           if (hasDiskPath && hasFullChapters && !novel.isEdited) {
-            // Verify file actually exists and can be read on disk before discarding internal text
             let verifiedOnDisk = false;
             try {
               const testBlob = await window.NativeBridge.readEpubFile({
@@ -229,18 +259,14 @@
                 displayPath: path,
                 fileName: novel.fileName || ''
               });
-              if (testBlob && testBlob.size > 2000) {
-                verifiedOnDisk = true;
-              }
+              if (testBlob && testBlob.size > 2000) verifiedOnDisk = true;
             } catch (_) {
               verifiedOnDisk = false;
             }
-
             if (!verifiedOnDisk) {
               skipped++;
               continue;
             }
-
             const lightweight = novel.chapters.map(c => ({
               idx: c.idx !== undefined ? c.idx : 0,
               title: c.title || 'Chapter',
@@ -323,1619 +349,1307 @@
       toast('Reset fallback ladder to defaults.', 'info');
     };
 
-    const SETTINGS_CATEGORIES = [
-      { id: 'all', label: 'All Settings', icon: 'Sliders' },
-      { id: 'engine', label: 'Engine & Keys', icon: 'Key' },
-      { id: 'sources', label: 'Sites & Sources', icon: 'Compass' },
-      { id: 'quality', label: 'Quality & TM', icon: 'Shield' },
-      { id: 'display', label: 'Reader & Display', icon: 'Palette' },
-      { id: 'backup', label: 'Backup & Storage', icon: 'Save' }
+    const fontThemes = [
+      { id: 'literata', label: 'Literata' },
+      { id: 'georgia', label: 'Georgia' },
+      { id: 'inter', label: 'Inter' },
+      { id: 'none', label: 'Default' }
     ];
 
-              return h(React.Fragment, null,
-                // Apple-style Header
-                h('div', { className: 'apple-page-header', style: { marginBottom: 14 } },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 } },
-                    h('div', null,
-                      h('h1', { style: { fontSize: 24, fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em', margin: '0 0 2px' } }, 'Settings'),
-                      h('p', { style: { fontSize: 13, color: '#94A3B8', margin: 0 } }, 'AI models, translation engine, cloud sync & reader defaults')
-                    ),
-                    h('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
-                      h('button', {
-                        type: 'button',
-                        className: 'chip-act',
-                        style: { fontSize: 11, padding: '5px 12px', borderRadius: 999, color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.35)' },
-                        onClick: handleResetSettings,
-                        title: 'Restore settings to recommended defaults (keeps API keys and library safe)'
-                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RotateCcw', 12), 'Reset')),
-                      h('button', {
-                        type: 'button',
-                        className: 'chip-act',
-                        style: { fontSize: 11, padding: '5px 12px', borderRadius: 999, background: 'rgba(99, 102, 241, 0.15)', borderColor: '#6366F1', color: '#c7d2fe', fontWeight: 600 },
-                        onClick: () => checkForAppUpdate(true)
-                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RefreshCw', 12), 'Updates'))
-                    )
-                  )
-                ),
+    const inputStyle = {
+      background: 'rgba(255, 255, 255, 0.05)',
+      border: '0.6px solid rgba(255, 255, 255, 0.12)',
+      color: '#F5F5F5',
+      borderRadius: 6,
+      padding: '8px 10px',
+      fontSize: 12,
+      outline: 'none',
+      fontFamily: "'IBM Plex Mono', monospace"
+    };
 
-                // Top Quick Status & Mihon-Style Toggles (Unboxed)
-                h('div', {
-                  className: 'settings-grouped-card',
-                  style: {
-                    marginBottom: 20,
-                    padding: '0 0 16px 0',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+    const selectStyle = {
+      background: 'rgba(255, 255, 255, 0.06)',
+      border: '0.6px solid rgba(255, 255, 255, 0.14)',
+      color: '#F5F5F5',
+      borderRadius: 6,
+      padding: '7px 10px',
+      fontSize: 12.5,
+      fontWeight: 600,
+      outline: 'none',
+      maxWidth: 210,
+      cursor: 'pointer'
+    };
+
+    const ghostBtnStyle = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      padding: '8px 12px',
+      borderRadius: 7,
+      background: 'rgba(255, 255, 255, 0.055)',
+      border: '0.6px solid rgba(255, 255, 255, 0.12)',
+      color: '#F5F5F5',
+      fontSize: 12,
+      fontWeight: 600,
+      cursor: 'pointer'
+    };
+
+    const primaryBtnStyle = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      padding: '9px 14px',
+      borderRadius: 8,
+      background: 'var(--omni-accent, #F5F5F5)',
+      color: 'var(--omni-on-accent, #000000)',
+      border: 'none',
+      fontSize: 12.5,
+      fontWeight: 750,
+      cursor: 'pointer'
+    };
+
+    const switchRow = (label, checked, onChange, subtitle) => h('div', {
+      className: 'omni-hairline-row',
+      style: { justifyContent: 'space-between', padding: '14px 0', cursor: 'pointer' },
+      onClick: () => onChange(!checked)
+    },
+      h('div', { style: { minWidth: 0, flex: 1, paddingRight: 12 } },
+        h('div', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, label),
+        subtitle && h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 2, lineHeight: 1.35 } }, subtitle)
+      ),
+      h('button', {
+        type: 'button',
+        className: `switch ${checked ? 'on' : ''}`,
+        onClick: (e) => { e.stopPropagation(); onChange(!checked); },
+        'aria-pressed': !!checked
+      })
+    );
+
+    const subHeader = (title, subtitle, rightNode) => h('div', {
+      style: {
+        position: 'sticky',
+        top: 0,
+        zIndex: 14,
+        background: '#000000',
+        borderBottom: '0.6px solid rgba(255, 255, 255, 0.08)',
+        padding: '6px 0 12px',
+        marginBottom: 8,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 10
+      }
+    },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 } },
+        h('button', {
+          type: 'button',
+          className: 'omni-circle-btn',
+          onClick: () => setActiveSubView(null),
+          'aria-label': 'Back to Settings',
+          style: { color: '#FFFFFF' }
+        }, ic('ArrowLeft', 18)),
+        h('div', { style: { minWidth: 0 } },
+          h('div', { style: { fontSize: 16.5, fontWeight: 750, color: '#F5F5F5', letterSpacing: '-0.015em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, title),
+          subtitle && h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)' } }, subtitle)
+        )
+      ),
+      rightNode || null
+    );
+
+    const sectionTitle = (text, rightBadge) => h('div', {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 22,
+        marginBottom: 8,
+        paddingBottom: 6,
+        borderBottom: '0.6px solid rgba(255, 255, 255, 0.08)'
+      }
+    },
+      h('span', {
+        style: {
+          fontSize: 10.5,
+          fontWeight: 700,
+          letterSpacing: '0.11em',
+          textTransform: 'uppercase',
+          color: 'rgba(255, 255, 255, 0.45)'
+        }
+      }, text),
+      rightBadge ? h('span', { style: { fontSize: 10.5, fontWeight: 600, color: activePalette.accent } }, rightBadge) : null
+    );
+
+    // ── Sub-View 1: Visual Presentation & Colors ──
+    if (activeSubView === 'visual') {
+      if (typeof window !== 'undefined' && window.OmniVisualSettingsScreen) {
+        return h(window.OmniVisualSettingsScreen, { onBack: () => setActiveSubView(null) });
+      }
+      return h('div', { style: { paddingBottom: 32 } },
+        subHeader('Visual Presentation & Colors', 'Palette & Layouts'),
+        h('div', { style: { padding: '24px 0', color: 'rgba(255,255,255,0.6)', fontSize: 13 } }, 'Visual customizer module loading...')
+      );
+    }
+
+    // ── Sub-View 2: Reader, EPUB & Speech ──
+    if (activeSubView === 'display') {
+      return h('div', { style: { paddingBottom: 32 } },
+        subHeader('Reader, EPUB & Speech', `${amoledMode ? 'AMOLED' : 'Dark'} · ${epubFontTheme || 'Literata'} · ${opdsRunning ? 'OPDS Online' : 'OPDS Idle'}`),
+
+        sectionTitle('THEME & EPUB TYPOGRAPHY', amoledMode ? 'AMOLED' : 'DARK'),
+        switchRow('AMOLED Pitch Black (Pure #000000)', amoledMode, (v) => {
+          setAmoledMode(v);
+          localStorage.setItem('amoledMode', String(v));
+          if (v) {
+            document.documentElement.setAttribute('data-theme', 'amoled');
+            document.body?.classList?.add('theme-amoled');
+          } else {
+            document.documentElement.removeAttribute('data-theme');
+            document.body?.classList?.remove('theme-amoled');
+          }
+        }),
+        switchRow('Embed Images in EPUB', epubIncludeImages, setEpubIncludeImages),
+        switchRow('Drop Caps', epubDropCaps, setEpubDropCaps),
+        switchRow('Smart Quotes', epubSmartQuotes, setEpubSmartQuotes),
+        switchRow('Clean Web Junk', epubCleanWebArtifacts, setEpubCleanWebArtifacts),
+        switchRow('Justify Text', epubJustifyText, setEpubJustifyText),
+        switchRow('Fixed Book Filename (Title.epub)', epubFixedFilename, setEpubFixedFilename),
+        h('div', { style: { padding: '14px 0', borderBottom: '0.6px solid rgba(255,255,255,0.08)' } },
+          h('div', { style: { fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginBottom: 8 } }, 'Reader & Export Font Family'),
+          h('div', { className: 'seg' },
+            fontThemes.map(f => h('button', {
+              key: f.id,
+              type: 'button',
+              className: `seg-btn ${epubFontTheme === f.id ? 'on' : ''}`,
+              onClick: () => setEpubFontTheme(f.id)
+            }, f.label))
+          )
+        ),
+
+        sectionTitle('MOON+ READER & OPDS CATALOG', opdsRunning ? 'ONLINE' : 'STOPPED'),
+        h('div', { style: { fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5, padding: '4px 0 8px' } },
+          'Run a lightweight local OPDS 1.2 feed inside the app so Moon+ Reader Pro and other e-readers can browse and download novels directly over Wi-Fi.'
+        ),
+        switchRow('Enable Local OPDS Feed', opdsRunning, toggleOpdsServer),
+        opdsRunning && h('div', { style: { padding: '12px 0', borderBottom: '0.6px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 10 } },
+          h('div', null,
+            h('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.48)', marginBottom: 4 } }, 'LOCAL DEVICE URL (MOON+ READER ON THIS PHONE)'),
+            h('div', { style: { display: 'flex', gap: 8 } },
+              h('input', { type: 'text', readOnly: true, value: opdsUrl || 'http://127.0.0.1:8080/opds', style: { ...inputStyle, flex: 1 } }),
+              h('button', {
+                type: 'button',
+                style: ghostBtnStyle,
+                onClick: () => {
+                  navigator.clipboard?.writeText(opdsUrl || 'http://127.0.0.1:8080/opds');
+                  toast('Copied OPDS URL!', 'success');
+                }
+              }, ic('Copy', 13), 'Copy')
+            )
+          ),
+          opdsWifiUrl && h('div', null,
+            h('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.48)', marginBottom: 4 } }, 'WI-FI NETWORK URL (TABLET / E-INK)'),
+            h('div', { style: { display: 'flex', gap: 8 } },
+              h('input', { type: 'text', readOnly: true, value: opdsWifiUrl, style: { ...inputStyle, flex: 1 } }),
+              h('button', {
+                type: 'button',
+                style: ghostBtnStyle,
+                onClick: () => {
+                  navigator.clipboard?.writeText(opdsWifiUrl);
+                  toast('Copied Wi-Fi OPDS URL!', 'success');
+                }
+              }, ic('Copy', 13), 'Copy')
+            )
+          ),
+          h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)', lineHeight: 1.45 } },
+            'In Moon+ Reader Pro: Open side menu -> Net Library -> tap Add new catalog -> enter the URL above.'
+          )
+        ),
+
+        sectionTitle('TEXT-TO-SPEECH & OFFLINE VOICES', 'SherpaTTS · Android'),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('div', null,
+            h('div', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Voice & Offline Speech Engine'),
+            h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 2 } }, 'Select neural Piper/SherpaTTS models and reading voice')
+          ),
+          h('button', {
+            type: 'button',
+            style: ghostBtnStyle,
+            onClick: () => {
+              if (window.__openVoiceModal) window.__openVoiceModal();
+              else if (window.NativeBridge?.openTtsSettings) window.NativeBridge.openTtsSettings();
+              else toast('Open any book in Reader and tap Voice to choose voices.', 'info');
+            }
+          }, ic('Volume2', 13), 'Voice Manager')
+        ),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Android System TTS Settings'),
+          h('button', {
+            type: 'button',
+            style: ghostBtnStyle,
+            onClick: () => {
+              if (window.NativeBridge?.openTtsSettings) window.NativeBridge.openTtsSettings();
+              else toast('Open phone Settings > Accessibility > Text-to-Speech to select SherpaTTS/Piper models.', 'info');
+            }
+          }, ic('Settings', 13), 'Open TTS Settings')
+        )
+      );
+    }
+
+    // ── Sub-View 3: AI Provider, Models & API Keys ──
+    if (activeSubView === 'engine') {
+      const provKeysRaw = apiKeysByProvider[provider] || [];
+      const provKeysNonEmpty = provKeysRaw.filter(k => k.key && k.key.trim());
+      const uniqueCount = new Set(provKeysNonEmpty.map(k => k.key.trim())).size;
+      const hasDuplicates = provKeysNonEmpty.length > uniqueCount;
+
+      return h('div', { style: { paddingBottom: 32 } },
+        subHeader('AI Provider, Models & API Keys', `${provider.toUpperCase()} · ${provKeysNonEmpty.length} key slots (${uniqueCount} unique)`),
+
+        sectionTitle('PROVIDER & MODEL SELECTION', provider.toUpperCase()),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '13px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Active Provider'),
+          h('select', { style: selectStyle, value: provider, onChange: e => setProvider(e.target.value) },
+            h('option', { value: 'gemini' }, 'Gemini'),
+            h('option', { value: 'deepseek' }, 'DeepSeek'),
+            h('option', { value: 'openai' }, 'OpenAI'),
+            h('option', { value: 'claude' }, 'Claude'),
+            h('option', { value: 'deepl' }, 'DeepL'),
+            h('option', { value: 'libre' }, 'LibreTranslate')
+          )
+        ),
+
+        provider === 'gemini' && h(React.Fragment, null,
+          h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '13px 0' } },
+            h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Gemini Model'),
+            h('select', {
+              style: selectStyle,
+              value: useCustomModel ? 'custom' : geminiModel,
+              onChange: e => {
+                if (e.target.value === 'custom') {
+                  setUseCustomModel(true);
+                  localStorage.setItem('useCustomModel', 'true');
+                } else {
+                  setUseCustomModel(false);
+                  localStorage.setItem('useCustomModel', 'false');
+                  setGeminiModel(e.target.value);
+                  localStorage.setItem('geminiModel', e.target.value);
+                }
+              }
+            },
+              DEFAULT_GEMINI_MODELS.map(m => h('option', { key: m.id, value: m.id }, m.name)),
+              h('option', { value: 'custom' }, 'Custom Model (Enter Manually...)')
+            )
+          ),
+          useCustomModel && h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '12px 0' } },
+            h('span', { style: { fontSize: 12, color: 'rgba(255,255,255,0.6)' } }, 'Custom Model ID'),
+            h('input', {
+              type: 'text',
+              placeholder: 'e.g. gemini-3.8-flash',
+              value: customModel,
+              onChange: e => {
+                const val = e.target.value.trim();
+                setCustomModel(val);
+                localStorage.setItem('customModel', val);
+              },
+              style: { ...inputStyle, width: 195, borderColor: activePalette.accent }
+            })
+          )
+        ),
+
+        provider === 'deepseek' && h(React.Fragment, null,
+          h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '13px 0' } },
+            h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'DeepSeek Model'),
+            h('select', {
+              style: selectStyle,
+              value: useCustomDeepseekModel ? 'custom' : deepseekModel,
+              onChange: e => {
+                if (e.target.value === 'custom') {
+                  setUseCustomDeepseekModel(true);
+                  localStorage.setItem('useCustomDeepseekModel', 'true');
+                } else {
+                  setUseCustomDeepseekModel(false);
+                  localStorage.setItem('useCustomDeepseekModel', 'false');
+                  setDeepseekModel(e.target.value);
+                  localStorage.setItem('deepseekModel', e.target.value);
+                }
+              }
+            },
+              DEFAULT_DEEPSEEK_MODELS.map(m => h('option', { key: m.id, value: m.id }, m.name)),
+              h('option', { value: 'custom' }, 'Custom Model (Enter Manually...)')
+            )
+          ),
+          useCustomDeepseekModel && h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '12px 0' } },
+            h('span', { style: { fontSize: 12, color: 'rgba(255,255,255,0.6)' } }, 'Custom DeepSeek ID'),
+            h('input', {
+              type: 'text',
+              placeholder: 'e.g. deepseek-chat',
+              value: customDeepseekModel,
+              onChange: e => {
+                const val = e.target.value.trim();
+                setCustomDeepseekModel(val);
+                localStorage.setItem('customDeepseekModel', val);
+              },
+              style: { ...inputStyle, width: 195, borderColor: activePalette.accent }
+            })
+          )
+        ),
+
+        provider === 'libre' && h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '13px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'LibreTranslate URL'),
+          h('input', {
+            type: 'text',
+            value: libreUrl,
+            onChange: e => { setLibreUrl(e.target.value); localStorage.setItem('libreUrl', e.target.value); },
+            style: { ...inputStyle, maxWidth: 210 }
+          })
+        ),
+
+        switchRow('Typewriter Streaming', enableStreaming, setEnableStreaming),
+        switchRow('Extended Thinking', enableThinking, (v) => { setEnableThinking(v); localStorage.setItem('enableThinking', String(v)); }),
+        switchRow('Strict Model (No Fallbacks)', strictModel, (v) => { setStrictModel(v); localStorage.setItem('strictModel', String(v)); }),
+
+        strictModel ? h('div', {
+          style: {
+            padding: '12px 0',
+            borderBottom: '0.6px solid rgba(255,255,255,0.08)',
+            fontSize: 12,
+            color: 'rgba(255,255,255,0.65)',
+            lineHeight: 1.5
+          }
+        },
+          h('strong', { style: { color: activePalette.accent } }, 'Model Locked: '),
+          'Strict Mode is active. Fallback cascading is disabled; the engine waits and rotates keys on your chosen model.'
+        ) : h('div', {
+          style: {
+            padding: '14px 0',
+            borderBottom: '0.6px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10
+          }
+        },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+            h('span', { style: { fontSize: 12.5, fontWeight: 700, color: '#F5F5F5' } }, 'Fallback Model Ladder'),
+            h('button', { type: 'button', onClick: handleResetFallbackLadder, style: { ...ghostBtnStyle, padding: '4px 10px', fontSize: 11 } }, 'Reset Ladder')
+          ),
+          (Array.isArray(fallbackModels) && fallbackModels.length > 0) ? fallbackModels.map((modelId, idx) => h('div', {
+            key: `${modelId}-${idx}`,
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+              padding: '8px 0',
+              borderBottom: '0.6px solid rgba(255,255,255,0.06)'
+            }
+          },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
+              h('span', { style: { fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: activePalette.accent, fontWeight: 700 } }, `#${idx + 1}`),
+              h('span', { style: { fontSize: 12.5, fontFamily: "'IBM Plex Mono', monospace", color: '#F5F5F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, modelId)
+            ),
+            h('div', { style: { display: 'flex', gap: 4 } },
+              h('button', { type: 'button', disabled: idx === 0, onClick: () => handleMoveFallbackModel(idx, -1), style: { ...ghostBtnStyle, padding: '6px 8px', opacity: idx === 0 ? 0.3 : 1 }, 'aria-label': 'Move Up' }, ic('ArrowUp', 13)),
+              h('button', { type: 'button', disabled: idx === fallbackModels.length - 1, onClick: () => handleMoveFallbackModel(idx, 1), style: { ...ghostBtnStyle, padding: '6px 8px', opacity: idx === fallbackModels.length - 1 ? 0.3 : 1 }, 'aria-label': 'Move Down' }, ic('ArrowDown', 13)),
+              h('button', { type: 'button', onClick: () => handleRemoveFallbackModel(idx), style: { ...ghostBtnStyle, padding: '6px 8px', color: '#f87171' }, 'aria-label': 'Remove' }, ic('X', 13))
+            )
+          )) : h('div', { style: { fontSize: 12, color: 'rgba(255,255,255,0.45)', padding: '6px 0' } }, 'No backup models configured. Tap a quick-add model below.'),
+
+          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+            [
+              { id: 'gemini-3.5-flash', label: '3.5 Flash' },
+              { id: 'gemini-3.5-flash-lite', label: '3.5 Flash Lite' },
+              { id: 'gemini-3.6-flash', label: '3.6 Flash' },
+              { id: 'gemini-3.7-flash', label: '3.7 Flash' },
+              { id: 'deepseek-chat', label: 'DeepSeek' }
+            ].map(preset => h('button', {
+              key: preset.id,
+              type: 'button',
+              onClick: () => handleAddFallbackModel(preset.id),
+              style: { ...ghostBtnStyle, padding: '5px 10px', fontSize: 11.5 }
+            }, `+ ${preset.label}`))
+          ),
+
+          h('div', { style: { display: 'flex', gap: 8 } },
+            h('input', {
+              type: 'text',
+              placeholder: 'e.g. gemini-custom-model',
+              value: newFallbackModelText,
+              onChange: e => setNewFallbackModelText(e.target.value),
+              onKeyDown: e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddFallbackModel(newFallbackModelText);
+                  setNewFallbackModelText('');
+                }
+              },
+              style: { ...inputStyle, flex: 1, minWidth: 0 }
+            }),
+            h('button', {
+              type: 'button',
+              onClick: () => {
+                handleAddFallbackModel(newFallbackModelText);
+                setNewFallbackModelText('');
+              },
+              style: primaryBtnStyle
+            }, 'Add Model')
+          )
+        ),
+
+        sectionTitle('PERFORMANCE & SOURCES', `Concurrency ${concurrency}`),
+        switchRow('Context-Aware Memory', contextAware, setContextAware),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Parallel Streams'),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, width: 190 } },
+            h('input', {
+              type: 'range',
+              min: 1,
+              max: 20,
+              value: concurrency,
+              onChange: e => setConcurrency(parseInt(e.target.value, 10)),
+              style: { flex: 1, accentColor: activePalette.accent }
+            }),
+            h('span', { style: { fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: activePalette.accent, minWidth: 22, textAlign: 'right' } }, concurrency)
+          )
+        ),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Chunk Size Preset'),
+          h('select', {
+            style: selectStyle,
+            value: chunkSizePreset,
+            onChange: e => {
+              setChunkSizePreset(e.target.value);
+              localStorage.setItem('chunkSizePreset', e.target.value);
+            }
+          },
+            h('option', { value: 'turbo' }, 'Turbo (Max words/req)'),
+            h('option', { value: 'large' }, 'Large (~3,500 chars)'),
+            h('option', { value: 'medium' }, 'Medium (~2,500 chars)'),
+            h('option', { value: 'small' }, 'Small (~1,800 chars)')
+          )
+        ),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Source Plugins (LNReader)'),
+          h('button', { type: 'button', style: ghostBtnStyle, onClick: handleOpenSourcePluginsModal },
+            ic('Compass', 13), `Browse (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`)
+        ),
+
+        sectionTitle(`API KEYS (${provider.toUpperCase()}) · ${provKeysNonEmpty.length} SLOTS (${uniqueCount} UNIQUE)`, hasDuplicates ? 'DUPLICATES' : null),
+        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', padding: '6px 0 12px', borderBottom: '0.6px solid rgba(255,255,255,0.08)' } },
+          h('button', {
+            type: 'button',
+            style: ghostBtnStyle,
+            onClick: () => {
+              const allK = (apiKeysByProvider[provider] || []).map(k => (k.key || '').trim()).filter(Boolean);
+              if (allK.length === 0) return toast('No keys to copy', 'info');
+              navigator.clipboard?.writeText(allK.join('\n')).then(() => toast(`Copied all ${allK.length} keys to clipboard!`, 'success'));
+            }
+          }, ic('Copy', 12), 'Copy All'),
+          h('button', {
+            type: 'button',
+            style: { ...ghostBtnStyle, color: '#34D399', borderColor: 'rgba(52, 211, 153, 0.35)' },
+            disabled: testingKeys,
+            onClick: () => handleTestAllKeys(provider)
+          }, ic('Zap', 12), testingKeys ? 'Testing...' : 'Test All Keys'),
+          h('button', {
+            type: 'button',
+            style: ghostBtnStyle,
+            onClick: () => {
+              window.KeyPool?.clearCooldowns?.();
+              if (typeof setKeyHealth === 'function') setKeyHealth({});
+              toast('Cleared all key cooldowns and locks!', 'success');
+            }
+          }, ic('RotateCcw', 12), 'Clear Cooldowns'),
+          h('button', { type: 'button', style: ghostBtnStyle, onClick: () => setBulkKeyModalOpen(true) }, ic('Clipboard', 12), 'Bulk Paste'),
+          h('button', { type: 'button', style: primaryBtnStyle, onClick: () => addApiKey(provider) }, '+ Add Key')
+        ),
+
+        provKeysRaw.map(k => {
+          const isActive = (activeKeyIds[provider] === k.id) || (provKeysRaw.length === 1);
+          const isVisible = showKeys[k.id] || false;
+          const firstWithThisKey = provKeysRaw.find(other => other.key && k.key && other.key.trim() === k.key.trim());
+          const isDuplicate = firstWithThisKey && firstWithThisKey.id !== k.id;
+          const hInfo = keyHealth[k.id];
+          const poolStatus = window.KeyPool?.getKeyStatus?.(k.key);
+          const showPoolBar = Boolean(hInfo || (poolStatus && (poolStatus.inFlight || poolStatus.isCooling)));
+          const statusType = hInfo?.status || (poolStatus?.isCooling ? 'cooling' : (poolStatus?.inFlight ? 'inflight' : 'idle'));
+          let statusMsg = hInfo?.message;
+          if (!statusMsg && poolStatus?.isCooling) {
+            const rem = poolStatus.coolSecondsRemaining || 0;
+            const remLabel = rem > 120 ? `${Math.round(rem / 60)}m` : `${rem}s`;
+            statusMsg = `In-Flight Cooldown (${remLabel} remaining)`;
+          } else if (!statusMsg && poolStatus?.inFlight) {
+            statusMsg = 'In-Flight (Leased by active worker)';
+          }
+          const colorMap = { ok: '#34D399', cooling: '#fbbf24', exhausted: '#f87171', inflight: activePalette.accent, testing: activePalette.accent, error: '#f87171' };
+
+          return h('div', {
+            key: k.id,
+            style: { padding: '12px 0', borderBottom: '0.6px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 8 }
+          },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+              h('input', {
+                type: 'text',
+                value: k.name || '',
+                onChange: e => updateApiKey(provider, k.id, 'name', e.target.value),
+                placeholder: 'Profile name (e.g. Work, Key 1)...',
+                style: { ...inputStyle, flex: 1, minWidth: 110, fontFamily: 'inherit', fontWeight: 600 }
+              }),
+              isActive
+                ? h('span', { style: { fontSize: 10.5, fontWeight: 700, padding: '4px 9px', borderRadius: 999, background: activePalette.accent, color: activePalette.onAccent } }, 'Active')
+                : h('button', { type: 'button', style: { ...ghostBtnStyle, padding: '5px 10px', fontSize: 11 }, onClick: () => setActiveKey(provider, k.id) }, 'Set Active'),
+              isDuplicate && h('span', { style: { fontSize: 10.5, fontWeight: 700, color: '#f87171' } }, 'Duplicate'),
+              h('button', {
+                type: 'button',
+                className: 'omni-circle-btn',
+                disabled: !k.key || keyHealth[k.id]?.status === 'testing',
+                onClick: () => testSingleKey(provider, k.key, k.id),
+                title: 'Test key',
+                style: { color: '#34D399' }
+              }, keyHealth[k.id]?.status === 'testing' ? ic('Loader2', 14) : ic('Zap', 14)),
+              h('button', {
+                type: 'button',
+                className: 'omni-circle-btn',
+                disabled: !k.key,
+                onClick: () => {
+                  if (!k.key) return;
+                  navigator.clipboard?.writeText(k.key).then(() => toast('Key copied to clipboard!', 'success')).catch(() => toast('Could not copy key', 'error'));
+                },
+                title: 'Copy key'
+              }, ic('Copy', 14)),
+              h('button', {
+                type: 'button',
+                className: 'omni-circle-btn',
+                onClick: async () => {
+                  try {
+                    const clipText = await navigator.clipboard.readText();
+                    if (clipText && clipText.trim()) {
+                      updateApiKey(provider, k.id, 'key', clipText.trim());
+                      toast('Pasted key from clipboard!', 'success');
+                    } else {
+                      toast('Clipboard is empty', 'info');
+                    }
+                  } catch (_) {
+                    toast('Clipboard access denied. Please paste manually.', 'error');
                   }
                 },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                      h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #4F46E5)' } }, ic('Sparkles', 18, 'text-white')),
-                      h('div', null,
-                        h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--paper)' } }, 'Gemini Novel Studio & Reader'),
-                        h('div', { style: { fontSize: 11, color: 'var(--slate)', marginTop: 1 } }, `v${appVersion} (Build ${appVersionCode || 8228}) · AMOLED Midnight`)
-                      )
-                    )
-                  ),
-                  h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
-                    h('div', {
-                      style: {
-                        background: downloadedOnly ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                        border: downloadedOnly ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid var(--hairline)',
-                        borderRadius: 8,
-                        padding: '8px 10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
-                      },
-                      onClick: () => {
-                        const next = !downloadedOnly;
-                        setDownloadedOnly(next);
-                        localStorage.setItem('downloadedOnly', String(next));
-                        toast(next ? 'Downloaded only: ON' : 'Downloaded only: OFF', 'info');
-                      }
-                    },
-                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: downloadedOnly ? 'var(--iris)' : 'var(--paper)' } }, ic('Download', 13), 'Downloaded only'),
-                      h('button', { type: 'button', className: `switch ${downloadedOnly ? 'on' : ''}`, style: { pointerEvents: 'none' } })
-                    ),
-                    h('div', {
-                      style: {
-                        background: incognitoMode ? 'rgba(236, 72, 153, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                        border: incognitoMode ? '1px solid rgba(236, 72, 153, 0.4)' : '1px solid var(--hairline)',
-                        borderRadius: 8,
-                        padding: '8px 10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
-                      },
-                      onClick: () => {
-                        const next = !incognitoMode;
-                        setIncognitoMode(next);
-                        localStorage.setItem('incognitoMode', String(next));
-                        toast(next ? 'Incognito mode: ON (history paused)' : 'Incognito mode: OFF', 'info');
-                      }
-                    },
-                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: incognitoMode ? '#ec4899' : 'var(--paper)' } }, ic('EyeOff', 13), 'Incognito mode'),
-                      h('button', { type: 'button', className: `switch ${incognitoMode ? 'on' : ''}`, style: { pointerEvents: 'none' } })
-                    ),
-                    h('div', {
-                      style: {
-                        background: enableStreaming ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                        border: enableStreaming ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--hairline)',
-                        borderRadius: 8,
-                        padding: '8px 10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
-                      },
-                      onClick: () => {
-                        const next = !enableStreaming;
-                        setEnableStreaming(next);
-                        toast(next ? 'Typewriter streaming: ON' : 'Typewriter streaming: OFF', 'info');
-                      }
-                    },
-                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: enableStreaming ? '#10b981' : 'var(--paper)' } }, ic('Zap', 13), 'Stream tokens'),
-                      h('button', { type: 'button', className: `switch ${enableStreaming ? 'on' : ''}`, style: { pointerEvents: 'none' } })
-                    ),
-                    h('div', {
-                      style: {
-                        background: enableThinking ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                        border: enableThinking ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid var(--hairline)',
-                        borderRadius: 8,
-                        padding: '8px 10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
-                      },
-                      onClick: () => {
-                        const next = !enableThinking;
-                        setEnableThinking(next);
-                        localStorage.setItem('enableThinking', String(next));
-                        toast(next ? 'Extended Thinking: ON' : 'Extended Thinking: OFF', 'info');
-                      }
-                    },
-                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: enableThinking ? '#c084fc' : 'var(--paper)' } }, ic('Brain', 13), 'Thinking AI'),
-                      h('button', { type: 'button', className: `switch ${enableThinking ? 'on' : ''}`, style: { pointerEvents: 'none' } })
-                    )
-                  )
-                ),
-
-                // Settings Category Group Switcher
-                h('div', { className: 'settings-category-nav' },
-                  SETTINGS_CATEGORIES.map(cat => {
-                    const isCatActive = settingsCategory === cat.id;
-                    return h('button', {
-                      key: cat.id,
-                      type: 'button',
-                      className: `settings-category-pill ${isCatActive ? 'active' : ''}`,
-                      onClick: () => {
-                        setSettingsCategory(cat.id);
-                        try { localStorage.setItem('gemini_settings_category', cat.id); } catch(e) {}
-                      }
-                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic(cat.icon, 13), cat.label));
-                  })
-                ),
-
-                // ═══ GROUP 1: ENGINE & API KEYS ═══
-                (settingsCategory === 'engine' || settingsCategory === 'all') && h(React.Fragment, null,
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'TRANSLATION ENGINE')
-                ),
-                h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, provider.toUpperCase())
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                h('div', { className: 'card-title' },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #6366F1, #4F46E5)' } }, ic('Brain', 18, 'text-white')),
-                    h('span', null, 'Engine Configuration')
-                  )
-                ),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Active Provider'),
-                  h('select', { className: 'chip', style: chipSelectStyle, value: provider, onChange: e => setProvider(e.target.value) },
-                    h('option', { value: 'gemini' }, 'Gemini'),
-                    h('option', { value: 'deepseek' }, 'DeepSeek'),
-                    h('option', { value: 'openai' }, 'OpenAI'),
-                    h('option', { value: 'claude' }, 'Claude'),
-                    h('option', { value: 'deepl' }, 'DeepL'),
-                    h('option', { value: 'libre' }, 'LibreTranslate')
-                  )
-                ),
-                provider === 'gemini' && h(React.Fragment, null,
-                  h('div', { className: 'set-row' },
-                    h('span', { className: 'l' }, 'Gemini Model'),
-                    h('select', { 
-                      className: 'chip', 
-                      style: chipSelectStyle, 
-                      value: useCustomModel ? 'custom' : geminiModel, 
-                      onChange: e => { 
-                        if (e.target.value === 'custom') {
-                          setUseCustomModel(true);
-                          localStorage.setItem('useCustomModel', 'true');
-                        } else {
-                          setUseCustomModel(false);
-                          localStorage.setItem('useCustomModel', 'false');
-                          setGeminiModel(e.target.value); 
-                          localStorage.setItem('geminiModel', e.target.value); 
-                        }
-                      } 
-                    },
-                      DEFAULT_GEMINI_MODELS.map(m => h('option', { key: m.id, value: m.id }, m.name)),
-                      h('option', { value: 'custom' }, 'Custom Model (Enter Manually…)')
-                    )
-                  ),
-                  useCustomModel && h('div', { className: 'set-row', style: { paddingTop: 4 } },
-                    h('span', { className: 'l', style: { fontSize: 11, color: 'var(--slate)' } }, 'Custom Model ID'),
-                    h('input', {
-                      type: 'text',
-                      placeholder: 'e.g. gemini-3.8-flash',
-                      value: customModel,
-                      onChange: e => {
-                        const val = e.target.value.trim();
-                        setCustomModel(val);
-                        localStorage.setItem('customModel', val);
-                      },
-                      style: {
-                        background: 'var(--void)',
-                        border: '1px solid var(--accent, #6366f1)',
-                        color: 'var(--paper)',
-                        borderRadius: 8,
-                        padding: '5px 8px',
-                        fontSize: 11,
-                        outline: 'none',
-                        width: 180,
-                        fontFamily: "'IBM Plex Mono', monospace"
-                      }
-                    })
-                  )
-                ),
-                provider === 'deepseek' && h(React.Fragment, null,
-                  h('div', { className: 'set-row' },
-                    h('span', { className: 'l' }, 'DeepSeek Model'),
-                    h('select', { 
-                      className: 'chip', 
-                      style: chipSelectStyle, 
-                      value: useCustomDeepseekModel ? 'custom' : deepseekModel, 
-                      onChange: e => { 
-                        if (e.target.value === 'custom') {
-                          setUseCustomDeepseekModel(true);
-                          localStorage.setItem('useCustomDeepseekModel', 'true');
-                        } else {
-                          setUseCustomDeepseekModel(false);
-                          localStorage.setItem('useCustomDeepseekModel', 'false');
-                          setDeepseekModel(e.target.value); 
-                          localStorage.setItem('deepseekModel', e.target.value); 
-                        }
-                      } 
-                    },
-                      DEFAULT_DEEPSEEK_MODELS.map(m => h('option', { key: m.id, value: m.id }, m.name)),
-                      h('option', { value: 'custom' }, 'Custom Model (Enter Manually…)')
-                    )
-                  ),
-                  useCustomDeepseekModel && h('div', { className: 'set-row', style: { paddingTop: 4 } },
-                    h('span', { className: 'l', style: { fontSize: 11, color: 'var(--slate)' } }, 'Custom DeepSeek ID'),
-                    h('input', {
-                      type: 'text',
-                      placeholder: 'e.g. deepseek-chat',
-                      value: customDeepseekModel,
-                      onChange: e => {
-                        const val = e.target.value.trim();
-                        setCustomDeepseekModel(val);
-                        localStorage.setItem('customDeepseekModel', val);
-                      },
-                      style: {
-                        background: 'var(--void)',
-                        border: '1px solid var(--accent, #6366f1)',
-                        color: 'var(--paper)',
-                        borderRadius: 8,
-                        padding: '5px 8px',
-                        fontSize: 11,
-                        outline: 'none',
-                        width: 180,
-                        fontFamily: "'IBM Plex Mono', monospace"
-                      }
-                    })
-                  )
-                ),
-                provider === 'libre' && h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'LibreTranslate URL'),
-                  h('input', { type: 'text', value: libreUrl, onChange: e => { setLibreUrl(e.target.value); localStorage.setItem('libreUrl', e.target.value); }, style: { background: 'var(--void)', border: '1px solid var(--hairline)', color: 'var(--paper-dim)', borderRadius: 8, padding: '5px 8px', fontSize: 11, outline: 'none', maxWidth: 200, fontFamily: "'IBM Plex Mono', monospace" } })
-                ),
-                switchRow('Typewriter Streaming', enableStreaming, setEnableStreaming),
-                switchRow('Extended Thinking', enableThinking, (v) => { setEnableThinking(v); localStorage.setItem('enableThinking', v); }),
-                switchRow('Strict Model (No Fallbacks)', strictModel, (v) => { setStrictModel(v); localStorage.setItem('strictModel', String(v)); }),
-
-                strictModel && h('div', {
-                  style: {
-                    background: 'rgba(99, 102, 241, 0.08)',
-                    border: '1px solid rgba(99, 102, 241, 0.25)',
-                    borderRadius: 14,
-                    padding: '12px 14px',
-                    margin: '6px 0 10px',
-                    fontSize: 12.5,
-                    color: 'var(--paper-dim)',
-                    lineHeight: 1.45
-                  }
-                },
-                  h('strong', { style: { color: 'var(--iris-light)' } }, 'Model Locked: '),
-                  'Strict Mode is active. Fallback cascading is disabled. If Google free-tier limits are reached, the engine will wait and rotate keys on your chosen model without changing it.'
-                ),
-
-                !strictModel && h('div', {
-                  style: {
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                    margin: '10px 0 14px',
-                    padding: '4px 0'
-                  }
-                },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-                    h('span', { style: { fontSize: 13, fontWeight: 700, color: 'var(--iris-light)', letterSpacing: '0.04em', textTransform: 'uppercase' } },
-                      'Fallback Priority Ladder'
-                    ),
-                    h('button', {
-                      type: 'button',
-                      onClick: handleResetFallbackLadder,
-                      style: { background: 'none', border: 'none', color: 'var(--slate)', fontSize: 12, fontWeight: 500, cursor: 'pointer', padding: '4px 6px' }
-                    }, 'Reset Defaults')
-                  ),
-                  h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.4 } },
-                    'If your primary model reaches Google free-tier daily quota across all keys, the engine automatically steps down this list in order:'
-                  ),
-                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-                    (Array.isArray(fallbackModels) && fallbackModels.length > 0) ? (
-                      fallbackModels.map((mId, idx) => h('div', {
-                        key: `${mId}_${idx}`,
-                        style: {
-                          background: 'var(--surface, #141724)',
-                          border: '1px solid var(--hairline)',
-                          borderRadius: 16,
-                          padding: '10px 14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                          minHeight: 56
-                        }
-                      },
-                        h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 } },
-                          h('div', {
-                            style: {
-                              width: 28,
-                              height: 28,
-                              borderRadius: 9,
-                              background: 'rgba(99, 102, 241, 0.16)',
-                              border: '1px solid rgba(99, 102, 241, 0.35)',
-                              color: 'var(--iris-light)',
-                              fontFamily: "'IBM Plex Mono', monospace",
-                              fontSize: 12.5,
-                              fontWeight: 700,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flex: 'none'
-                            }
-                          }, idx + 1),
-                          h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 } },
-                            h('span', {
-                              style: {
-                                fontFamily: "'IBM Plex Mono', monospace",
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: 'var(--paper)',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                              }
-                            }, mId),
-                            h('span', { style: { fontSize: 11, color: 'var(--slate)' } },
-                              idx === 0 ? '1st Failover Backup' : `${idx + 1}th Priority Backup`
-                            )
-                          )
-                        ),
-                        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flex: 'none' } },
-                          h('button', {
-                            type: 'button',
-                            disabled: idx === 0,
-                            onClick: () => handleMoveFallbackModel(idx, -1),
-                            style: {
-                              width: 40,
-                              height: 40,
-                              borderRadius: 12,
-                              background: 'rgba(255, 255, 255, 0.05)',
-                              border: '1px solid var(--hairline)',
-                              color: 'var(--paper-dim)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: idx === 0 ? 'not-allowed' : 'pointer',
-                              opacity: idx === 0 ? 0.25 : 1
-                            },
-                            'aria-label': 'Move Up'
-                          }, ic('ArrowUp', 16) || '^'),
-                          h('button', {
-                            type: 'button',
-                            disabled: idx === fallbackModels.length - 1,
-                            onClick: () => handleMoveFallbackModel(idx, 1),
-                            style: {
-                              width: 40,
-                              height: 40,
-                              borderRadius: 12,
-                              background: 'rgba(255, 255, 255, 0.05)',
-                              border: '1px solid var(--hairline)',
-                              color: 'var(--paper-dim)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: idx === fallbackModels.length - 1 ? 'not-allowed' : 'pointer',
-                              opacity: idx === fallbackModels.length - 1 ? 0.25 : 1
-                            },
-                            'aria-label': 'Move Down'
-                          }, ic('ArrowDown', 16) || 'v'),
-                          h('button', {
-                            type: 'button',
-                            onClick: () => handleRemoveFallbackModel(idx),
-                            style: {
-                              width: 40,
-                              height: 40,
-                              borderRadius: 12,
-                              background: 'rgba(244, 63, 94, 0.08)',
-                              border: '1px solid rgba(244, 63, 94, 0.2)',
-                              color: 'var(--rose, #f43f5e)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer'
-                            },
-                            'aria-label': 'Remove'
-                          }, ic('X', 16) || 'x')
-                        )
-                      ))
-                    ) : h('div', {
-                      style: {
-                        padding: '16px',
-                        textAlign: 'center',
-                        fontSize: 12.5,
-                        color: 'var(--slate)',
-                        border: '1px dashed var(--hairline)',
-                        borderRadius: 16
-                      }
-                    }, 'No backup models in ladder. Tap a quick-add chip below to add one.')
-                  ),
-                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 } },
-                    h('span', { style: { fontSize: 11, fontWeight: 600, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.04em' } },
-                      'Quick Add Standard Models'
-                    ),
-                    h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                      [
-                        { id: 'gemini-3.5-flash', label: '3.5 Flash' },
-                        { id: 'gemini-3.5-flash-lite', label: '3.5 Flash Lite' },
-                        { id: 'gemini-3.6-flash', label: '3.6 Flash' },
-                        { id: 'gemini-3.7-flash', label: '3.7 Flash' },
-                        { id: 'deepseek-chat', label: 'DeepSeek' }
-                      ].map(preset => h('button', {
-                        key: preset.id,
-                        type: 'button',
-                        onClick: () => handleAddFallbackModel(preset.id),
-                        style: {
-                          background: 'var(--surface, #141724)',
-                          border: '1px solid var(--hairline)',
-                          borderRadius: 12,
-                          padding: '8px 14px',
-                          fontSize: 12.5,
-                          fontWeight: 500,
-                          color: 'var(--paper)',
-                          cursor: 'pointer',
-                          minHeight: 40,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6
-                        }
-                      },
-                        h('span', { style: { color: 'var(--iris-light)', fontWeight: 700 } }, '+'),
-                        preset.label
-                      ))
-                    )
-                  ),
-                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 } },
-                    h('span', { style: { fontSize: 11, fontWeight: 600, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.04em' } },
-                      'Or Custom Model Name'
-                    ),
-                    h('div', { style: { display: 'flex', gap: 8 } },
-                      h('input', {
-                        type: 'text',
-                        placeholder: 'e.g. gemini-custom-model',
-                        value: newFallbackModelText,
-                        onChange: e => setNewFallbackModelText(e.target.value),
-                        onKeyDown: e => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddFallbackModel(newFallbackModelText);
-                            setNewFallbackModelText('');
-                          }
-                        },
-                        style: {
-                          flex: 1,
-                          height: 48,
-                          background: 'var(--void)',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                          borderRadius: 14,
-                          padding: '0 14px',
-                          fontFamily: "'IBM Plex Mono', monospace",
-                          fontSize: 13,
-                          color: 'var(--paper)',
-                          outline: 'none'
-                        }
-                      }),
-                      h('button', {
-                        type: 'button',
-                        onClick: () => {
-                          handleAddFallbackModel(newFallbackModelText);
-                          setNewFallbackModelText('');
-                        },
-                        style: {
-                          height: 48,
-                          padding: '0 18px',
-                          borderRadius: 14,
-                          background: 'var(--iris)',
-                          border: 'none',
-                          color: '#FFFFFF',
-                          fontWeight: 600,
-                          fontSize: 13,
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }
-                      }, 'Add Model')
-                    )
-                  )
-                ),
-                switchRow('Context-Aware Memory', contextAware, setContextAware),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Parallel Streams'),
-                  h('div', { className: 'slider-row', style: { flex: 1, maxWidth: 190 } },
-                    h('input', { type: 'range', min: 1, max: 20, value: concurrency, onChange: e => setConcurrency(parseInt(e.target.value)) }),
-                    h('span', { className: 'val' }, concurrency)
-                  )
-                ),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Chunk Size Preset'),
-                  h('select', {
-                    value: chunkSizePreset,
-                    onChange: e => {
-                      setChunkSizePreset(e.target.value);
-                      localStorage.setItem('chunkSizePreset', e.target.value);
-                    },
-                    style: {
-                      background: 'var(--void)',
-                      border: '1px solid var(--hairline)',
-                      color: 'var(--paper)',
-                      borderRadius: 8,
-                      padding: '5px 8px',
-                      fontSize: 12,
-                      outline: 'none',
-                      fontFamily: "'IBM Plex Mono', monospace"
-                    }
-                  },
-                    h('option', { value: 'turbo' }, 'Turbo (Max words/req)'),
-                    h('option', { value: 'large' }, 'Large (~3,500 chars)'),
-                    h('option', { value: 'medium' }, 'Medium (~2,500 chars)'),
-                    h('option', { value: 'small' }, 'Small (~1,800 chars)')
-                  )
-                ),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Source Plugins (LNReader)'),
-                  h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    onClick: handleOpenSourcePluginsModal
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Compass', 13), `Browse Sources (${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length})`))
-                )
-              ),
-
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'API KEYS & ROTATION')
-                )
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                (() => {
-                  const provKeys = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim());
-                  const uniqueCount = new Set(provKeys.map(k => k.key.trim())).size;
-                  const hasDuplicates = provKeys.length > uniqueCount;
-                  return h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
-                      h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #EC4899, #DB2777)' } }, ic('Key', 18, 'text-white')),
-                      h('span', null, `API Keys (${provider.toUpperCase()}) · ${provKeys.length} slots (${uniqueCount} unique)`),
-                      hasDuplicates && h('span', { className: 'badge', style: { background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid currentColor', fontSize: 10 } }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('AlertTriangle', 10), `${provKeys.length - uniqueCount} duplicate(s)`))
-                    ),
-                  h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn ghost',
-                      title: 'Copy all active keys for this provider to clipboard',
-                      onClick: () => {
-                        const allK = (apiKeysByProvider[provider] || []).map(k => (k.key || '').trim()).filter(Boolean);
-                        if (allK.length === 0) { toast('No keys to copy', 'info'); return; }
-                        navigator.clipboard.writeText(allK.join('\n')).then(() => toast(`Copied all ${allK.length} keys to clipboard!`, 'success'));
-                      }
-                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 12), 'Copy All')),
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn',
-                      style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontWeight: 600 },
-                      disabled: testingKeys,
-                      onClick: () => handleTestAllKeys(provider)
-                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Zap', 12), testingKeys ? 'Testing…' : 'Test All Keys')),
-                    h('button', {
-                      type: 'button',
-                      className: 'mini-btn ghost',
-                      title: 'Clear in-flight locks and cooldown timers across all keys',
-                      onClick: () => {
-                        window.KeyPool?.clearCooldowns?.();
-                        if (typeof setKeyHealth === 'function') setKeyHealth({});
-                        toast('Cleared all key cooldowns and locks!', 'success');
-                      }
-                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RotateCcw', 12), 'Clear Cooldowns')),
-                    h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: () => setBulkKeyModalOpen(true) }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Clipboard', 12), 'Bulk Paste')),
-                    h('button', { type: 'button', className: 'mini-btn', onClick: () => addApiKey(provider) }, '+ Add')
-                  )
-                );
-                })(),
-                (apiKeysByProvider[provider] || []).map(k => {
-                  const allProvKeys = apiKeysByProvider[provider] || [];
-                  const isActive = (activeKeyIds[provider] === k.id) || (allProvKeys.length === 1);
-                  const isVisible = showKeys[k.id] || false;
-                  const firstWithThisKey = allProvKeys.find(other => other.key && k.key && other.key.trim() === k.key.trim());
-                  const isDuplicate = firstWithThisKey && firstWithThisKey.id !== k.id;
-                  return h('div', { key: k.id, style: { padding: '6px 0', borderBottom: '1px solid rgba(36,39,48,.5)' } },
-                    h('div', { className: 'set-row', style: { gap: 8, alignItems: 'center' } },
-                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 140 } },
-                        ic('Tag', 13, 'text-slate'),
-                        h('input', {
-                          type: 'text',
-                          value: k.name || '',
-                          onChange: e => updateApiKey(provider, k.id, 'name', e.target.value),
-                          placeholder: 'Profile name (e.g. Work, Key 1)…',
-                          title: 'Click to edit API key name / profile label',
-                          style: {
-                            background: 'rgba(255, 255, 255, 0.06)',
-                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                            borderRadius: 6,
-                            padding: '4px 8px',
-                            color: 'var(--paper)',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            flex: 1,
-                            minWidth: 0,
-                            outline: 'none'
-                          }
-                        })
-                      ),
-                      isActive
-                        ? h('span', { className: 'badge' }, 'Active')
-                        : h('button', { type: 'button', className: 'chip-act', onClick: () => setActiveKey(provider, k.id) }, 'Set Active'),
-                      isDuplicate && h('span', { className: 'badge', style: { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid currentColor', fontSize: 10 } }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('AlertTriangle', 10), 'Duplicate')),
-                      h('button', {
-                        type: 'button',
-                        className: 'icon-btn',
-                        style: { width: 30, height: 30, color: '#10b981' },
-                        title: 'Test this API key latency and validity',
-                        disabled: !k.key || keyHealth[k.id]?.status === 'testing',
-                        onClick: () => testSingleKey(provider, k.key, k.id)
-                      }, keyHealth[k.id]?.status === 'testing' ? ic('Loader2', 14) : ic('Zap', 14)),
-                      h('button', {
-                        type: 'button',
-                        className: 'icon-btn',
-                        style: { width: 30, height: 30 },
-                        title: 'Copy this key to clipboard',
-                        disabled: !k.key,
-                        onClick: () => {
-                          if (!k.key) return;
-                          navigator.clipboard.writeText(k.key).then(() => toast('Key copied to clipboard!', 'success')).catch(() => toast('Could not copy key', 'error'));
-                        }
-                      }, ic('Copy', 14)),
-                      h('button', {
-                        type: 'button',
-                        className: 'icon-btn',
-                        style: { width: 30, height: 30 },
-                        title: 'Paste key from clipboard',
-                        onClick: async () => {
-                          try {
-                            const clipText = await navigator.clipboard.readText();
-                            if (clipText && clipText.trim()) {
-                              updateApiKey(provider, k.id, 'key', clipText.trim());
-                              toast('Pasted key from clipboard!', 'success');
-                            } else {
-                              toast('Clipboard is empty', 'info');
-                            }
-                          } catch(err) {
-                            toast('Clipboard access denied. Please paste manually.', 'error');
-                          }
-                        }
-                      }, ic('Clipboard', 14)),
-                      h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: isVisible ? 'Hide key' : 'Show key', onClick: () => setShowKeys(prev => ({ ...prev, [k.id]: !isVisible })) }, isVisible ? ic('EyeOff', 14) : ic('Eye', 14)),
-                      h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, title: 'Delete key', onClick: () => deleteApiKey(provider, k.id) }, ic('Trash2', 14))
-                    ),
-                    h('div', { style: { position: 'relative' } },
-                      h('input', {
-                        type: isVisible ? 'text' : 'password', value: k.key || '',
-                        onChange: e => updateApiKey(provider, k.id, 'key', e.target.value),
-                        placeholder: `Enter ${provider.toUpperCase()} API Key…`,
-                        style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 10, padding: '9px 12px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                      }),
-                      (() => {
-                        const hInfo = keyHealth[k.id];
-                        const poolStatus = window.KeyPool?.getKeyStatus?.(k.key);
-                        if (!hInfo && (!poolStatus || (!poolStatus.inFlight && !poolStatus.isCooling))) {
-                          return null;
-                        }
-                        const statusType = hInfo?.status || (poolStatus?.isCooling ? 'cooling' : (poolStatus?.inFlight ? 'inflight' : 'idle'));
-                        let msg = hInfo?.message;
-                        if (!msg && poolStatus?.isCooling) {
-                          const rem = poolStatus.coolSecondsRemaining || 0;
-                          const remLabel = rem > 120 ? `${Math.round(rem / 60)}m` : `${rem}s`;
-                          msg = `In-Flight Cooldown (${remLabel} remaining)`;
-                        } else if (!msg && poolStatus?.inFlight) {
-                          msg = `In-Flight (Leased by active worker)`;
-                        }
-
-                        const bgMap = {
-                          ok: 'rgba(16, 185, 129, 0.15)',
-                          cooling: 'rgba(245, 158, 11, 0.15)',
-                          exhausted: 'rgba(239, 68, 68, 0.2)',
-                          inflight: 'rgba(99, 102, 241, 0.15)',
-                          testing: 'rgba(99, 102, 241, 0.15)',
-                          error: 'rgba(239, 68, 68, 0.15)'
-                        };
-                        const colorMap = {
-                          ok: '#34d399',
-                          cooling: '#fbbf24',
-                          exhausted: '#f87171',
-                          inflight: '#818cf8',
-                          testing: '#818cf8',
-                          error: '#f87171'
-                        };
-
-                        return h('div', {
-                          style: {
-                            marginTop: 4,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            padding: '5px 8px',
-                            borderRadius: 6,
-                            background: bgMap[statusType] || bgMap.error,
-                            color: colorMap[statusType] || colorMap.error,
-                            border: `1px solid ${colorMap[statusType] || colorMap.error}33`,
-                            wordBreak: 'break-word',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between'
-                          }
-                        },
-                          h('span', null, msg),
-                          h('button', {
-                            type: 'button',
-                            style: { background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 10, opacity: 0.85, textDecoration: 'underline' },
-                            onClick: () => testSingleKey(provider, k.key, k.id)
-                          }, 'Re-test')
-                        );
-                      })()
-                    )
-                  );
-                })
-              )
+                title: 'Paste key'
+              }, ic('Clipboard', 14)),
+              h('button', {
+                type: 'button',
+                className: 'omni-circle-btn',
+                onClick: () => setShowKeys(prev => ({ ...prev, [k.id]: !isVisible })),
+                title: isVisible ? 'Hide key' : 'Show key'
+              }, isVisible ? ic('EyeOff', 14) : ic('Eye', 14)),
+              h('button', {
+                type: 'button',
+                className: 'omni-circle-btn',
+                onClick: () => deleteApiKey(provider, k.id),
+                title: 'Delete key',
+                style: { color: '#f87171' }
+              }, ic('Trash2', 14))
             ),
-
-            // ═══ GROUP: SITES & SOURCES ═══
-            (settingsCategory === 'sources' || settingsCategory === 'all') && h(React.Fragment, null,
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'CUSTOM SITES & SCRAPING RECIPES')
-                )
-              ),
-              (typeof window !== 'undefined' && window.SiteRecipeManagerCard)
-                ? h(window.SiteRecipeManagerCard, {
-                    openSiteRecipeEditor: openSiteRecipeEditor || props.openSiteRecipeEditor,
-                    toast: props.toast || toast,
-                    confirmAction: props.confirmAction || confirmAction
-                  })
-                : null
-            ),
-
-            // ═══ GROUP 2: QUALITY & TM ═══
-            (settingsCategory === 'quality' || settingsCategory === 'all') && h(React.Fragment, null,
-              // ── QUALITY ASSURANCE & NOVEL HEALTH ──
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'QUALITY ASSURANCE & NOVEL HEALTH')
-                ),
-                h('span', { style: { fontSize: 10, color: healthAuditEnabled ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, healthAuditEnabled ? 'ACTIVE' : 'DISABLED')
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                h('div', { className: 'card-title' },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #06B6D4, #0891B2)' } }, ic('Shield', 18, 'text-white')),
-                    h('span', null, 'Novel Diagnostics & Proofreader')
-                  )
-                ),
-                switchRow('Novel Health Auditor', healthAuditEnabled, (v) => { setHealthAuditEnabled(v); localStorage.setItem('healthAuditEnabled', String(v)); }),
-                switchRow('Translation QA Proofreader', qaProofreaderEnabled, (v) => { setQaProofreaderEnabled(v); localStorage.setItem('qaProofreaderEnabled', String(v)); }),
-                switchRow('CJK Untranslated Leak Detector', cjkLeakCheckEnabled, (v) => { setCjkLeakCheckEnabled(v); localStorage.setItem('cjkLeakCheckEnabled', String(v)); }),
-                switchRow('Anti-MTL AI Refusal & Loop Gate', antiMtlGateEnabled, (v) => { setAntiMtlGateEnabled(v); localStorage.setItem('antiMtlGateEnabled', String(v)); }),
-                switchRow('Cultural Lore & Footnotes (§5.10 / §7.3)', culturalFootnotesEnabled, (v) => { setCulturalFootnotesEnabled(v); localStorage.setItem('culturalFootnotesEnabled', String(v)); })
-              ),
-
-              // ── TRANSLATION MEMORY & REVISION DIFFS (§8.2 + §8.6) ──
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'TRANSLATION MEMORY & REVISION DIFFS')
-                ),
-                h('span', { style: { fontSize: 10, color: (translationMemoryEnabled || snapshotsEnabled) ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, (translationMemoryEnabled || snapshotsEnabled) ? 'ACTIVE' : 'DISABLED')
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                h('div', { className: 'card-title' },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #F59E0B, #D97706)' } }, ic('FileText', 18, 'text-white')),
-                    h('span', null, 'Translation Memory & Snapshots')
-                  )
-                ),
-                switchRow('Translation Memory Bank (Exact & Fuzzy Cache)', translationMemoryEnabled, (v) => {
-                  setTranslationMemoryEnabled(v);
-                  window.__translationMemoryEnabled = v;
-                  localStorage.setItem('translationMemoryEnabled', String(v));
-                }),
-                switchRow('Automatic Chapter Snapshots & Diffs', snapshotsEnabled, (v) => {
-                  setSnapshotsEnabled(v);
-                  localStorage.setItem('snapshotsEnabled', String(v));
-                }),
-                h('div', { style: { padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border)', marginTop: '8px' } },
-                  h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' } },
-                    h('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' } }, 'TM CACHE METRICS'),
-                    h('button', {
-                      type: 'button',
-                      className: 'btn-ghost',
-                      style: { fontSize: 10, padding: '2px 8px' },
-                      onClick: refreshTmStats
-                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RefreshCw', 10), 'Refresh'))
-                  ),
-                  h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: 11, marginBottom: '10px' } },
-                    h('div', { style: { background: 'var(--card-bg)', padding: '6px 8px', borderRadius: '4px' } },
-                      h('div', { style: { color: 'var(--slate)', fontSize: 10 } }, 'Indexed Segments'),
-                      h('div', { style: { fontWeight: 700, color: '#6ee7b7' } }, tmStats.totalUnits || 0)
-                    ),
-                    h('div', { style: { background: 'var(--card-bg)', padding: '6px 8px', borderRadius: '4px' } },
-                      h('div', { style: { color: 'var(--slate)', fontSize: 10 } }, 'Tokens Saved'),
-                      h('div', { style: { fontWeight: 700, color: '#38bdf8' } }, `~${(tmStats.tokensSaved || 0).toLocaleString()}`)
-                    ),
-                    h('div', { style: { background: 'var(--card-bg)', padding: '6px 8px', borderRadius: '4px' } },
-                      h('div', { style: { color: 'var(--slate)', fontSize: 10 } }, 'Exact Cache Hits'),
-                      h('div', { style: { fontWeight: 700, color: '#a78bfa' } }, tmStats.exactHits || 0)
-                    ),
-                    h('div', { style: { background: 'var(--card-bg)', padding: '6px 8px', borderRadius: '4px' } },
-                      h('div', { style: { color: 'var(--slate)', fontSize: 10 } }, 'Fuzzy References'),
-                      h('div', { style: { fontWeight: 700, color: '#fbbf24' } }, tmStats.fuzzyHits || 0)
-                    )
-                  ),
-                  h('div', { style: { display: 'flex', gap: '8px' } },
-                    h('button', {
-                      type: 'button',
-                      className: 'btn-secondary',
-                      style: { flex: 1, fontSize: 11, padding: '6px' },
-                      onClick: handleExportTmx
-                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Download', 12), 'Export TMX')),
-                    h('button', {
-                      type: 'button',
-                      className: 'btn-secondary',
-                      style: { flex: 1, fontSize: 11, padding: '6px', color: '#f87171' },
-                      onClick: handleClearTm
-                    }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Trash2', 12), 'Clear TM'))
-                  )
-                )
-              ),
-            ),
-
-            // ═══ GROUP 3: READER & DISPLAY ═══
-            (settingsCategory === 'display' || settingsCategory === 'all') && h(React.Fragment, null,
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'APPEARANCE & DISPLAY')
-                ),
-                h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, amoledMode ? 'AMOLED' : 'DARK')
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                h('div', { className: 'card-title' },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)' } }, ic('Palette', 18, 'text-white')),
-                    h('span', null, 'Theme & Reader Formatting')
-                  )
-                ),
-                switchRow('AMOLED Pitch Black (Pure #000000)', amoledMode, (v) => {
-                  setAmoledMode(v);
-                  localStorage.setItem('amoledMode', String(v));
-                  if (v) {
-                    document.documentElement.setAttribute('data-theme', 'amoled');
-                    document.body.classList.add('theme-amoled');
-                  } else {
-                    document.documentElement.removeAttribute('data-theme');
-                    document.body.classList.remove('theme-amoled');
-                  }
-                }),
-                switchRow('Embed Images in EPUB', epubIncludeImages, setEpubIncludeImages),
-                switchRow('Drop Caps', epubDropCaps, setEpubDropCaps),
-                switchRow('Smart Quotes', epubSmartQuotes, setEpubSmartQuotes),
-                switchRow('Clean Web Junk', epubCleanWebArtifacts, setEpubCleanWebArtifacts),
-                switchRow('Justify Text', epubJustifyText, setEpubJustifyText),
-                switchRow('Fixed Book Filename (Title.epub)', epubFixedFilename, setEpubFixedFilename),
-                h('div', { className: 'seg', style: { paddingTop: 8 } },
-                  fontThemes.map(f => h('button', { key: f.id, type: 'button', className: `seg-btn ${epubFontTheme === f.id ? 'on' : ''}`, onClick: () => setEpubFontTheme(f.id) }, f.label))
-                )
-              ),
-
-              // ── MOON+ READER & E-READER CONNECTIVITY SECTION ──
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'MOON+ READER & E-READER CONNECTIVITY')
-                ),
-                h('span', { style: { fontSize: 10, color: opdsRunning ? '#10b981' : 'var(--slate)', fontWeight: 600 } }, opdsRunning ? 'ONLINE' : 'STOPPED')
-              ),
-              h('div', { className: 'settings-grouped-card', style: { border: opdsRunning ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--hairline)' } },
-                h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' } }, ic('BookOpen', 18, 'text-white')),
-                    h('span', null, 'Moon+ Reader OPDS Catalog Feed'),
-                    opdsRunning && h('span', { className: 'badge', style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontSize: 10 } }, 'Active')
-                  ),
-                  h('span', { className: 'count' }, 'OPDS 1.2 Protocol')
-                ),
-                h('div', { style: { fontSize: 11, color: 'var(--slate)', lineHeight: 1.45, marginBottom: 8 } },
-                  'Run a lightweight local OPDS catalog feed directly inside the app. Moon+ Reader Pro (and other e-readers) can connect wirelessly via Net Library to browse your library and download or update novels with 1-tap.'
-                ),
-                switchRow('Enable Local OPDS Feed', opdsRunning, toggleOpdsServer),
-                opdsRunning && h('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 } },
-                  h('div', { style: { background: 'var(--panel)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--hairline)' } },
-                    h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'LOCAL DEVICE URL (MOON+ READER ON THIS PHONE)'),
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                      h('input', {
-                        type: 'text',
-                        readOnly: true,
-                        value: opdsUrl || 'http://127.0.0.1:8080/opds',
-                        style: { flex: 1, padding: '6px 8px', fontSize: 12, fontFamily: 'monospace', background: 'var(--bg)', border: '1px solid var(--hairline)', borderRadius: 6, color: 'var(--paper)' }
-                      }),
-                      h('button', {
-                        type: 'button',
-                        className: 'chip-act',
-                        onClick: () => {
-                          navigator.clipboard?.writeText(opdsUrl || 'http://127.0.0.1:8080/opds');
-                          toast('Copied OPDS URL!', 'success');
-                        }
-                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 12), 'Copy'))
-                    )
-                  ),
-                  opdsWifiUrl && h('div', { style: { background: 'var(--panel)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--hairline)' } },
-                    h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'WI-FI NETWORK URL (OTHER DEVICES / TABLET / E-INK)'),
-                    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                      h('input', {
-                        type: 'text',
-                        readOnly: true,
-                        value: opdsWifiUrl,
-                        style: { flex: 1, padding: '6px 8px', fontSize: 12, fontFamily: 'monospace', background: 'var(--bg)', border: '1px solid var(--hairline)', borderRadius: 6, color: 'var(--paper)' }
-                      }),
-                      h('button', {
-                        type: 'button',
-                        className: 'chip-act',
-                        onClick: () => {
-                          navigator.clipboard?.writeText(opdsWifiUrl);
-                          toast('Copied Wi-Fi OPDS URL!', 'success');
-                        }
-                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Copy', 12), 'Copy'))
-                    )
-                  ),
-                  h('div', { style: { fontSize: 11, color: 'var(--slate)', lineHeight: 1.4, padding: '4px 2px' } },
-                    'In Moon+ Reader Pro: Open side menu -> Net Library -> tap Add new catalog -> enter the URL above and name it Gemini Translator.'
-                  )
-                )
-              )
-            ),
-
-            // ═══ GROUP 4: BACKUP, HARDWARE & SYSTEM ═══
-            (settingsCategory === 'backup' || settingsCategory === 'all') && h(React.Fragment, null,
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'HARDWARE & DIAGNOSTICS')
-                )
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                h('div', { className: 'card-title' },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #14B8A6, #0D9488)' } }, ic('Zap', 18, 'text-white')),
-                    h('span', null, 'Device Lock & Keep-Alive')
-                  )
-                ),
-                switchRow('Keep Screen & Device Awake (WakeLock)', deviceWakeLock, (v) => {
-                  setDeviceWakeLock(v);
-                  localStorage.setItem('deviceWakeLock', String(v));
-                  if (!v && window.NativeBridge?.releaseWakeLock) {
-                    window.NativeBridge.releaseWakeLock();
-                  }
-                }),
-                switchRow('Show Live Logs on Translate Tab', showLiveLogs, setShowLiveLogs),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'System & API Logs'),
-                  h('button', { type: 'button', className: 'chip-act', onClick: () => setLogsModalOpen(true) }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('FileText', 13), 'View Live Logs'))
-                )
-              ),
-
-              // ── LIVE AGENT TELEMETRY & DEBUGGING (METHOD 2) CARD ──
-              h('div', { className: 'settings-grouped-card', style: { border: telemetryEnabled ? '1px solid rgba(99,102,241,0.35)' : '1px solid var(--hairline)' } },
-                h('div', { className: 'card-title', style: { flexWrap: 'wrap', gap: 6 } },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #F43F5E, #E11D48)' } }, ic('Zap', 18, 'text-white')),
-                    h('span', null, 'Live Agent Telemetry & Debugging'),
-                    telemetryStatus === 'connected' && h('span', { className: 'badge', style: { background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid currentColor', fontSize: 10 } }, 'Connected')
-                  ),
-                  h('span', { className: 'count' }, 'Wireless Local Wi-Fi')
-                ),
-                h('div', { style: { fontSize: 11, color: 'var(--slate)', lineHeight: 1.45, marginBottom: 8 } },
-                  'Streams real-time novel scraping progress, Cloudflare rate limits, API rotation events, and network errors wirelessly to your PC developer assistant.'
-                ),
-                switchRow('Stream Real-time Logs to Agent (PC)', telemetryEnabled, (v) => {
-                  setTelemetryEnabled(v);
-                  localStorage.setItem('telemetry_enabled', String(v));
-                  window.updateTelemetryConfig?.({ enabled: v });
-                  toast(v ? 'Live telemetry enabled! Logs stream to PC.' : 'Live telemetry disabled (zero overhead).', 'info');
-                }),
-                switchRow('Deep Debugging (All Buttons & Backgrounds)', telemetryVerbose, (v) => {
-                  setTelemetryVerbose(v);
-                  localStorage.setItem('telemetry_verbose', String(v));
-                  window.updateTelemetryConfig?.({ verbose: v });
-                  window.telemetryLog?.('CONFIG', `Deep Debugging set to ${v}`);
-                  toast(v ? 'Deep Debugging enabled! All buttons & background actions logged.' : 'Standard telemetry enabled.', 'info');
-                }),
-                h('div', { style: { marginTop: 8 } },
-                  h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'PC TELEMETRY SERVER URL'),
-                  h('input', {
-                    type: 'text',
-                    placeholder: 'http://192.168.1.216:9090',
-                    value: telemetryServerUrl,
-                    onChange: e => {
-                      const val = e.target.value.trim();
-                      setTelemetryServerUrl(val);
-                      localStorage.setItem('telemetry_server_url', val);
-                      window.updateTelemetryConfig?.({ serverUrl: val });
-                    },
-                    style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                  })
-                ),
-                h('div', { style: { display: 'flex', gap: 8, marginTop: 8 } },
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn',
-                    style: { flex: 1, textAlign: 'center', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
-                    disabled: telemetryTesting,
-                    onClick: handleTestTelemetryConnection
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Zap', 12), telemetryTesting ? 'Testing…' : 'Test Connection to Agent')),
-                  h('button', {
-                    type: 'button',
-                    className: 'mini-btn ghost',
-                    style: { textAlign: 'center' },
-                    onClick: handleClearTelemetryServer
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Trash2', 12), 'Clear Server Logs'))
-                ),
-                telemetryStatusMsg && h('div', {
-                  style: {
-                    fontSize: 11,
-                    marginTop: 8,
-                    padding: '8px 10px',
-                    borderRadius: 4,
-                    background: telemetryStatus === 'connected' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    color: telemetryStatus === 'connected' ? '#34d399' : '#f87171',
-                    border: `1px solid ${telemetryStatus === 'connected' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
-                  }
-                }, telemetryStatusMsg)
-              ),
-
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'CLOUD BACKUP & RESTORE')
-                ),
-                h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, cloudProvider === 'gdrive' ? 'GOOGLE DRIVE' : 'NEXTCLOUD / NAS')
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                // Segmented Switcher
-                h('div', { style: { display: 'flex', border: '1px solid var(--hairline)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 } },
-                  h('button', {
-                    type: 'button',
-                    style: {
-                      flex: 1,
-                      padding: '8px 10px',
-                      background: cloudProvider === 'gdrive' ? 'var(--ember-2)' : 'transparent',
-                      color: cloudProvider === 'gdrive' ? 'var(--paper)' : 'var(--slate)',
-                      border: 'none',
-                      borderRight: '1px solid var(--hairline)',
-                      fontWeight: cloudProvider === 'gdrive' ? 600 : 400,
-                      fontSize: 11,
-                      cursor: 'pointer'
-                    },
-                    onClick: () => setCloudProvider('gdrive')
-                  }, 'Google Drive (Mihon/Komikku)'),
-                  h('button', {
-                    type: 'button',
-                    style: {
-                      flex: 1,
-                      padding: '8px 10px',
-                      background: cloudProvider === 'webdav' ? 'var(--ember-2)' : 'transparent',
-                      color: cloudProvider === 'webdav' ? 'var(--paper)' : 'var(--slate)',
-                      border: 'none',
-                      fontWeight: cloudProvider === 'webdav' ? 600 : 400,
-                      fontSize: 11,
-                      cursor: 'pointer'
-                    },
-                    onClick: () => setCloudProvider('webdav')
-                  }, 'WebDAV (Nextcloud/NAS)')
-                ),
-
-                cloudProvider === 'gdrive' ? (
-                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-                    // Primary Hero Card: Mihon/Komikku Standard 1-Tap Drive Backup (Zero Setup)
-                    h('div', {
-                      style: {
-                        background: 'rgba(99, 102, 241, 0.08)',
-                        border: '1px solid rgba(99, 102, 241, 0.28)',
-                        borderRadius: 6,
-                        padding: '12px 14px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8
-                      }
-                    },
-                      h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-                        h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--iris)' } }, ic('Folder', 14), '1-Tap Google Drive Backup (Mihon Style)'),
-                        h('span', { style: { fontSize: 9.5, padding: '2px 6px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600 } }, 'Zero Setup')
-                      ),
-                      h('p', { style: { fontSize: 11, color: 'var(--slate)', margin: 0, lineHeight: 1.45 } },
-                        'Save and restore your entire novel library, translation history, and glossaries directly into your Google Drive folder using Android\'s system storage (exactly like Mihon and Komikku). No Google Developer account, tokens, or Client IDs needed!'
-                      ),
-                      h('div', { style: { display: 'flex', gap: 8, marginTop: 2 } },
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn',
-                          style: { flex: 1, textAlign: 'center', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '9px 12px' },
-                          onClick: backupToGoogleDriveFile
-                        }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Save', 13), 'Save to Drive Folder')),
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn ghost',
-                          style: { flex: 1, textAlign: 'center', padding: '9px 12px' },
-                          onClick: () => document.getElementById('full-backup-input')?.click()
-                        }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Download', 13), 'Restore from File'))
-                      )
-                    ),
-
-                    // Advanced: Direct Google Cloud OAuth API Sync
-                    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 } },
-                      h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--paper-dim)' } }, ic('Globe', 13), 'Direct Google Cloud API Sync (Advanced)'),
-                      h('span', { style: { fontSize: 10, color: 'var(--slate)' } }, 'Requires OAuth Client ID')
-                    ),
-
-                    // Connection Status Box
-                    h('div', {
-                      style: {
-                        background: 'var(--ember-2)',
-                        border: '1px solid var(--hairline)',
-                        borderRadius: 4,
-                        padding: '10px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
-                      }
-                    },
-                      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                        h('span', {
-                          style: {
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            background: gdriveConnected ? '#22c55e' : '#64748b'
-                          }
-                        }),
-                        h('div', null,
-                          h('div', { style: { fontSize: 12, fontWeight: 600, color: 'var(--paper)' } },
-                            gdriveConnected ? (gdriveUser?.displayName || gdriveUser?.emailAddress || 'Connected to Google Drive') : 'Not Connected (Direct API)'
-                          ),
-                          h('div', { style: { fontSize: 10, color: 'var(--slate)' } },
-                            gdriveConnected ? (gdriveUser?.emailAddress || 'Google Cloud OAuth active') : 'Optional background REST API sync'
-                          )
-                        )
-                      ),
-                      gdriveConnected ? (
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn danger',
-                          style: { padding: '4px 8px', fontSize: 10 },
-                          onClick: disconnectGoogleDrive
-                        }, 'Disconnect')
-                      ) : (
-                        h('button', {
-                          type: 'button',
-                          className: 'mini-btn',
-                          style: { background: 'var(--ember-1)', color: 'var(--paper-dim)', border: '1px solid var(--hairline)', padding: '6px 10px', fontSize: 10.5 },
-                          onClick: connectGoogleDrive
-                        }, 'Connect OAuth')
-                      )
-                    ),
-
-                    // Quota display
-                    gdriveConnected && gdriveUser && (gdriveUser.quotaLimit > 0 || gdriveUser.storageQuota) && h('div', {
-                      style: { fontSize: 10, color: 'var(--slate)', display: 'flex', justifyContent: 'space-between', padding: '0 2px' }
-                    },
-                      h('span', null, 'Storage Quota:'),
-                      h('span', { style: { fontFamily: "'IBM Plex Mono', monospace" } },
-                        window.GoogleDriveSync?.formatQuota?.(gdriveUser.storageQuota || gdriveUser) || ''
-                      )
-                    ),
-
-                    // Folder mode choice
-                    h('div', { className: 'set-row', style: { padding: '6px 0' } },
-                      h('span', { className: 'l', style: { fontSize: 11 } }, 'Drive Storage Mode:'),
-                      h('select', {
-                        className: 'chip',
-                        style: chipSelectStyle,
-                        value: gdriveFolderMode,
-                        onChange: e => setGdriveFolderMode(e.target.value)
-                      },
-                        h('option', { value: 'appDataFolder' }, 'Private App Folder (drive.appdata)'),
-                        h('option', { value: 'visibleFolder' }, 'GeminiTranslator Folder (drive.file)')
-                      )
-                    ),
-
-                    switchRow('Auto-Backup on Translation Finish', gdriveAutoSync, (v) => {
-                      setGdriveAutoSync(v);
-                      localStorage.setItem('gdrive_auto_sync', String(v));
-                    }),
-
-                    h('div', { className: 'set-row', style: { padding: '4px 0' } },
-                      h('span', { className: 'l', style: { fontSize: 11 } }, 'Last Drive Sync:'),
-                      h('span', { className: 'count', style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 } }, gdriveLastSync || 'Never synced')
-                    ),
-
-                    h('div', { className: 'toolbar-group', style: { width: '100%', marginTop: 6 } },
-                      h('button', {
-                        type: 'button',
-                        style: { flex: 1, textAlign: 'center' },
-                        disabled: gdriveTesting || !gdriveConnected,
-                        onClick: testGoogleDriveConnection
-                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Zap', 12), gdriveTesting ? 'Testing…' : 'Test Link')),
-                      h('button', {
-                        type: 'button',
-                        style: { flex: 1, textAlign: 'center', fontWeight: 600, color: 'var(--iris)' },
-                        disabled: gdriveSyncing || !gdriveConnected,
-                        onClick: backupToGoogleDrive
-                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Upload', 12), gdriveSyncing ? 'Syncing…' : 'Backup Now')),
-                      h('button', {
-                        type: 'button',
-                        style: { flex: 1, textAlign: 'center' },
-                        disabled: gdriveSyncing || !gdriveConnected,
-                        onClick: restoreFromGoogleDrive
-                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Download', 12), 'Restore')),
-                      h('button', {
-                        type: 'button',
-                        style: { width: 36, textAlign: 'center', fontSize: 13 },
-                        title: 'Client ID & Direct Token Settings',
-                        onClick: () => setGdriveConfigModalOpen(true)
-                      }, ic('Settings', 14))
-                    )
-                  )
-                ) : (
-                  // WEBDAV UI
-                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-                    h('div', { className: 'card-title' },
-                      h('span', null, 'WebDAV Cloud Auto-Sync'),
-                      h('span', { className: 'count' }, 'Nextcloud · ownCloud · WebDAV NAS')
-                    ),
-                    h('div', null,
-                      h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'SERVER WEBDAV URL'),
-                      h('input', {
-                        type: 'text',
-                        placeholder: 'https://cloud.example.com/remote.php/dav/files/username/',
-                        value: webdavUrl,
-                        onChange: e => setWebdavUrl(e.target.value.trim()),
-                        style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 12px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                      })
-                    ),
-                    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
-                      h('div', null,
-                        h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'USERNAME'),
-                        h('input', {
-                          type: 'text',
-                          placeholder: 'Username',
-                          value: webdavUser,
-                          onChange: e => setWebdavUser(e.target.value.trim()),
-                          style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                        })
-                      ),
-                      h('div', null,
-                        h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'APP PASSWORD / TOKEN'),
-                        h('input', {
-                          type: 'password',
-                          placeholder: 'App Password / Token',
-                          value: webdavPass,
-                          onChange: e => setWebdavPass(e.target.value.trim()),
-                          style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                        })
-                      )
-                    ),
-                    h('div', null,
-                      h('div', { style: { fontSize: 11, color: 'var(--slate)', marginBottom: 4, fontWeight: 600 } }, 'REMOTE FOLDER NAME'),
-                      h('input', {
-                        type: 'text',
-                        placeholder: 'GeminiTranslator',
-                        value: webdavPath,
-                        onChange: e => setWebdavPath(e.target.value.trim()),
-                        style: { width: '100%', background: 'var(--ember-2)', border: '1px solid var(--hairline)', borderRadius: 4, padding: '8px 10px', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--paper-dim)', outline: 'none' }
-                      })
-                    ),
-                    switchRow('Auto-Backup on Translation Finish', webdavAutoSync, (v) => {
-                      setWebdavAutoSync(v);
-                      localStorage.setItem('webdavAutoSync', String(v));
-                    }),
-                    h('div', { className: 'set-row', style: { padding: '4px 0' } },
-                      h('span', { className: 'l', style: { fontSize: 11 } }, 'Last Cloud Sync:'),
-                      h('span', { className: 'count', style: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 } }, webdavLastSync || 'Never synced')
-                    ),
-                    h('div', { className: 'toolbar-group', style: { width: '100%', marginTop: 6 } },
-                      h('button', {
-                        type: 'button',
-                        style: { flex: 1, textAlign: 'center' },
-                        disabled: webdavTesting,
-                        onClick: testWebDavConnection
-                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Zap', 12), webdavTesting ? 'Testing…' : 'Test Link')),
-                      h('button', {
-                        type: 'button',
-                        style: { flex: 1, textAlign: 'center', fontWeight: 600, color: 'var(--iris)' },
-                        disabled: webdavSyncing,
-                        onClick: backupToWebDav
-                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Upload', 12), webdavSyncing ? 'Syncing…' : 'Backup Now')),
-                      h('button', {
-                        type: 'button',
-                        style: { flex: 1, textAlign: 'center' },
-                        disabled: webdavSyncing,
-                        onClick: restoreFromWebDav
-                      }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Download', 12), 'Restore'))
-                    )
-                  )
-                )
-              ),
-
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'LOCAL ARCHIVE & STORAGE')
-                )
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                h('div', { className: 'card-title' },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #64748B, #475569)' } }, ic('Save', 18, 'text-white')),
-                    h('span', null, 'Local Storage & Memory Diagnostics')
-                  ),
-                  h('span', { className: 'count', style: { color: storageDiag.pct > 80 ? '#f87171' : 'var(--pine)' } },
-                    storageLoading ? 'Estimating…' : (storageDiag.available ? `${storageDiag.usedMB} MB used (${storageDiag.pct}%)` : 'Estimates Ready')
-                  )
-                ),
-                h('div', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 10, lineHeight: 1.4 } },
-                  'Monitor device storage allocated to offline novels, cached audiobook audio, translation memory, and recycle bin.'
-                ),
-                storageDiag.available && h('div', {
-                  style: {
-                    width: '100%',
-                    height: 6,
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                    marginBottom: 12
-                  }
-                },
-                  h('div', {
-                    style: {
-                      width: `${Math.max(1, storageDiag.pct)}%`,
-                      height: '100%',
-                      background: storageDiag.pct > 85 ? '#ef4444' : storageDiag.pct > 65 ? '#f59e0b' : 'var(--iris)',
-                      transition: 'width 0.3s ease'
-                    }
-                  })
-                ),
-                h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 12 } },
-                  h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
-                    h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Books in Library'),
-                    h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, `${webImportHistory?.length || 0}`)
-                  ),
-                  h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
-                    h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Audiobook Tracks'),
-                    h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, `${(window.SwiftAudioEngine?.Library?.getAllBooks?.() || []).length || 0}`)
-                  ),
-                  h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
-                    h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Recycle Bin'),
-                    h('div', { style: { fontSize: 15, fontWeight: 700, color: trashCount > 0 ? '#f87171' : 'var(--paper)', marginTop: 2 } }, `${trashCount} item${trashCount === 1 ? '' : 's'}`)
-                  ),
-                  h('div', { style: { background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--hairline)', borderRadius: 8, padding: '8px 10px' } },
-                    h('div', { style: { fontSize: 10.5, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Estimated Quota'),
-                    h('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--paper)', marginTop: 2 } }, storageDiag.available ? `${(storageDiag.quotaMB / 1024).toFixed(1)} GB` : 'Device Managed')
-                  )
-                ),
-                h('div', { className: 'toolbar-group', style: { width: '100%' } },
-                  h('button', {
-                    type: 'button',
-                    style: { flex: 1, textAlign: 'center' },
-                    disabled: storageLoading,
-                    onClick: () => refreshStorageDiag()
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RefreshCw', 12), storageLoading ? 'Estimating…' : 'Refresh Storage')),
-                  h('button', {
-                    type: 'button',
-                    style: { flex: 1, textAlign: 'center', color: trashCount > 0 ? '#f87171' : 'var(--slate)' },
-                    disabled: trashCount === 0,
-                    onClick: () => {
-                      if (trashCount === 0) return toast('Recycle bin is already empty.', 'info');
-                      confirmAction(`Permanently empty ${trashCount} item(s) from Recycle Bin? This cannot be undone.`, async () => {
-                        await handleEmptyTrash();
-                        await refreshStorageDiag();
-                      });
-                    }
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('Trash2', 12), 'Empty Recycle Bin')),
-                  h('button', {
-                    type: 'button',
-                    style: { flex: 1, textAlign: 'center' },
-                    onClick: () => {
-                      try {
-                        sessionStorage.clear();
-                        if (window.crawlCache) window.crawlCache = {};
-                        toast('Session and temporary cache cleared! Saved novels and settings remain safe.', 'success');
-                        refreshStorageDiag();
-                      } catch (e) {
-                        toast('Cache clear error: ' + e.message, 'error');
-                      }
-                    }
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } }, ic('RotateCcw', 12), 'Clear Session Cache'))
-                ),
-                switchRow('Pointer Mode: Zero-Waste Storage (Moon+ Reader standard)', pointerMode, (v) => {
-                  setPointerMode(v);
-                  localStorage.setItem('gemini_storage_pointer_mode', String(v));
-                  toast(v ? 'Pointer Mode: ON (links directly to disk files to save 99% storage)' : 'Pointer Mode: OFF (stores full text in app database)', 'info');
-                }),
-                switchRow('Smart Update Cache (Skip books verified in last 15 min)', updateGraceWindow, (v) => {
-                  setUpdateGraceWindow(v);
-                  localStorage.setItem('gemini_update_grace_window', String(v));
-                  toast(v ? 'Smart Update Cache: ON (skips checking books checked within last 15 min)' : 'Smart Update Cache: OFF (always checks every book freshly)', 'info');
-                }),
-                h('div', { className: 'set-row', style: { padding: '8px 0', borderTop: '1px solid var(--hairline)', marginTop: 6 } },
-                  h('div', { style: { minWidth: 0, flex: 1, paddingRight: 8 } },
-                    h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--paper)' } }, 'Clean Up Internal Storage'),
-                    h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } }, 'Converts already-exported books into lightweight file pointers, freeing up device database storage.')
-                  ),
-                  h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    disabled: optimizingStorage,
-                    onClick: handleOptimizeStorage,
-                    style: { flexShrink: 0 }
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Zap', 13), optimizingStorage ? 'Optimizing…' : 'Optimize Now'))
-                )
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                h('div', { className: 'card-title' },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #3B82F6, #2563EB)' } }, ic('Layers', 18, 'text-white')),
-                    h('span', null, 'Full App Backup & Restore')
-                  ),
-                  h('span', { className: 'count' }, 'Library · Settings · Keys')
-                ),
-                h('div', { className: 'toolbar-group', style: { width: '100%', marginTop: 8 } },
-                  h('button', { type: 'button', style: { flex: 1, textAlign: 'center' }, onClick: () => exportFullBackup(true) }, 'Export + Keys'),
-                  h('button', { type: 'button', style: { flex: 1, textAlign: 'center' }, onClick: () => exportFullBackup(false) }, 'Export Safe'),
-                  h('label', { style: { flex: 1, textAlign: 'center', cursor: 'pointer' } },
-                    'Import File',
-                    h('input', { type: 'file', accept: '.json', style: { display: 'none' }, onChange: (e) => { const f = e.target.files && e.target.files[0]; if (f) importFullBackup({ target: { files: [f] } }); } })
-                  ),
-                  h('button', { type: 'button', style: { flex: 1, textAlign: 'center' }, onClick: pasteAndRestoreBackup }, 'Paste & Restore')
-                )
-              ),
-
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'TEXT-TO-SPEECH & VOICES')
-                ),
-                h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, 'Moon+ Reader & SherpaTTS')
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                h('div', { className: 'card-title' },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #A855F7, #9333EA)' } }, ic('Volume2', 18, 'text-white')),
-                    h('span', null, 'Voice & Offline Speech Engine')
-                  )
-                ),
-                h('div', { style: { fontSize: 12.5, color: 'var(--slate)', marginBottom: 12, lineHeight: 1.5 } },
-                  'Configure your Text-to-Speech voice, offline neural Piper/SherpaTTS models (e.g. Callum), and Android system speech.'
-                ),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Select Voice & Speech Engine'),
-                  h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    onClick: () => {
-                      if (window.__openVoiceModal) window.__openVoiceModal();
-                      else if (window.NativeBridge?.openTtsSettings) window.NativeBridge.openTtsSettings();
-                      else toast('Open any book in Reader and tap Voice to choose voices.', 'info');
-                    }
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Volume2', 13), 'Voice Manager'))
-                ),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Android System TTS Settings'),
-                  h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    onClick: () => {
-                      if (window.NativeBridge?.openTtsSettings) {
-                        window.NativeBridge.openTtsSettings();
-                      } else {
-                        toast('Open phone Settings > Accessibility > Text-to-Speech to select SherpaTTS/Piper models.', 'info');
-                      }
-                    }
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Settings', 13), 'Open Android TTS Settings'))
-                ),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Default Voice Mode'),
-                  h('span', { className: 'count', style: { color: 'var(--pine)' } }, 'System Default (Android Settings)')
-                )
-              ),
-
-              h('div', { className: 'sec-banner' },
-                h('div', { style: { display: 'flex', alignItems: 'center' } },
-                  h('span', { className: 'sec-tag' }, '//'),
-                  h('span', { className: 'sec-title' }, 'SYSTEM & BUILD')
-                ),
-                h('span', { style: { fontSize: 10, color: 'var(--iris)' } }, `v${appVersion}`)
-              ),
-              h('div', { className: 'settings-grouped-card' },
-                h('div', { className: 'card-title' },
-                  h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                    h('div', { className: 'settings-icon-tile', style: { background: 'linear-gradient(135deg, #71717A, #52525B)' } }, ic('Info', 18, 'text-white')),
-                    h('span', null, 'App Version & Runtime')
-                  )
-                ),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Check for updates'), h('button', { type: 'button', className: 'chip-act', onClick: () => checkForAppUpdate(true) }, `v${appVersion} (Build ${appVersionCode})`)),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Force Refresh & Clear Stale Cache'),
-                  h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    style: { background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' },
-                    onClick: async () => {
-                      try {
-                        if ('serviceWorker' in navigator) {
-                          const regs = await navigator.serviceWorker.getRegistrations();
-                          for (let reg of regs) await reg.unregister();
-                        }
-                        if ('caches' in window) {
-                          const keys = await caches.keys();
-                          for (let key of keys) await caches.delete(key);
-                        }
-                      } catch (e) {}
-                      localStorage.setItem('gemini_force_reload', Date.now());
-                      window.location.reload(true);
-                    }
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('RefreshCw', 13), 'Force Clear Cache'))
-                ),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Notifications & Sound'),
-                  h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    onClick: async () => {
-                      const granted = await window.NativeBridge?.requestNotificationPermission?.();
-                      if (granted) {
-                        toast('Notifications enabled!', 'success');
-                        window.NativeBridge?.showCompletionNotification?.('Gemini Notifications Active', 'Completion alerts with sound & vibration are ready.');
-                      } else {
-                        toast('Notification permission not granted. Check Android App Permissions.', 'warning');
-                      }
-                    }
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('AlertCircle', 13), 'Enable Alerts'))
-                ),
-                h('div', { className: 'set-row' },
-                  h('span', { className: 'l' }, 'Background Execution (Battery)'),
-                  h('button', {
-                    type: 'button',
-                    className: 'chip-act',
-                    onClick: async () => {
-                      const isIgnored = await window.NativeBridge?.isBatteryOptimizationIgnored?.();
-                      if (isIgnored) {
-                        toast('Battery optimization is already unrestricted! App will run uninterrupted in background.', 'success');
-                      } else {
-                        toast('Opening Battery Settings — select "Unrestricted" / "Don\'t optimize" for uninterrupted background downloads & translations.', 'info');
-                        await window.NativeBridge?.requestIgnoreBatteryOptimizations?.();
-                      }
-                    }
-                  }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Zap', 13), 'Unrestricted Battery'))
-                ),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Install App (PWA)'), h('button', { type: 'button', className: 'chip-act', onClick: handleInstallPWA }, 'Install')),
-                h('div', { className: 'set-row' }, h('span', { className: 'l' }, 'Keyboard Shortcuts'), h('span', { className: 'count' }, 'Ctrl+Enter · Ctrl+Shift+C · Ctrl+Alt+R'))
-              )
+            h('input', {
+              type: isVisible ? 'text' : 'password',
+              value: k.key || '',
+              onChange: e => updateApiKey(provider, k.id, 'key', e.target.value),
+              placeholder: `Enter ${provider.toUpperCase()} API Key...`,
+              style: { ...inputStyle, width: '100%' }
+            }),
+            showPoolBar && h('div', {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                fontSize: 11,
+                fontWeight: 600,
+                color: colorMap[statusType] || '#f87171'
+              }
+            },
+              h('span', null, statusMsg),
+              h('button', {
+                type: 'button',
+                onClick: () => testSingleKey(provider, k.key, k.id),
+                style: { background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', fontSize: 10.5, cursor: 'pointer' }
+              }, 'Re-test')
             )
           );
+        })
+      );
+    }
+
+    // ── Sub-View 4: Quality & Translation Memory ──
+    if (activeSubView === 'quality') {
+      return h('div', { style: { paddingBottom: 32 } },
+        subHeader('Quality & Translation Memory', `${healthAuditEnabled ? 'Audit Active' : 'Audit Off'} · ${tmStats.totalUnits || 0} cached segments`),
+
+        sectionTitle('QUALITY ASSURANCE & PROOFREADING', healthAuditEnabled ? 'ACTIVE' : 'DISABLED'),
+        switchRow('Novel Health Auditor', healthAuditEnabled, (v) => { setHealthAuditEnabled(v); localStorage.setItem('healthAuditEnabled', String(v)); }),
+        switchRow('Translation QA Proofreader', qaProofreaderEnabled, (v) => { setQaProofreaderEnabled(v); localStorage.setItem('qaProofreaderEnabled', String(v)); }),
+        switchRow('CJK Untranslated Leak Detector', cjkLeakCheckEnabled, (v) => { setCjkLeakCheckEnabled(v); localStorage.setItem('cjkLeakCheckEnabled', String(v)); }),
+        switchRow('Anti-MTL AI Refusal & Loop Gate', antiMtlGateEnabled, (v) => { setAntiMtlGateEnabled(v); localStorage.setItem('antiMtlGateEnabled', String(v)); }),
+        switchRow('Cultural Lore & Footnotes', culturalFootnotesEnabled, (v) => { setCulturalFootnotesEnabled(v); localStorage.setItem('culturalFootnotesEnabled', String(v)); }),
+
+        sectionTitle('TRANSLATION MEMORY & SNAPSHOTS', (translationMemoryEnabled || snapshotsEnabled) ? 'ACTIVE' : 'DISABLED'),
+        switchRow('Translation Memory Bank (Exact & Fuzzy Cache)', translationMemoryEnabled, (v) => {
+          setTranslationMemoryEnabled(v);
+          window.__translationMemoryEnabled = v;
+          localStorage.setItem('translationMemoryEnabled', String(v));
+        }),
+        switchRow('Automatic Chapter Snapshots & Diffs', snapshotsEnabled, (v) => {
+          setSnapshotsEnabled(v);
+          localStorage.setItem('snapshotsEnabled', String(v));
+        }),
+
+        h('div', { className: 'omni-hairline-strip', style: { marginTop: 14, marginBottom: 14 } },
+          h('div', { className: 'omni-stat-cell' }, h('div', { className: 'omni-stat-val' }, `${tmStats.totalUnits || 0}`), h('div', { className: 'omni-stat-lbl' }, 'Segments')),
+          h('div', { className: 'omni-stat-cell' }, h('div', { className: 'omni-stat-val' }, `${(tmStats.tokensSaved || 0).toLocaleString()}`), h('div', { className: 'omni-stat-lbl' }, 'Tokens Saved')),
+          h('div', { className: 'omni-stat-cell' }, h('div', { className: 'omni-stat-val' }, `${tmStats.exactHits || 0}`), h('div', { className: 'omni-stat-lbl' }, 'Exact Hits')),
+          h('div', { className: 'omni-stat-cell' }, h('div', { className: 'omni-stat-val' }, `${tmStats.fuzzyHits || 0}`), h('div', { className: 'omni-stat-lbl' }, 'Fuzzy Refs'))
+        ),
+
+        h('div', { style: { display: 'flex', gap: 8 } },
+          h('button', { type: 'button', style: { ...ghostBtnStyle, flex: 1 }, onClick: refreshTmStats }, ic('RefreshCw', 13), 'Refresh'),
+          h('button', { type: 'button', style: { ...ghostBtnStyle, flex: 1 }, onClick: handleExportTmx }, ic('Download', 13), 'Export TMX'),
+          h('button', { type: 'button', style: { ...ghostBtnStyle, flex: 1, color: '#f87171' }, onClick: handleClearTm }, ic('Trash2', 13), 'Clear TM')
+        )
+      );
+    }
+
+    // ── Sub-View 5: Sources & Scraping Recipes ──
+    if (activeSubView === 'sources') {
+      const sourceCount = ((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length;
+      return h('div', { style: { paddingBottom: 32 } },
+        subHeader('Sources & Scraping Recipes', `${sourceCount} registered source plugins`),
+
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('div', null,
+            h('div', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'LNReader Source Plugins'),
+            h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 2 } }, 'Manage community source adapters and active site connectors')
+          ),
+          h('button', { type: 'button', style: ghostBtnStyle, onClick: handleOpenSourcePluginsModal }, ic('Compass', 13), `Browse (${sourceCount})`)
+        ),
+
+        sectionTitle('CUSTOM SITES & SCRAPING RECIPES', null),
+        (typeof window !== 'undefined' && window.SiteRecipeManagerCard)
+          ? h(window.SiteRecipeManagerCard, {
+              openSiteRecipeEditor: openSiteRecipeEditor || props.openSiteRecipeEditor,
+              toast: props.toast || toast,
+              confirmAction: props.confirmAction || confirmAction
+            })
+          : h('div', { style: { fontSize: 12.5, color: 'rgba(255,255,255,0.5)', padding: '12px 0' } }, 'Site recipe manager ready.')
+      );
+    }
+
+    // ── Sub-View 6: Cloud Sync, Storage & Full Backup ──
+    if (activeSubView === 'backup') {
+      return h('div', { style: { paddingBottom: 32 } },
+        subHeader('Cloud Sync, Storage & Backup', `${cloudProvider === 'gdrive' ? 'Google Drive' : 'WebDAV'} · ${webImportHistory?.length || 0} books`),
+
+        sectionTitle('CLOUD BACKUP & SYNC', cloudProvider === 'gdrive' ? 'GOOGLE DRIVE' : 'WEBDAV / NAS'),
+        h('div', { className: 'seg', style: { marginBottom: 14 } },
+          h('button', { type: 'button', className: `seg-btn ${cloudProvider === 'gdrive' ? 'on' : ''}`, onClick: () => setCloudProvider('gdrive') }, 'Google Drive Sync'),
+          h('button', { type: 'button', className: `seg-btn ${cloudProvider === 'webdav' ? 'on' : ''}`, onClick: () => setCloudProvider('webdav') }, 'WebDAV (Nextcloud / NAS)')
+        ),
+
+        cloudProvider === 'gdrive' ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 16, borderBottom: '0.6px solid rgba(255,255,255,0.08)' } },
+          h('div', { style: { padding: '8px 0' } },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
+              h('span', { style: { fontSize: 13, fontWeight: 700, color: '#F5F5F5' } }, '1-Tap Google Drive Backup'),
+              h('span', { style: { fontSize: 10.5, color: '#34D399', fontWeight: 700 } }, 'Zero Setup')
+            ),
+            h('p', { style: { fontSize: 11.5, color: 'rgba(255,255,255,0.55)', margin: '0 0 10px', lineHeight: 1.45 } },
+              'Save and restore your full library, settings, and glossaries directly to a Drive folder via system storage.'
+            ),
+            h('div', { style: { display: 'flex', gap: 8 } },
+              h('button', { type: 'button', style: { ...primaryBtnStyle, flex: 1 }, onClick: backupToGoogleDriveFile }, ic('Save', 13), 'Save to Drive Folder'),
+              h('button', { type: 'button', style: { ...ghostBtnStyle, flex: 1 }, onClick: () => document.getElementById('full-backup-input')?.click() }, ic('Download', 13), 'Restore File')
+            )
+          ),
+
+          h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '12px 0' } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+              h('span', { style: { width: 8, height: 8, borderRadius: 999, background: gdriveConnected ? '#34D399' : 'rgba(255,255,255,0.3)' } }),
+              h('div', null,
+                h('div', { style: { fontSize: 12.5, fontWeight: 600, color: '#F5F5F5' } },
+                  gdriveConnected ? (gdriveUser?.displayName || gdriveUser?.emailAddress || 'Connected to Google Drive') : 'Not Connected (Direct OAuth API)'
+                ),
+                h('div', { style: { fontSize: 10.5, color: 'rgba(255,255,255,0.48)' } },
+                  gdriveConnected ? (gdriveUser?.emailAddress || 'Google Cloud OAuth active') : 'Optional background REST API sync'
+                )
+              )
+            ),
+            gdriveConnected
+              ? h('button', { type: 'button', style: { ...ghostBtnStyle, color: '#f87171', padding: '6px 10px', fontSize: 11 }, onClick: disconnectGoogleDrive }, 'Disconnect')
+              : h('button', { type: 'button', style: { ...ghostBtnStyle, padding: '6px 10px', fontSize: 11 }, onClick: connectGoogleDrive }, 'Connect OAuth')
+          ),
+
+          gdriveConnected && gdriveUser && (gdriveUser.quotaLimit > 0 || gdriveUser.storageQuota) && h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,0.55)' } },
+            h('span', null, 'Drive Quota'),
+            h('span', { style: { fontFamily: "'IBM Plex Mono', monospace" } }, window.GoogleDriveSync?.formatQuota?.(gdriveUser.storageQuota || gdriveUser) || '')
+          ),
+
+          h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '12px 0' } },
+            h('span', { style: { fontSize: 12.5, color: '#F5F5F5' } }, 'Drive Storage Mode'),
+            h('select', { style: selectStyle, value: gdriveFolderMode, onChange: e => setGdriveFolderMode(e.target.value) },
+              h('option', { value: 'appDataFolder' }, 'Private App Folder (drive.appdata)'),
+              h('option', { value: 'visibleFolder' }, 'GeminiTranslator Folder (drive.file)')
+            )
+          ),
+
+          switchRow('Auto-Backup on Translation Finish', gdriveAutoSync, (v) => {
+            setGdriveAutoSync(v);
+            localStorage.setItem('gdrive_auto_sync', String(v));
+          }),
+
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'rgba(255,255,255,0.5)' } },
+            h('span', null, 'Last Drive Sync'),
+            h('span', { style: { fontFamily: "'IBM Plex Mono', monospace" } }, gdriveLastSync || 'Never synced')
+          ),
+
+          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+            h('button', { type: 'button', style: { ...ghostBtnStyle, flex: 1 }, disabled: gdriveTesting || !gdriveConnected, onClick: testGoogleDriveConnection }, ic('Zap', 12), gdriveTesting ? 'Testing...' : 'Test'),
+            h('button', { type: 'button', style: { ...ghostBtnStyle, flex: 1 }, disabled: gdriveSyncing || !gdriveConnected, onClick: backupToGoogleDrive }, ic('Upload', 12), gdriveSyncing ? 'Syncing...' : 'Backup'),
+            h('button', { type: 'button', style: { ...ghostBtnStyle, flex: 1 }, disabled: gdriveSyncing || !gdriveConnected, onClick: restoreFromGoogleDrive }, ic('Download', 12), 'Restore'),
+            h('button', { type: 'button', style: ghostBtnStyle, onClick: () => setGdriveConfigModalOpen(true), title: 'Client ID Settings' }, ic('Settings', 14))
+          )
+        ) : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 16, borderBottom: '0.6px solid rgba(255,255,255,0.08)' } },
+          h('div', null,
+            h('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.48)', marginBottom: 4 } }, 'SERVER WEBDAV URL'),
+            h('input', { type: 'text', placeholder: 'https://cloud.example.com/remote.php/dav/files/username/', value: webdavUrl, onChange: e => setWebdavUrl(e.target.value.trim()), style: { ...inputStyle, width: '100%' } })
+          ),
+          h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+            h('div', null,
+              h('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.48)', marginBottom: 4 } }, 'USERNAME'),
+              h('input', { type: 'text', placeholder: 'Username', value: webdavUser, onChange: e => setWebdavUser(e.target.value.trim()), style: { ...inputStyle, width: '100%' } })
+            ),
+            h('div', null,
+              h('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.48)', marginBottom: 4 } }, 'APP PASSWORD'),
+              h('input', { type: 'password', placeholder: 'App Password / Token', value: webdavPass, onChange: e => setWebdavPass(e.target.value.trim()), style: { ...inputStyle, width: '100%' } })
+            )
+          ),
+          h('div', null,
+            h('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.48)', marginBottom: 4 } }, 'REMOTE FOLDER NAME'),
+            h('input', { type: 'text', placeholder: 'GeminiTranslator', value: webdavPath, onChange: e => setWebdavPath(e.target.value.trim()), style: { ...inputStyle, width: '100%' } })
+          ),
+          switchRow('Auto-Backup on Translation Finish', webdavAutoSync, (v) => {
+            setWebdavAutoSync(v);
+            localStorage.setItem('webdavAutoSync', String(v));
+          }),
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'rgba(255,255,255,0.5)' } },
+            h('span', null, 'Last Cloud Sync'),
+            h('span', { style: { fontFamily: "'IBM Plex Mono', monospace" } }, webdavLastSync || 'Never synced')
+          ),
+          h('div', { style: { display: 'flex', gap: 8 } },
+            h('button', { type: 'button', style: { ...ghostBtnStyle, flex: 1 }, disabled: webdavTesting, onClick: testWebDavConnection }, ic('Zap', 12), webdavTesting ? 'Testing...' : 'Test Link'),
+            h('button', { type: 'button', style: { ...primaryBtnStyle, flex: 1 }, disabled: webdavSyncing, onClick: backupToWebDav }, ic('Upload', 12), webdavSyncing ? 'Syncing...' : 'Backup'),
+            h('button', { type: 'button', style: { ...ghostBtnStyle, flex: 1 }, disabled: webdavSyncing, onClick: restoreFromWebDav }, ic('Download', 12), 'Restore')
+          )
+        ),
+
+        sectionTitle('LOCAL ARCHIVE & STORAGE', storageLoading ? 'Estimating...' : (storageDiag.available ? `${storageDiag.usedMB} MB (${storageDiag.pct}%)` : 'Ready')),
+        storageDiag.available && h('div', {
+          style: { width: '100%', height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 }
+        },
+          h('div', { style: { width: `${Math.max(1, storageDiag.pct)}%`, height: '100%', background: storageDiag.pct > 85 ? '#ef4444' : activePalette.accent } })
+        ),
+        h('div', { className: 'omni-hairline-strip', style: { marginBottom: 12 } },
+          h('div', { className: 'omni-stat-cell' }, h('div', { className: 'omni-stat-val' }, `${webImportHistory?.length || 0}`), h('div', { className: 'omni-stat-lbl' }, 'Books')),
+          h('div', { className: 'omni-stat-cell' }, h('div', { className: 'omni-stat-val' }, `${(window.SwiftAudioEngine?.Library?.getAllBooks?.() || []).length || 0}`), h('div', { className: 'omni-stat-lbl' }, 'Audio')),
+          h('div', { className: 'omni-stat-cell' }, h('div', { className: 'omni-stat-val', style: { color: trashCount > 0 ? '#f87171' : undefined } }, `${trashCount}`), h('div', { className: 'omni-stat-lbl' }, 'Trash')),
+          h('div', { className: 'omni-stat-cell' }, h('div', { className: 'omni-stat-val' }, storageDiag.available ? `${(storageDiag.quotaMB / 1024).toFixed(1)}G` : 'Auto'), h('div', { className: 'omni-stat-lbl' }, 'Quota'))
+        ),
+        h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 } },
+          h('button', { type: 'button', style: { ...ghostBtnStyle, flex: 1 }, disabled: storageLoading, onClick: () => refreshStorageDiag() }, ic('RefreshCw', 12), storageLoading ? 'Estimating...' : 'Refresh'),
+          h('button', {
+            type: 'button',
+            style: { ...ghostBtnStyle, flex: 1, color: trashCount > 0 ? '#f87171' : 'rgba(255,255,255,0.4)' },
+            disabled: trashCount === 0,
+            onClick: () => {
+              if (trashCount === 0) return toast('Recycle bin is already empty.', 'info');
+              confirmAction(`Permanently empty ${trashCount} item(s) from Recycle Bin? This cannot be undone.`, async () => {
+                await handleEmptyTrash();
+                await refreshStorageDiag();
+              });
+            }
+          }, ic('Trash2', 12), 'Empty Trash'),
+          h('button', {
+            type: 'button',
+            style: { ...ghostBtnStyle, flex: 1 },
+            onClick: () => {
+              try {
+                sessionStorage.clear();
+                if (window.crawlCache) window.crawlCache = {};
+                toast('Session and temporary cache cleared! Saved novels and settings remain safe.', 'success');
+                refreshStorageDiag();
+              } catch (e) {
+                toast('Cache clear error: ' + e.message, 'error');
+              }
+            }
+          }, ic('RotateCcw', 12), 'Clear Cache')
+        ),
+        switchRow('Pointer Mode: Zero-Waste Storage', pointerMode, (v) => {
+          setPointerMode(v);
+          localStorage.setItem('gemini_storage_pointer_mode', String(v));
+          toast(v ? 'Pointer Mode: ON (links directly to disk files to save 99% storage)' : 'Pointer Mode: OFF (stores full text in app database)', 'info');
+        }),
+        switchRow('Smart Update Cache (15 min grace window)', updateGraceWindow, (v) => {
+          setUpdateGraceWindow(v);
+          localStorage.setItem('gemini_update_grace_window', String(v));
+          toast(v ? 'Smart Update Cache: ON (skips books checked within 15 min)' : 'Smart Update Cache: OFF (always checks freshly)', 'info');
+        }),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('div', { style: { minWidth: 0, flex: 1, paddingRight: 10 } },
+            h('div', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Clean Up Internal Storage'),
+            h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 2 } }, 'Converts exported books into lightweight file pointers')
+          ),
+          h('button', { type: 'button', style: ghostBtnStyle, disabled: optimizingStorage, onClick: handleOptimizeStorage }, ic('Zap', 12), optimizingStorage ? 'Optimizing...' : 'Optimize Now')
+        ),
+
+        sectionTitle('FULL APP BACKUP & RESTORE', 'JSON + Keys + Artwork'),
+        h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, paddingTop: 4 } },
+          h('button', { type: 'button', style: primaryBtnStyle, onClick: () => exportFullBackup(true) }, ic('Save', 13), 'Export + Keys'),
+          h('button', { type: 'button', style: ghostBtnStyle, onClick: () => exportFullBackup(false) }, ic('FileDown', 13), 'Export Safe'),
+          h('label', { style: { ...ghostBtnStyle, cursor: 'pointer' } },
+            ic('Upload', 13), 'Import File',
+            h('input', {
+              id: 'full-backup-input',
+              type: 'file',
+              accept: '.json',
+              style: { display: 'none' },
+              onChange: (e) => {
+                const f = e.target.files && e.target.files[0];
+                if (f) importFullBackup({ target: { files: [f] } });
+              }
+            })
+          ),
+          h('button', { type: 'button', style: ghostBtnStyle, onClick: pasteAndRestoreBackup }, ic('Clipboard', 13), 'Paste & Restore')
+        )
+      );
+    }
+
+    // ── Sub-View 7: Hardware, Telemetry & App Build ──
+    if (activeSubView === 'system') {
+      return h('div', { style: { paddingBottom: 32 } },
+        subHeader('Hardware, Telemetry & System', `v${appVersion} (Build ${appVersionCode || 8563})`),
+
+        availableUpdate && h('div', {
+          style: {
+            padding: '12px 0',
+            borderBottom: '0.6px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10
+          }
+        },
+          h('div', null,
+            h('div', { style: { fontSize: 13, fontWeight: 700, color: '#34D399' } }, `Update Ready: v${availableUpdate.version || ''}`),
+            h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.55)' } }, 'Tap Install to update cleanly.')
+          ),
+          typeof handlePerformUpdate === 'function' && h('button', {
+            type: 'button',
+            style: primaryBtnStyle,
+            disabled: !!isUpdating,
+            onClick: handlePerformUpdate
+          }, isUpdating ? 'Updating...' : 'Install Update')
+        ),
+
+        sectionTitle('HARDWARE & KEEP-AWAKE', null),
+        switchRow('Keep Screen & Device Awake (WakeLock)', deviceWakeLock, (v) => {
+          setDeviceWakeLock(v);
+          localStorage.setItem('deviceWakeLock', String(v));
+          if (!v && window.NativeBridge?.releaseWakeLock) window.NativeBridge.releaseWakeLock();
+        }),
+        switchRow('Show Live Logs on Translate Tab', showLiveLogs, setShowLiveLogs),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'System & API Logs'),
+          h('button', { type: 'button', style: ghostBtnStyle, onClick: () => setLogsModalOpen(true) }, ic('FileText', 13), 'View Live Logs')
+        ),
+
+        sectionTitle('LIVE AGENT TELEMETRY (LOCAL WI-FI)', telemetryStatus === 'connected' ? 'CONNECTED' : null),
+        switchRow('Stream Real-time Logs to Agent (PC)', telemetryEnabled, (v) => {
+          setTelemetryEnabled(v);
+          localStorage.setItem('telemetry_enabled', String(v));
+          window.updateTelemetryConfig?.({ enabled: v });
+          toast(v ? 'Live telemetry enabled!' : 'Live telemetry disabled.', 'info');
+        }),
+        switchRow('Deep Debugging (Buttons & Background)', telemetryVerbose, (v) => {
+          setTelemetryVerbose(v);
+          localStorage.setItem('telemetry_verbose', String(v));
+          window.updateTelemetryConfig?.({ verbose: v });
+          window.telemetryLog?.('CONFIG', `Deep Debugging set to ${v}`);
+          toast(v ? 'Deep Debugging enabled!' : 'Standard telemetry enabled.', 'info');
+        }),
+        h('div', { style: { padding: '12px 0', borderBottom: '0.6px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 8 } },
+          h('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.48)' } }, 'PC TELEMETRY SERVER URL'),
+          h('input', {
+            type: 'text',
+            placeholder: 'http://192.168.1.216:9090',
+            value: telemetryServerUrl,
+            onChange: e => {
+              const val = e.target.value.trim();
+              setTelemetryServerUrl(val);
+              localStorage.setItem('telemetry_server_url', val);
+              window.updateTelemetryConfig?.({ serverUrl: val });
+            },
+            style: { ...inputStyle, width: '100%' }
+          }),
+          h('div', { style: { display: 'flex', gap: 8 } },
+            h('button', { type: 'button', style: { ...primaryBtnStyle, flex: 1 }, disabled: telemetryTesting, onClick: handleTestTelemetryConnection }, ic('Zap', 12), telemetryTesting ? 'Testing...' : 'Test Connection'),
+            h('button', { type: 'button', style: ghostBtnStyle, onClick: handleClearTelemetryServer }, ic('Trash2', 12), 'Clear Logs')
+          ),
+          telemetryStatusMsg && h('div', { style: { fontSize: 11, color: telemetryStatus === 'connected' ? '#34D399' : '#f87171' } }, telemetryStatusMsg)
+        ),
+
+        sectionTitle('APP BUILD & ANDROID PERMISSIONS', `v${appVersion}`),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Check for App Updates'),
+          h('button', { type: 'button', style: ghostBtnStyle, onClick: () => checkForAppUpdate(true) }, ic('RefreshCw', 13), `v${appVersion} (${appVersionCode || 8563})`)
+        ),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Notifications & Completion Alerts'),
+          h('button', {
+            type: 'button',
+            style: ghostBtnStyle,
+            onClick: async () => {
+              const granted = await window.NativeBridge?.requestNotificationPermission?.();
+              if (granted) {
+                toast('Notifications enabled!', 'success');
+                window.NativeBridge?.showCompletionNotification?.('Gemini Notifications Active', 'Completion alerts with sound & vibration are ready.');
+              } else {
+                toast('Notification permission not granted. Check Android App Permissions.', 'warning');
+              }
+            }
+          }, ic('AlertCircle', 13), 'Enable Alerts')
+        ),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Background Execution (Battery)'),
+          h('button', {
+            type: 'button',
+            style: ghostBtnStyle,
+            onClick: async () => {
+              const isIgnored = await window.NativeBridge?.isBatteryOptimizationIgnored?.();
+              if (isIgnored) {
+                toast('Battery optimization is already unrestricted!', 'success');
+              } else {
+                toast('Opening Battery Settings - select Unrestricted for uninterrupted background tasks.', 'info');
+                await window.NativeBridge?.requestIgnoreBatteryOptimizations?.();
+              }
+            }
+          }, ic('Zap', 13), 'Unrestricted')
+        ),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Install Web App (PWA)'),
+          h('button', { type: 'button', style: ghostBtnStyle, onClick: handleInstallPWA }, 'Install')
+        ),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Force Refresh & Clear Stale Cache'),
+          h('button', {
+            type: 'button',
+            style: { ...ghostBtnStyle, color: '#f87171', borderColor: 'rgba(248, 113, 113, 0.3)' },
+            onClick: async () => {
+              try {
+                if ('serviceWorker' in navigator) {
+                  const regs = await navigator.serviceWorker.getRegistrations();
+                  for (const reg of regs) await reg.unregister();
+                }
+                if ('caches' in window) {
+                  const keys = await caches.keys();
+                  for (const key of keys) await caches.delete(key);
+                }
+              } catch (_) {}
+              localStorage.setItem('gemini_force_reload', Date.now());
+              window.location.reload(true);
+            }
+          }, ic('RefreshCw', 13), 'Force Clear Cache')
+        ),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Reset Settings to Defaults'),
+          h('button', { type: 'button', style: { ...ghostBtnStyle, color: '#f87171' }, onClick: handleResetSettings }, ic('RotateCcw', 13), 'Reset Settings')
+        ),
+        h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
+          h('span', { style: { fontSize: 13.5, fontWeight: 500, color: '#F5F5F5' } }, 'Keyboard Shortcuts'),
+          h('span', { style: { fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: 'rgba(255,255,255,0.5)' } }, 'Ctrl+Enter · Ctrl+Shift+C · Ctrl+Alt+R')
+        )
+      );
+    }
+
+    // ── Main Drill-Down Settings Hub ──
+    const provKeysCount = (apiKeysByProvider[provider] || []).filter(k => k.key && k.key.trim()).length;
+    const activeModelDisplay = provider === 'gemini'
+      ? (useCustomModel ? (customModel || 'Custom') : geminiModel)
+      : (provider === 'deepseek' ? (useCustomDeepseekModel ? (customDeepseekModel || 'Custom') : deepseekModel) : provider);
+    const sourceCount = ((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length;
+
+    const MENU_GROUPS = [
+      {
+        heading: 'APPEARANCE & LAYOUT',
+        rows: [
+          {
+            id: 'visual',
+            icon: 'Palette',
+            title: 'Visual Presentation & Colors',
+            sub: `${activePalette.name} · ${omniPrefs.libraryLayout === 'editorial' ? 'Editorial' : 'Minimal'} · ${omniPrefs.detailsHeader === 'jacket' ? 'Jacket' : 'Split'} · Blur ${omniPrefs.heroBlur}px`,
+            keywords: 'palette monochrome gold ocean violet custom hex theme blur sheen radius carousel editorial minimal layout wireframe showcase'
+          },
+          {
+            id: 'display',
+            icon: 'BookOpen',
+            title: 'Reader, EPUB & Speech',
+            sub: `${amoledMode ? 'AMOLED Pitch Black' : 'Dark Slate'} · ${epubFontTheme || 'Literata'} · OPDS ${opdsRunning ? 'Online' : 'Idle'} · Voices`,
+            keywords: 'amoled black epub images drop caps smart quotes clean web justify filename font literata georgia moon reader opds catalog feed tts voice sherpatts piper'
+          }
+        ]
+      },
+      {
+        heading: 'AI & TRANSLATION ENGINE',
+        rows: [
+          {
+            id: 'engine',
+            icon: 'Brain',
+            title: 'AI Provider, Models & API Keys',
+            sub: `${(provider || 'gemini').toUpperCase()} · ${activeModelDisplay} · ${provKeysCount} key slot${provKeysCount === 1 ? '' : 's'}`,
+            keywords: 'provider gemini deepseek openai claude deepl libre model custom model id streaming thinking strict fallback ladder concurrency parallel streams chunk size api keys bulk paste cooldown rotation'
+          },
+          {
+            id: 'quality',
+            icon: 'Shield',
+            title: 'Quality & Translation Memory',
+            sub: `${healthAuditEnabled ? 'Audit Active' : 'Audit Off'} · ${tmStats.totalUnits || 0} TM segments · ${snapshotsEnabled ? 'Snapshots On' : 'Snapshots Off'}`,
+            keywords: 'quality health auditor proofreader cjk leak anti mtl footnotes translation memory tm cache snapshots diffs export tmx clear'
+          },
+          {
+            id: 'sources',
+            icon: 'Compass',
+            title: 'Sources & Scraping Recipes',
+            sub: `${sourceCount} LNReader plugins · Custom site extraction rules`,
+            keywords: 'sources lnreader plugins custom sites scraping recipes extractor css selector'
+          }
+        ]
+      },
+      {
+        heading: 'SYNC, STORAGE & SYSTEM',
+        rows: [
+          {
+            id: 'backup',
+            icon: 'Cloud',
+            title: 'Cloud Sync, Storage & Backup',
+            sub: `${cloudProvider === 'gdrive' ? 'Google Drive' : 'WebDAV'} · ${storageDiag.available ? `${storageDiag.usedMB} MB used` : `${webImportHistory?.length || 0} books`} · Full JSON Export`,
+            keywords: 'cloud google drive oauth 1-tap webdav nextcloud nas storage diagnostics pointer mode optimize recycle bin trash export import backup restore'
+          },
+          {
+            id: 'system',
+            icon: 'Settings',
+            title: 'Hardware, Telemetry & System',
+            sub: `v${appVersion} (Build ${appVersionCode || 8563}) · WakeLock ${deviceWakeLock ? 'On' : 'Off'}`,
+            keywords: 'wakelock keep awake live logs telemetry server debugging update apk force clear cache notifications battery unrestricted pwa install reset shortcuts'
+          }
+        ]
+      }
+    ];
+
+    const q = settingsQuery.trim().toLowerCase();
+
+    return h('div', { style: { paddingBottom: 32 } },
+      // Header Row
+      h('div', { className: 'omni-page-hd' },
+        h('div', { style: { minWidth: 0 } },
+          h('h1', { className: 'omni-page-title' }, 'Settings'),
+          h('div', { className: 'omni-page-sub' }, `v${appVersion} (Build ${appVersionCode || 8563}) · Pure AMOLED`)
+        ),
+        h('div', { className: 'omni-header-actions' },
+          h('button', {
+            type: 'button',
+            className: 'omni-circle-btn',
+            onClick: () => checkForAppUpdate(true),
+            title: 'Check for updates'
+          }, ic('RefreshCw', 16)),
+          h('button', {
+            type: 'button',
+            className: 'omni-circle-btn',
+            onClick: handleResetSettings,
+            title: 'Reset settings to defaults'
+          }, ic('RotateCcw', 16))
+        )
+      ),
+
+      // Update ready hairline notice (only shown when remote update is detected)
+      availableUpdate && h('div', {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          padding: '10px 0',
+          marginBottom: 12,
+          borderTop: '0.6px solid rgba(255,255,255,0.08)',
+          borderBottom: '0.6px solid rgba(255,255,255,0.08)'
+        }
+      },
+        h('span', { style: { fontSize: 12.5, fontWeight: 600, color: '#34D399' } }, `Update v${availableUpdate.version || ''} available`),
+        typeof handlePerformUpdate === 'function' && h('button', {
+          type: 'button',
+          style: { ...primaryBtnStyle, padding: '6px 12px', fontSize: 11.5 },
+          disabled: !!isUpdating,
+          onClick: handlePerformUpdate
+        }, isUpdating ? 'Updating...' : 'Install')
+      ),
+
+      // Flat 6px Search Bar
+      h('div', { className: 'omni-search-bar', style: { marginBottom: 14 } },
+        ic('Search', 15),
+        h('input', {
+          type: 'search',
+          placeholder: 'Search themes, models, keys, OPDS, backup, WakeLock...',
+          value: settingsQuery,
+          onChange: e => setSettingsQuery(e.target.value)
+        }),
+        settingsQuery && h('button', {
+          type: 'button',
+          onClick: () => setSettingsQuery(''),
+          style: { background: 'none', border: 'none', color: 'rgba(255,255,255,0.55)', cursor: 'pointer', padding: 2 }
+        }, ic('X', 14))
+      ),
+
+      // Compact Quick Status Toggles (when search is empty)
+      !q && h('div', {
+        style: {
+          display: 'flex',
+          gap: 6,
+          flexWrap: 'wrap',
+          paddingBottom: 14,
+          borderBottom: '0.6px solid rgba(255, 255, 255, 0.08)'
+        }
+      },
+        [
+          {
+            label: 'Downloaded Only',
+            active: !!downloadedOnly,
+            icon: 'Download',
+            onToggle: () => {
+              const next = !downloadedOnly;
+              setDownloadedOnly(next);
+              localStorage.setItem('downloadedOnly', String(next));
+              toast(next ? 'Downloaded only: ON' : 'Downloaded only: OFF', 'info');
+            }
+          },
+          {
+            label: 'Incognito',
+            active: !!incognitoMode,
+            icon: 'EyeOff',
+            onToggle: () => {
+              const next = !incognitoMode;
+              setIncognitoMode(next);
+              localStorage.setItem('incognitoMode', String(next));
+              toast(next ? 'Incognito mode: ON (history paused)' : 'Incognito mode: OFF', 'info');
+            }
+          },
+          {
+            label: 'Stream',
+            active: !!enableStreaming,
+            icon: 'Zap',
+            onToggle: () => {
+              const next = !enableStreaming;
+              setEnableStreaming(next);
+              toast(next ? 'Typewriter streaming: ON' : 'Typewriter streaming: OFF', 'info');
+            }
+          },
+          {
+            label: 'Thinking',
+            active: !!enableThinking,
+            icon: 'Brain',
+            onToggle: () => {
+              const next = !enableThinking;
+              setEnableThinking(next);
+              localStorage.setItem('enableThinking', String(next));
+              toast(next ? 'Extended Thinking: ON' : 'Extended Thinking: OFF', 'info');
+            }
+          }
+        ].map(chip => h('button', {
+          key: chip.label,
+          type: 'button',
+          onClick: chip.onToggle,
+          style: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '6px 10px',
+            borderRadius: 999,
+            background: chip.active ? activePalette.accent : 'rgba(255, 255, 255, 0.045)',
+            color: chip.active ? activePalette.onAccent : 'rgba(255, 255, 255, 0.72)',
+            border: chip.active ? 'none' : '0.6px solid rgba(255, 255, 255, 0.1)',
+            fontSize: 11.5,
+            fontWeight: chip.active ? 750 : 500,
+            cursor: 'pointer'
+          }
+        }, ic(chip.icon, 12), chip.label))
+      ),
+
+      // 3 Frameless Hairline Menu Groups
+      MENU_GROUPS.map(group => {
+        const filteredRows = group.rows.filter(r => {
+          if (!q) return true;
+          return (
+            r.title.toLowerCase().includes(q) ||
+            r.sub.toLowerCase().includes(q) ||
+            r.keywords.toLowerCase().includes(q)
+          );
+        });
+        if (filteredRows.length === 0) return null;
+
+        return h('div', { key: group.heading, style: { marginTop: 22 } },
+          h('div', {
+            style: {
+              fontSize: 10.5,
+              fontWeight: 700,
+              letterSpacing: '0.11em',
+              textTransform: 'uppercase',
+              color: 'rgba(255, 255, 255, 0.42)',
+              paddingBottom: 6,
+              borderBottom: '0.6px solid rgba(255, 255, 255, 0.08)'
+            }
+          }, group.heading),
+          filteredRows.map(row => h('button', {
+            key: row.id,
+            type: 'button',
+            className: 'omni-hairline-row',
+            onClick: () => setActiveSubView(row.id),
+            style: {
+              width: '100%',
+              background: 'transparent',
+              borderLeft: 'none',
+              borderRight: 'none',
+              borderTop: 'none',
+              textAlign: 'left',
+              padding: '15px 0',
+              gap: 12
+            }
+          },
+            h('span', {
+              style: {
+                width: 34,
+                height: 34,
+                borderRadius: 9,
+                background: 'rgba(255, 255, 255, 0.055)',
+                border: '0.6px solid rgba(255, 255, 255, 0.09)',
+                color: activePalette.accent,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }
+            }, ic(row.icon, 16)),
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h('div', { style: { fontSize: 14.5, fontWeight: 650, color: '#F5F5F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, row.title),
+              h('div', { style: { fontSize: 11.5, color: 'rgba(255, 255, 255, 0.48)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, row.sub)
+            ),
+            h('span', { style: { color: 'rgba(255, 255, 255, 0.36)', flexShrink: 0 } }, ic('ChevronRight', 16))
+          ))
+        );
+      })
+    );
   }
 
   return { TabSettings };

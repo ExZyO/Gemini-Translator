@@ -1,11 +1,11 @@
 {
-  "version": "8.22.51",
-  "versionCode": 8562,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.51/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.51/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.51/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.51",
-  "releaseDate": "2026-11-18",
-  "releaseNotes": "v8.22.51: Enhanced author notes and blockquote image rendering in EPUB compiler and reader; fixed library persistence and saved space sync across Editor, Importer, and Book Search.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.51"
+  "version": "8.22.52",
+  "versionCode": 8563,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.52/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.52/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.52/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.52",
+  "releaseDate": "2026-11-23",
+  "releaseNotes": "v8.22.52: Complete OmniTrack Pure-AMOLED UI redesign across Library, Book Details, Discover, Translate Studio, and Drill-Down Settings with 14 color themes, dual layouts, custom cover and banner framing, and full backup sync.",
+  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.52"
 }

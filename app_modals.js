@@ -1355,9 +1355,12 @@
 
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 11. LIBRARY NOVEL ACTION SHEET (3-DOT MENU)
+  // 11. LIBRARY NOVEL ACTION SHEET (3-DOT MENU / EDITORIAL BOOK DETAILS)
   // ─────────────────────────────────────────────────────────────────────────
   function LibraryNovelActionSheet(props) {
+    if (props && props.novel && typeof window !== 'undefined' && typeof window.OmniBookDetailsView === 'function') {
+      return getH()(window.OmniBookDetailsView, props);
+    }
     const {
       novel,
       onClose,
@@ -2086,10 +2089,14 @@
         }
       }),
 
-      // 10. Library Novel Action Sheet
+      // 10. Library Novel Action Sheet (Editorial Book Details)
       h(LibraryNovelActionSheet, {
         novel: props.activeBookMenuNovel,
         onClose: props.onCloseBookMenu || (() => props.setActiveBookMenuNovel?.(null)),
+        setActiveBookMenuNovel: props.setActiveBookMenuNovel,
+        activeNovelRecord: props.activeNovelRecord,
+        currentDocTitle: props.currentDocTitle,
+        setCurrentDocCover: props.setCurrentDocCover,
         handleDownloadEPUB: props.handleDownloadEPUB,
         getNovelFolderOptions: props.getNovelFolderOptions,
         setRenameModalNovel: props.setRenameModalNovel,

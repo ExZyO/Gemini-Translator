@@ -1,9 +1,12 @@
-const CACHE_NAME = 'gemini-translator-v8.22.51';
+const CACHE_NAME = 'gemini-translator-v8.22.52';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './styles.css',
     './app.css',
+    './omni_ui.css',
+    './omni_theme_engine.js',
+    './omni_book_details.js',
     './storage_engine.js',
     './glossary_engine.js',
     './toc_engine.js',
@@ -37,6 +40,7 @@ const ASSETS_TO_CACHE = [
     './app_tab_importer.js',
     './app_tab_studio.js',
     './app_tab_library.js',
+    './omni_settings_visual.js',
     './app_tab_settings.js',
     './app_tabs.js',
     './app.js',
