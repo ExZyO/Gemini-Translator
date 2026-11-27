@@ -275,7 +275,7 @@
         await commitUpdatedText(targetParagraph, healedText);
 
         if (typeof window !== 'undefined' && window.toast) {
-          window.toast('🩹 Paragraph healed and updated in book!', 'success');
+          window.toast('Paragraph healed and updated in book!', 'success');
         }
         window.getSelection()?.removeAllRanges?.();
         setToolbarState(null);
@@ -343,8 +343,8 @@
         }
       },
         isTranslating
-          ? h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', color: '#818cf8' } },
-              h('div', { className: 'reader-mini-spinner', style: { width: 14, height: 14, border: '2px solid rgba(129, 140, 248, 0.3)', borderTopColor: '#818cf8', borderRadius: '50%', animation: 'spin 0.8s linear infinite' } }),
+          ? h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', color: 'var(--p-accent, var(--r-accent, #F5F5F5))' } },
+              h('div', { className: 'reader-mini-spinner', style: { width: 14, height: 14, border: '2px solid rgba(255, 255, 255, 0.22)', borderTopColor: 'var(--p-accent, #F5F5F5)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' } }),
               h('span', null, statusMsg)
             )
           : h(React.Fragment, null,
@@ -352,8 +352,8 @@
                 type: 'button',
                 className: 'reader-sel-btn primary',
                 style: {
-                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                  color: '#ffffff',
+                  background: 'var(--p-accent, var(--r-accent, #F5F5F5))',
+                  color: 'var(--p-accent-ink, #000000)',
                   border: 'none',
                   borderRadius: 20,
                   padding: '6px 12px',
@@ -361,9 +361,8 @@
                   alignItems: 'center',
                   gap: 5,
                   cursor: 'pointer',
-                  fontWeight: 600,
-                  fontSize: 12,
-                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)'
+                  fontWeight: 700,
+                  fontSize: 12
                 },
                 onClick: handleTranslateSelection,
                 title: 'Translate selected text with AI and replace in chapter'
@@ -602,7 +601,7 @@
         h('button', {
           type: 'button',
           className: 'mini-btn',
-          style: { padding: '3px 10px', fontSize: 11, background: 'var(--r-accent, #6366f1)', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer', fontWeight: 600 },
+          style: { padding: '3px 10px', fontSize: 11, background: 'var(--p-accent, var(--r-accent, #F5F5F5))', color: 'var(--p-accent-ink, #000000)', border: 'none', borderRadius: 999, cursor: 'pointer', fontWeight: 700 },
           onClick: handleApplyRange
         }, 'Apply Range')
       ),
@@ -634,11 +633,10 @@
           style: {
             fontSize: 11.5,
             fontWeight: 700,
-            color: 'var(--r-accent, #818cf8)',
+            color: 'var(--p-accent, var(--r-accent, #F5F5F5))',
             whiteSpace: 'nowrap',
-            background: 'rgba(99, 102, 241, 0.15)',
-            border: '1px solid rgba(99, 102, 241, 0.3)',
-            borderRadius: 12,
+            background: 'var(--p-accent-soft, rgba(255,255,255,0.12))',
+            borderRadius: 999,
             padding: '3px 10px'
           }
         }, `${selectedIndices.length} Selected`)
@@ -672,9 +670,8 @@
               alignItems: 'center',
               gap: 8,
               padding: '5px 8px',
-              borderRadius: 6,
-              background: isSelected ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
-              border: isSelected ? '1px solid rgba(99, 102, 241, 0.35)' : '1px solid transparent',
+              borderRadius: 8,
+              background: isSelected ? 'var(--p-accent-soft, rgba(255,255,255,0.12))' : 'transparent',
               cursor: 'pointer',
               userSelect: 'none'
             }
@@ -683,7 +680,7 @@
               type: 'checkbox',
               checked: isSelected,
               onChange: () => handleToggleChapter(ch.originalIdx),
-              style: { accentColor: 'var(--r-accent, #6366f1)', cursor: 'pointer' }
+              style: { accentColor: 'var(--p-accent, var(--r-accent, #F5F5F5))', cursor: 'pointer' }
             }),
             h('span', {
               style: {

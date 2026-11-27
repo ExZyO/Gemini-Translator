@@ -160,6 +160,7 @@
       setCurrentDocTitle,
       setFileName,
       ongoingEpubInputRef,
+      triggerOngoingEpubPicker,
       cleanBookTitle = (typeof window !== 'undefined' && window.cleanBookTitle) || ((t) => t),
       cleanBookAuthor = (typeof window !== 'undefined' && window.cleanBookAuthor) || ((a) => a),
       generateEpubFromChapters = (typeof window !== 'undefined' && window.generateEpubFromChapters),
@@ -484,7 +485,7 @@
           }, btnLabel || 'Browse')
         );
         return h('div', { style: { marginTop: 8 } },
-          h('div', { className: 'omni-section-label', style: { marginBottom: 4 } }, 'Sources Directory'),
+          h('div', { className: 'omni-section-label', style: { padding: '6px 16px 4px', marginBottom: 4 } }, 'Sources Directory'),
           dirRow('Globe', 'Web Serials & Archives', 'RoyalRoad, NovelFire, NovelBuddy, Wattpad, Syosetu, AO3', 'Search', () => {
             setImportCategoryTab('wn'); setIsBookSearchMode(false); setIsSwiftAudioMode(false); setNovelSearchFilter('all');
             document.getElementById('discover-search-input')?.focus();
@@ -589,7 +590,11 @@
         }, t.label))
       ),
       h('div', { className: 'omni-soft-tabs', style: { paddingTop: 2, paddingBottom: 8 } },
-        h('button', { type: 'button', className: 'omni-soft-tab', onClick: () => ongoingEpubInputRef?.current?.click() }, 'Continue EPUB'),
+        h('button', {
+          type: 'button',
+          className: 'omni-soft-tab',
+          onClick: () => (typeof triggerOngoingEpubPicker === 'function' ? triggerOngoingEpubPicker() : ongoingEpubInputRef?.current?.click())
+        }, 'Continue EPUB'),
         h('button', { type: 'button', className: 'omni-soft-tab', onClick: toggleCrawlerSpeedMode }, crawlerSpeedMode === 'builtin' ? 'Speed: Fast' : 'Speed: Safe'),
         h('button', { type: 'button', className: 'omni-soft-tab', onClick: () => setShowLofterModal(true) }, lofterAuth?.cookieString ? 'Lofter: Connected' : 'Lofter Auth')
       ),
@@ -622,7 +627,7 @@
         )
       ),
 
-      webImportError && h('div', { style: { padding: '12px 0', borderBottom: '0.6px solid var(--omni-hairline)' } },
+      webImportError && h('div', { style: { padding: '12px 16px', borderBottom: '0.6px solid var(--omni-hairline)' } },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
           h('span', { style: { fontSize: 13, fontWeight: 700, color: webImportError.isCloudflare ? '#F87171' : '#FBBF24' } },
             webImportError.isCloudflare ? 'Security Challenge Detected' : 'Crawl Paused to Protect Data'
@@ -678,7 +683,7 @@
         )
       ),
 
-      epubPackagingModal && h('div', { style: { padding: '12px 0', borderBottom: '0.6px solid var(--omni-hairline)' } },
+      epubPackagingModal && h('div', { style: { padding: '12px 16px', borderBottom: '0.6px solid var(--omni-hairline)' } },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 700, color: '#F5F5F5', marginBottom: 6 } },
           h('span', null, `Packaging ${epubPackagingModal.title || 'Novel'}`),
           h('span', { style: { color: 'var(--omni-accent)' } }, `${Math.min(100, Math.max(0, epubPackagingModal.pct || 0))}%`)
@@ -689,7 +694,7 @@
         h('div', { style: { fontSize: 11.5, color: 'rgba(255,255,255,0.5)', marginTop: 4 } }, epubPackagingModal.status || 'Compiling EPUB...')
       ),
 
-      isFetchingUrl && h('div', { style: { padding: '12px 0', borderBottom: '0.6px solid var(--omni-hairline)' } },
+      isFetchingUrl && h('div', { style: { padding: '12px 16px', borderBottom: '0.6px solid var(--omni-hairline)' } },
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
           h('span', { style: { fontSize: 13, fontWeight: 650, color: 'var(--omni-accent)' } }, webImportStatus || 'Extracting chapters...'),
           h('div', { style: { display: 'flex', gap: 6 } },
@@ -701,7 +706,7 @@
         h('div', { className: 'mini-progress' }, h('i'))
       ),
 
-      isFetchingPaused && !isFetchingUrl && h('div', { style: { padding: '12px 0', borderBottom: '0.6px solid var(--omni-hairline)' } },
+      isFetchingPaused && !isFetchingUrl && h('div', { style: { padding: '12px 16px', borderBottom: '0.6px solid var(--omni-hairline)' } },
         h('div', { style: { fontSize: 12.5, fontWeight: 650, color: '#FBBF24', marginBottom: 8 } }, `Paused · ${getSafeChapterCount(activeNovelView)} chapters cached`),
         h('div', { className: 'omni-cta-row', style: { margin: 0 } },
           h('button', { type: 'button', className: 'omni-flat-cta', style: { height: 38, fontSize: 12.5 }, onClick: () => handleStartFetch(true) }, ic('Play', 13), 'Resume Fetch'),
@@ -1119,7 +1124,7 @@
             )
           ),
           displayedBooks.length === 0
-            ? h('div', { style: { padding: '24px 0', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 12.5 } },
+            ? h('div', { style: { padding: '24px 16px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 12.5 } },
                 'No direct EPUB/PDF links under filter. ',
                 h('button', { type: 'button', className: 'omni-soft-tab active', onClick: () => setBooksDownloadableOnly(false) }, 'Show All Records')
               )

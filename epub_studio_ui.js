@@ -32,7 +32,7 @@ const splitHtml = `<div id="epub-split-tab" class="stu-page-container" style="wi
                     </div>
                     <div class="w-full rounded-full h-2.5 overflow-hidden" style="background: rgba(255,255,255,0.06);">
                         <div id="loading-progress-bar" class="h-2.5 rounded-full transition-all duration-200 ease-out"
-                            style="width: 0%; background: linear-gradient(90deg, #38bdf8, #818cf8);"></div>
+                            style="width: 0%; background: var(--p-accent, #F5F5F5);"></div>
                     </div>
                 </div>
             </div>
@@ -191,7 +191,7 @@ const splitHtml = `<div id="epub-split-tab" class="stu-page-container" style="wi
                 <div class="stu-card">
                     <span class="stu-field-label" style="display:block; margin-bottom:8px;">Activity Console</span>
                     <div id="status-log" class="custom-scrollbar stu-console">
-                        <div style="color:#818cf8;">&gt; System ready.</div>
+                        <div style="color:var(--p-accent, #F5F5F5);">&gt; System ready.</div>
                     </div>
                     <div id="split-progress-wrapper" class="hidden mt-3 pt-3" style="border-top:1px solid rgba(255,255,255,0.06);">
                         <div class="flex justify-between text-xs mb-1 font-semibold" style="color:var(--slate);">
@@ -199,7 +199,7 @@ const splitHtml = `<div id="epub-split-tab" class="stu-page-container" style="wi
                             <span id="split-progress-percent" class="font-mono">0%</span>
                         </div>
                         <div class="w-full rounded-full h-2 overflow-hidden" style="background:rgba(255,255,255,0.06);">
-                            <div id="split-progress-bar" class="h-2 transition-all duration-100 ease-out" style="width:0%; background:linear-gradient(90deg, #38bdf8, #818cf8);"></div>
+                            <div id="split-progress-bar" class="h-2 transition-all duration-100 ease-out" style="width:0%; background:var(--p-accent, #F5F5F5);"></div>
                         </div>
                     </div>
                 </div>
@@ -338,7 +338,7 @@ const mergeHtml = `<div id="epub-merge-tab" class="stu-page-container" style="wi
                                 <span id="merge-progress-percent" class="font-mono">0%</span>
                             </div>
                             <div class="w-full rounded-full h-2.5 overflow-hidden" style="background:rgba(255,255,255,0.06);">
-                                <div id="merge-progress-bar" class="h-2.5 transition-all duration-100 ease-out" style="width:0%; background:linear-gradient(90deg, #38bdf8, #818cf8);"></div>
+                                <div id="merge-progress-bar" class="h-2.5 transition-all duration-100 ease-out" style="width:0%; background:var(--p-accent, #F5F5F5);"></div>
                             </div>
                         </div>
                     </div>

@@ -1,11 +1,11 @@
 {
-  "version": "8.23.0",
-  "versionCode": 8565,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.23.0/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.23.0/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.23.0/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.23.0",
+  "version": "8.23.1",
+  "versionCode": 8566,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.23.1/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.23.1/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.23.1/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.23.1",
   "releaseDate": "2026-11-27",
-  "releaseNotes": "v8.23.0: Clean-slate phone-first Charcoal UI with one-tap AMOLED toggle, Floating Liquid-Glass Jelly Navbar with Glass Glow & pointer scrub, single quiet bottom strip notifications, universal 360ms hold-to-select across Library shelves, and OmniTrack Fallback Waterfall with FLIP drag.",
-  "releaseUrl": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.23.0"
+  "releaseNotes": "v8.23.1: Fixed phone page scrolling & floating navbar collapse/expand, restored full edge-to-edge Library hero banners with single 16px gutters, wired Discover Continue EPUB picker cleanly across tabs, resolved Discover cover overlapping Settings & Recipes overlays, and rebuilt Recipes plus remaining Studio/Settings popups in Charcoal/AMOLED.",
+  "releaseUrl": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.23.1"
 }

@@ -249,7 +249,7 @@
 
     const isSameIdWarning = masterFile && sampleFile && masterFile.info?.bookId && sampleFile.sample?.bookId && masterFile.info.bookId === sampleFile.sample.bookId;
 
-    return h('div', { style: { paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 20px))' } },
+    return h('div', { className: 'omni-subpage-pad', style: { paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 20px))' } },
       h('div', { style: { padding: '6px 0 14px', borderBottom: '1px solid var(--omni-hairline)' } },
         h('div', { style: { fontSize: 16, fontWeight: 750, color: 'var(--omni-text)' } }, 'Moon+ Reader (.mrexpt) Bookmark Aligner'),
         h('p', { style: { fontSize: 12.5, color: 'var(--omni-text-sub)', margin: '4px 0 0', lineHeight: 1.5 } },
@@ -294,7 +294,7 @@
               value: pastedText,
               onChange: (e) => setPastedText(e.target.value),
               placeholder: 'Paste raw .mrexpt backup content here...',
-              style: { width: '100%', height: 100, background: 'var(--omni-input)', border: '1px solid var(--omni-border)', borderRadius: 6, padding: 10, fontFamily: 'monospace', fontSize: 11.5, color: 'var(--omni-text)', outline: 'none' }
+              style: { width: '100%', height: 100, background: 'var(--omni-input)', border: 'none', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)', borderRadius: 12, padding: 10, fontFamily: 'monospace', fontSize: 11.5, color: 'var(--omni-text)', outline: 'none' }
             }),
             h('button', { type: 'button', className: 'omni-flat-cta', style: { marginTop: 8, height: 36 }, onClick: () => handleProcessMaster(pastedText, 'pasted_backup.mrexpt') }, 'Load Pasted Backup')
           )
@@ -310,7 +310,7 @@
       // Step 2: Target Edition Alignment
       masterFile && h('div', { style: { padding: '14px 0', borderBottom: '1px solid var(--omni-hairline)' } },
         h('div', { className: 'omni-section-label', style: { marginBottom: 8 } }, '2. Target Phone Edition Passport'),
-        h('div', { className: 'omni-cta-row', style: { marginTop: 0 } },
+        h('div', { className: 'omni-cta-row', style: { margin: '0 0 10px' } },
           h('label', { className: 'omni-flat-icon-btn', style: { flex: 1, width: 'auto', fontSize: 12, fontWeight: 600, gap: 6, padding: '0 10px' } },
             ic('Bookmark', 14),
             sampleFile ? sampleFile.fileName : 'Load Phone Sample .mrexpt',
@@ -348,16 +348,16 @@
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 } },
           h('div', null,
             h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)', marginBottom: 4 } }, 'Target Filename / Title'),
-            h('div', { className: 'omni-search-bar', style: { marginBottom: 0, height: 38 } },
+            h('div', { className: 'omni-search-bar', style: { margin: 0, height: 40 } },
               h('input', { type: 'text', value: targetTitle, onChange: (e) => setTargetTitle(e.target.value), placeholder: 'Book.epub' })
             )
           ),
           h('div', null,
             h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)', marginBottom: 4 } }, 'Phone Storage File Path'),
-            h('div', { className: 'omni-search-bar', style: { marginBottom: 6, height: 38 } },
+            h('div', { className: 'omni-search-bar', style: { margin: '0 0 8px', height: 40 } },
               h('input', { type: 'text', value: targetPath, onChange: (e) => setTargetPath(e.target.value), placeholder: '/storage/emulated/0/Books/Book.epub' })
             ),
-            h('div', { className: 'omni-soft-tabs', style: { paddingBottom: 0 } },
+            h('div', { className: 'omni-soft-tabs', style: { padding: 0 } },
               folderPresets.map(fp => h('button', {
                 key: fp.path,
                 type: 'button',
@@ -369,7 +369,7 @@
           ),
           h('div', null,
             h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)', marginBottom: 4 } }, 'Book Size / Internal Moon+ ID'),
-            h('div', { className: 'omni-search-bar', style: { marginBottom: 0, height: 38 } },
+            h('div', { className: 'omni-search-bar', style: { margin: 0, height: 40 } },
               h('input', { type: 'text', value: targetBookId, onChange: (e) => setTargetBookId(e.target.value), placeholder: 'Optional numeric size/hash ID' })
             )
           )

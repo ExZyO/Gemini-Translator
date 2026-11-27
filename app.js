@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.23.0';
+    let VERSION = '8.23.1';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -471,6 +471,21 @@
             handleScanContinuationToc
           });
         }
+      };
+
+      const triggerOngoingEpubPicker = async () => {
+        if (window.NativeBridge && window.NativeBridge.pickEpubFile) {
+          try {
+            const res = await window.NativeBridge.pickEpubFile();
+            if (res && res.file) {
+              handleSelectOngoingEpubFile(res.file, { fileUri: res.fileUri, displayPath: res.displayPath });
+              return;
+            }
+          } catch (err) {
+            if (String(err).includes('canceled')) return;
+          }
+        }
+        ongoingEpubInputRef.current?.click();
       };
 
       const handleOpenContinuationForNovel = async (novelItem) => {
@@ -1198,7 +1213,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8565);
+      const [appVersionCode, setAppVersionCode] = useState(8566);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [assignWebsiteModalNovel, setAssignWebsiteModalNovel] = useState(null);
@@ -2753,7 +2768,7 @@
 
         // Tab 4: Novel Library
         libQuery, setLibQuery, epubRestoreInputRef, handleRestoreFromEpubFiles,
-        handleSelectOngoingEpubFile, libTab, setLibTab, allCountLabel, filteredAudiobooks,
+        handleSelectOngoingEpubFile, triggerOngoingEpubPicker, libTab, setLibTab, allCountLabel, filteredAudiobooks,
         savedSpaceCount, transCount, incCount, loadTrashCount, trashCount, trashList,
         savedAudiobooks, setSavedAudiobooks, confirmAction, audioPlayerState, setIsFullPlayerOpen,
         deleteNovelFromHistory, setWebImportHistory,
@@ -2852,7 +2867,7 @@
                   h('div', { style: { fontSize: 13, fontWeight: 700, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
                     activeCrawlSession.title || 'Downloading Novel...'
                   ),
-                  h('div', { style: { fontSize: 11, color: '#A5B4FC' } },
+                  h('div', { style: { fontSize: 11, color: 'var(--p-accent)' } },
                     webImportStatus || (isFetchingPaused ? 'Paused' : 'Downloading chapters...')
                   )
                 )

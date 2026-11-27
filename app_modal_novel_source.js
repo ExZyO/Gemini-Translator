@@ -47,36 +47,37 @@
 
     const Dialog = () => {
       return h('div', {
-        className: 'modal-overlay',
-        style: { zIndex: 10005, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        className: 'omni-sheet-backdrop',
+        style: { zIndex: 10045 },
         onClick: close
       },
         h('div', {
-          className: 'modal-box',
-          style: { maxWidth: 460, width: '92vw', borderRadius: 16, overflow: 'hidden' },
+          className: 'omni-sheet',
+          style: { display: 'flex', flexDirection: 'column' },
           onClick: e => e.stopPropagation()
         },
-          h('div', { className: 'modal-hd', style: { padding: '16px 20px', borderBottom: '1px solid var(--hairline)' } },
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-              ic('RefreshCw', 20, 'text-indigo-400'),
+          h('div', { className: 'p-sheet-handle' }),
+          h('div', { className: 'modal-hd', style: { padding: '8px 16px 12px', borderBottom: '1px solid var(--p-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, color: 'var(--p-accent)' } },
+              ic('RefreshCw', 19),
               h('div', null,
-                h('div', { style: { fontWeight: 700, fontSize: 15, color: 'var(--paper)' } }, 'Select Update Source'),
-                h('div', { style: { fontSize: 11.5, color: 'var(--slate)' } }, novel.title || 'Novel')
+                h('div', { style: { fontWeight: 700, fontSize: 15.5, color: 'var(--p-ink)' } }, 'Select Update Source'),
+                h('div', { style: { fontSize: 11.5, color: 'var(--p-muted)' } }, novel.title || 'Novel')
               )
             ),
-            h('button', { type: 'button', className: 'icon-btn', onClick: close, title: 'Close' }, ic('X', 16))
+            h('button', { type: 'button', className: 'p-icon-btn', onClick: close, title: 'Close' }, ic('X', 17))
           ),
-          h('div', { className: 'modal-bd', style: { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 } },
+          h('div', { className: 'modal-bd', style: { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 } },
             h('button', {
               type: 'button',
-              className: 'chip-act',
               style: {
                 width: '100%',
                 padding: '14px 16px',
-                borderRadius: 12,
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(168,85,247,0.2) 100%)',
-                border: '1px solid var(--iris, #6366f1)',
-                color: 'var(--paper)',
+                borderRadius: 14,
+                background: 'var(--p-accent-soft)',
+                border: 'none',
+                boxShadow: 'inset 0 0 0 1.5px var(--p-accent)',
+                color: 'var(--p-ink)',
                 textAlign: 'left',
                 display: 'flex',
                 alignItems: 'center',
@@ -88,14 +89,14 @@
                 onSelect(null, true);
               }
             },
-              ic('Zap', 22, 'text-amber-400'),
+              h('span', { style: { color: 'var(--p-accent)', flexShrink: 0 } }, ic('Zap', 20)),
               h('div', { style: { flex: 1 } },
-                h('div', { style: { fontWeight: 700, fontSize: 13.5 } }, 'Check All Sources'),
-                h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Query all website sources at once and use whichever site has the newest chapters')
+                h('div', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--p-ink)' } }, 'Check All Sources'),
+                h('div', { style: { fontSize: 11.5, color: 'var(--p-muted)' } }, 'Query all website sources at once and pick newest chapters')
               )
             ),
-            h('div', { style: { fontSize: 11, fontWeight: 600, color: 'var(--slate)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Or Choose Individual Website:'),
-            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' } },
+            h('div', { className: 'p-section-label', style: { padding: '4px 0 0' } }, 'Or Choose Website'),
+            h('div', { style: { display: 'flex', flexDirection: 'column', maxHeight: 240, overflowY: 'auto' } },
               sources.map((s, idx) => {
                 const sUrl = typeof s === 'string' ? s : s.url;
                 let host = sUrl;
@@ -104,39 +105,28 @@
                 return h('button', {
                   key: `src_${idx}`,
                   type: 'button',
-                  className: 'chip-act',
-                  style: {
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: 10,
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: isActive ? '1px solid var(--iris)' : '1px solid var(--hairline)',
-                    textAlign: 'left',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    cursor: 'pointer'
-                  },
+                  className: 'p-row',
+                  style: { paddingLeft: 0, paddingRight: 0 },
                   onClick: () => {
                     close();
                     onSelect(sUrl, false);
                   }
                 },
-                  ic('Globe', 16, isActive ? 'text-indigo-400' : 'text-slate-400'),
+                  h('span', { style: { color: isActive ? 'var(--p-accent)' : 'var(--p-dim)', flexShrink: 0 } }, ic('Globe', 16)),
                   h('div', { style: { flex: 1, minWidth: 0 } },
                     h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                      h('span', { style: { fontWeight: 600, fontSize: 12.5, color: 'var(--paper)' } }, host),
-                      isActive && h('span', { style: { fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'rgba(99,102,241,0.25)', color: '#818cf8', fontWeight: 600 } }, 'Primary')
+                      h('span', { className: 'p-row-title' }, host),
+                      isActive && h('span', { className: 'badge', style: { background: 'var(--p-accent-soft)', color: 'var(--p-accent)' } }, 'Primary')
                     ),
-                    h('div', { style: { fontSize: 10.5, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, sUrl)
+                    h('div', { className: 'p-row-sub', style: { fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, sUrl)
                   ),
-                  ic('ChevronRight', 14, 'text-slate-500')
+                  ic('ChevronRight', 15)
                 );
               })
             )
           ),
-          h('div', { className: 'modal-ft', style: { padding: '12px 20px', borderTop: '1px solid var(--hairline)', display: 'flex', justifyContent: 'flex-end' } },
-            h('button', { type: 'button', className: 'mini-btn ghost', onClick: close }, 'Cancel')
+          h('div', { style: { padding: '8px 16px', display: 'flex', justifyContent: 'flex-end' } },
+            h('button', { type: 'button', className: 'p-pill-btn', onClick: close }, 'Cancel')
           )
         )
       );
@@ -229,41 +219,41 @@
       onClose();
     };
 
-    return h('div', { className: 'modal-overlay', onClick: onClose },
-      h('div', { className: 'modal-box', style: { maxWidth: 500, width: '92vw', borderRadius: 16 }, onClick: e => e.stopPropagation() },
-        h('div', { className: 'modal-hd', style: { padding: '16px 20px', borderBottom: '1px solid var(--hairline)' } },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-            ic('Globe', 20, 'text-indigo-400'),
+    return h('div', { className: 'omni-sheet-backdrop', style: { zIndex: 10045 }, onClick: onClose },
+      h('div', { className: 'omni-sheet', style: { display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation() },
+        h('div', { className: 'p-sheet-handle' }),
+        h('div', { className: 'modal-hd', style: { padding: '8px 16px 12px', borderBottom: '1px solid var(--p-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, color: 'var(--p-accent)' } },
+            ic('Globe', 19),
             h('div', null,
-              h('div', { style: { fontWeight: 700, fontSize: 15, color: 'var(--paper)' } }, 'Manage Website Sources'),
-              h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Connect this ebook to one or more online novel websites')
+              h('div', { style: { fontWeight: 700, fontSize: 15.5, color: 'var(--p-ink)' } }, 'Manage Website Sources'),
+              h('div', { style: { fontSize: 11.5, color: 'var(--p-muted)' } }, 'Connect this ebook to online sources')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', onClick: onClose, title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'p-icon-btn', onClick: onClose, title: 'Close' }, ic('X', 17))
         ),
-        h('div', { className: 'modal-bd', style: { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 } },
+        h('div', { className: 'modal-bd', style: { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 } },
           h('div', {
             style: {
               display: 'flex',
               alignItems: 'center',
               gap: 12,
-              background: 'rgba(255, 255, 255, 0.03)',
-              padding: '10px 14px',
-              borderRadius: 10,
-              border: '1px solid var(--hairline)'
+              background: 'var(--p-input, #171A21)',
+              padding: '10px 12px',
+              borderRadius: 14
             }
           },
             novel.cover
-              ? h('img', { src: novel.cover, style: { width: 34, height: 46, objectFit: 'cover', borderRadius: 4, flexShrink: 0 } })
-              : h('span', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 46, background: 'rgba(255,255,255,0.05)', borderRadius: 4, flexShrink: 0, color: 'var(--iris)' } }, ic('BookOpen', 18)),
+              ? h('img', { src: novel.cover, style: { width: 34, height: 46, objectFit: 'cover', borderRadius: 6, flexShrink: 0 } })
+              : h('span', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 46, background: 'rgba(255,255,255,0.06)', borderRadius: 6, flexShrink: 0, color: 'var(--p-accent)' } }, ic('BookOpen', 18)),
             h('div', { style: { minWidth: 0, flex: 1 } },
-              h('div', { style: { fontWeight: 600, fontSize: 13.5, color: 'var(--paper)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, novel.title || 'Novel'),
-              h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, `${novel.chapterCount || 0} chapters saved locally • ${sourcesList.length} saved source(s)`)
+              h('div', { style: { fontWeight: 650, fontSize: 13.5, color: 'var(--p-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, novel.title || 'Novel'),
+              h('div', { style: { fontSize: 11.5, color: 'var(--p-muted)' } }, `${novel.chapterCount || 0} chapters · ${sourcesList.length} saved source(s)`)
             )
           ),
           sourcesList.length > 0 && h('div', null,
-            h('div', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--slate)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Saved Website Sources:'),
-            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' } },
+            h('div', { className: 'p-section-label', style: { padding: '2px 0 6px' } }, 'Saved Website Sources'),
+            h('div', { style: { display: 'flex', flexDirection: 'column', maxHeight: 190, overflowY: 'auto' } },
               sourcesList.map((s, idx) => {
                 const sUrl = typeof s === 'string' ? s : s.url;
                 let host = sUrl;
@@ -271,51 +261,44 @@
                 const isActive = (typeof s === 'object' && s.active) || sUrl === novel.sourceUrl;
                 return h('div', {
                   key: `saved_src_${idx}`,
-                  style: {
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: isActive ? '1px solid rgba(99,102,241,0.4)' : '1px solid var(--hairline)'
-                  }
+                  className: 'omni-hairline-row',
+                  style: { paddingLeft: 0, paddingRight: 0 }
                 },
-                  ic('Globe', 15, isActive ? 'text-indigo-400' : 'text-slate-400'),
+                  h('span', { style: { color: isActive ? 'var(--p-accent)' : 'var(--p-dim)', flexShrink: 0 } }, ic('Globe', 15)),
                   h('div', { style: { flex: 1, minWidth: 0 } },
                     h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                      h('span', { style: { fontWeight: 600, fontSize: 12, color: 'var(--paper)' } }, host),
-                      isActive ? h('span', { style: { fontSize: 9.5, padding: '1px 5px', borderRadius: 4, background: 'rgba(99,102,241,0.2)', color: '#818cf8', fontWeight: 600 } }, 'Primary') : null
+                      h('span', { className: 'p-row-title', style: { fontSize: 13 } }, host),
+                      isActive ? h('span', { className: 'badge', style: { background: 'var(--p-accent-soft)', color: 'var(--p-accent)' } }, 'Primary') : null
                     ),
-                    h('div', { style: { fontSize: 10.5, color: 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, sUrl)
+                    h('div', { className: 'p-row-sub', style: { fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, sUrl)
                   ),
                   !isActive && h('button', {
                     type: 'button',
-                    className: 'mini-btn ghost',
-                    style: { fontSize: 11, padding: '3px 8px' },
+                    className: 'p-pill-btn',
+                    style: { height: 28, fontSize: 11, padding: '0 10px' },
                     onClick: () => handleMakePrimary(sUrl),
                     title: 'Set as primary update source'
-                  }, 'Make Primary'),
+                  }, 'Primary'),
                   sourcesList.length > 1 && h('button', {
                     type: 'button',
-                    className: 'icon-btn',
-                    style: { width: 26, height: 26, color: '#f87171' },
+                    className: 'p-icon-btn',
+                    style: { minWidth: 30, minHeight: 30, color: '#FCA5A5' },
                     onClick: () => handleRemove(sUrl),
                     title: 'Remove this source'
-                  }, ic('Trash2', 13))
+                  }, ic('Trash2', 14))
                 );
               })
             )
           ),
           h('div', null,
-            h('label', { style: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--paper)', marginBottom: 6 } }, 'Add New Website Source:'),
+            h('label', { style: { display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--p-ink)', marginBottom: 6 } }, 'Add Website Source'),
             h('div', { style: { display: 'flex', gap: 8 } },
               h('input', {
                 type: 'text',
-                className: 'url-input',
-                style: { flex: 1, fontSize: 13, height: 40, borderRadius: 10 },
+                className: 'p-input',
+                style: { flex: 1, fontSize: 13 },
                 value: value || '',
-                placeholder: 'Paste novel URL (e.g. https://royalroad.com/fiction/...)',
+                placeholder: 'https://example.com/novel/...',
                 onChange: e => setValue(e.target.value),
                 onKeyDown: e => {
                   if (e.key === 'Enter') {
@@ -326,25 +309,24 @@
               }),
               h('button', {
                 type: 'button',
-                className: 'mini-btn',
-                style: { background: 'rgba(255,255,255,0.08)', color: 'var(--paper)', border: '1px solid var(--hairline)' },
+                className: 'p-pill-btn',
                 disabled: !(value || '').trim() || !/^https?:\/\//i.test((value || '').trim()),
                 onClick: handleAddSource
               }, '+ Add')
             )
           ),
-          h('div', { style: { fontSize: 11, color: 'var(--slate)', lineHeight: 1.4 } },
-            'When you export or restore this EPUB, all website links are saved invisibly. You can choose which website to check when updating chapters.'
+          h('div', { style: { fontSize: 11.5, color: 'var(--p-muted)', lineHeight: 1.45 } },
+            'When you export or restore this EPUB, website links are saved inside it so future updates can find new chapters automatically.'
           )
         ),
-        h('div', { className: 'modal-ft', style: { padding: '12px 20px', borderTop: '1px solid var(--hairline)', display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' } },
-          h('button', { type: 'button', className: 'mini-btn ghost', onClick: onClose }, 'Close'),
+        h('div', { style: { padding: '10px 16px', borderTop: '1px solid var(--p-hairline)', display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' } },
+          h('button', { type: 'button', className: 'p-pill-btn', onClick: onClose }, 'Close'),
           h('button', {
             type: 'button',
-            className: 'mini-btn primary',
-            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+            className: 'p-pill-btn is-primary',
+            style: { height: 38, minHeight: 38 },
             onClick: () => handleSave(true)
-          }, [ic('Download', 13), ' Save & Continue Fetching'])
+          }, ic('Download', 13), 'Save & Fetch')
         )
       )
     );

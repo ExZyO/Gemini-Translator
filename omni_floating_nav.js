@@ -105,25 +105,51 @@
 
     // Scroll-responsive morph (54px <-> 42px) + always expand near top
     useEffect(function () {
+      function getScrollY() {
+        var docEl = typeof document !== 'undefined' ? document.documentElement : null;
+        var bodyEl = typeof document !== 'undefined' ? document.body : null;
+        return Math.max(
+          window.scrollY || 0,
+          window.pageYOffset || 0,
+          (docEl && docEl.scrollTop) || 0,
+          (bodyEl && bodyEl.scrollTop) || 0
+        );
+      }
       function onScroll() {
-        var y = window.scrollY || window.pageYOffset || 0;
+        var y = getScrollY();
         var prev = lastScrollYRef.current;
         var dy = y - prev;
-        if (y < 40) {
+        if (y < 24) {
           setIsCompact(false);
-        } else if (dy > 14 && y > 90) {
+        } else if (dy > 8 && y > 48) {
           setIsCompact(true);
-        } else if (dy < -12) {
+        } else if (dy < -6) {
           setIsCompact(false);
         }
         lastScrollYRef.current = y;
       }
+      function onDocScrollCapture(e) {
+        if (typeof document === 'undefined') return;
+        var t = e && e.target;
+        if (t === document || t === document.documentElement || t === document.body) {
+          onScroll();
+        }
+      }
       window.addEventListener('scroll', onScroll, { passive: true });
-      return function () { window.removeEventListener('scroll', onScroll); };
+      if (typeof document !== 'undefined') {
+        document.addEventListener('scroll', onDocScrollCapture, { capture: true, passive: true });
+      }
+      return function () {
+        window.removeEventListener('scroll', onScroll);
+        if (typeof document !== 'undefined') {
+          document.removeEventListener('scroll', onDocScrollCapture, { capture: true });
+        }
+      };
     }, []);
 
     // Expand pill cleanly when switching tabs
     useEffect(function () {
+      lastScrollYRef.current = 0;
       setIsCompact(false);
     }, [activeTab]);
 

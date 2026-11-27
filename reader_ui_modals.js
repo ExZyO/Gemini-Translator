@@ -1767,47 +1767,47 @@
     const { showGestureGuideModal, setShowGestureGuideModal } = props;
     if (!showGestureGuideModal) return null;
     return h('div', {
-        style: { position: 'fixed', inset: 0, zIndex: 10004, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+        style: { position: 'fixed', inset: 0, zIndex: 10045, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
         onClick: () => setShowGestureGuideModal(false)
       },
         h('div', {
-          style: { width: '100%', maxWidth: 360, background: 'rgba(28, 28, 34, 0.96)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 16, padding: '24px 20px', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', textAlign: 'center' },
+          style: { width: '100%', maxWidth: 360, background: 'var(--p-surface, #1A1D24)', borderRadius: 20, padding: '24px 20px', boxShadow: '0 20px 50px rgba(0,0,0,0.75)', textAlign: 'center' },
           onClick: (e) => e.stopPropagation()
         },
           h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px 16px', marginBottom: 20 } },
             // 1. Speak (1 finger vertical swipe)
             h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
-              ic('ArrowUpDown', 28, 'text-indigo-400'),
-              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Speak'),
-              h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, '1 finger vertical swipe')
+              h('span', { style: { color: 'var(--p-accent, #F5F5F5)' } }, ic('ArrowUpDown', 28)),
+              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--p-ink)' } }, 'Speak'),
+              h('div', { style: { fontSize: 11, color: 'var(--p-muted)' } }, '1 finger vertical swipe')
             ),
 
             // 2. Speed (2 fingers vertical swipe)
             h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
-              ic('Sliders', 28, 'text-indigo-400'),
-              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Speed'),
-              h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, '2 fingers vertical swipe')
+              h('span', { style: { color: 'var(--p-accent, #F5F5F5)' } }, ic('Sliders', 28)),
+              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--p-ink)' } }, 'Speed'),
+              h('div', { style: { fontSize: 11, color: 'var(--p-muted)' } }, '2 fingers vertical swipe')
             ),
 
             // 3. Pause / Resume (Single tap)
             h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
-              ic('Play', 28, 'text-indigo-400'),
-              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Pause/Resume'),
-              h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, 'Single tap')
+              h('span', { style: { color: 'var(--p-accent, #F5F5F5)' } }, ic('Play', 28)),
+              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--p-ink)' } }, 'Pause/Resume'),
+              h('div', { style: { fontSize: 11, color: 'var(--p-muted)' } }, 'Single tap')
             ),
 
             // 4. Stop (Horizontal swipe)
             h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 } },
-              ic('ArrowRightLeft', 28, 'text-indigo-400'),
-              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--r-text)' } }, 'Stop'),
-              h('div', { style: { fontSize: 11, color: 'var(--r-muted)' } }, 'Horizontal swipe')
+              h('span', { style: { color: 'var(--p-accent, #F5F5F5)' } }, ic('ArrowRightLeft', 28)),
+              h('div', { style: { fontSize: 12.5, fontWeight: 700, color: 'var(--p-ink)' } }, 'Stop'),
+              h('div', { style: { fontSize: 11, color: 'var(--p-muted)' } }, 'Horizontal swipe')
             )
           ),
 
           h('button', {
             type: 'button',
-            className: 'mini-btn',
-            style: { width: '100%', padding: '10px 0', background: 'var(--r-accent)', color: '#fff', fontWeight: 700, borderRadius: 8 },
+            className: 'p-cta-btn',
+            style: { width: '100%' },
             onClick: () => setShowGestureGuideModal(false)
           }, 'Got It')
         )
@@ -1859,9 +1859,9 @@
       ? 'Healing Prose'
       : (isTranslatingTitles ? 'Batch Titles' : 'Translating');
 
-    const accentColor = isHealing ? '#c084fc' : (isTranslatingTitles ? '#38bdf8' : '#818cf8');
-    const accentBorder = isHealing ? 'rgba(168, 85, 247, 0.45)' : (isTranslatingTitles ? 'rgba(56, 189, 248, 0.45)' : 'rgba(99, 102, 241, 0.45)');
-    const glowShadow = isHealing ? 'rgba(168, 85, 247, 0.25)' : (isTranslatingTitles ? 'rgba(56, 189, 248, 0.25)' : 'rgba(99, 102, 241, 0.25)');
+    const accentColor = isHealing ? '#c084fc' : (isTranslatingTitles ? '#38bdf8' : 'var(--p-accent, #F5F5F5)');
+    const accentBorder = isHealing ? 'rgba(168, 85, 247, 0.45)' : (isTranslatingTitles ? 'rgba(56, 189, 248, 0.45)' : 'var(--p-hairline)');
+    const glowShadow = isHealing ? 'rgba(168, 85, 247, 0.25)' : (isTranslatingTitles ? 'rgba(56, 189, 248, 0.25)' : 'rgba(0, 0, 0, 0.35)');
 
     // Minimized / Hidden State: Sleek non-intrusive floating chip at the edge
     if (isHidden) {
@@ -1870,7 +1870,7 @@
         title: `${modeLabel} in progress (${Math.round(pct)}%) · Tap to unhide progress bar`,
         style: {
           position: 'fixed', top: hudVisible ? 'calc(58px + env(safe-area-inset-top, 0px))' : 'calc(14px + env(safe-area-inset-top, 0px))',
-          right: '16px', zIndex: 60, background: 'rgba(15, 23, 42, 0.94)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+          right: '16px', zIndex: 60, background: 'var(--p-surface, #1A1D24)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
           border: `1px solid ${accentBorder}`, boxShadow: `0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px ${glowShadow}`,
           borderRadius: 9999, padding: '5px 11px', display: 'flex', alignItems: 'center', gap: 6, color: '#f8fafc',
           fontSize: 11.5, fontWeight: 700, cursor: 'pointer', userSelect: 'none', transition: 'top 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease'
@@ -1887,7 +1887,7 @@
       className: 'reader-dynamic-progress-pill',
       style: {
         position: 'fixed', top: hudVisible ? 'calc(58px + env(safe-area-inset-top, 0px))' : 'calc(12px + env(safe-area-inset-top, 0px))',
-        left: '50%', transform: 'translateX(-50%)', zIndex: 60, background: 'rgba(15, 23, 42, 0.94)',
+        left: '50%', transform: 'translateX(-50%)', zIndex: 60, background: 'var(--p-surface, #1A1D24)',
         backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: `1px solid ${accentBorder}`,
         boxShadow: `0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 16px ${glowShadow}`, borderRadius: 9999,
         padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 10, color: '#f8fafc', fontSize: 12.5,
@@ -1898,7 +1898,7 @@
     },
       // Left: Animated pulsing icon
       h('div', {
-        style: { width: 24, height: 24, borderRadius: '50%', background: `rgba(${isHealing ? '168, 85, 247' : (isTranslatingTitles ? '56, 189, 248' : '99, 102, 241')}, 0.2)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: accentColor, flexShrink: 0 }
+        style: { width: 24, height: 24, borderRadius: '50%', background: 'var(--p-accent-soft, rgba(255,255,255,0.12))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: accentColor, flexShrink: 0 }
       }, ic('Sparkles', 13, 'animate-pulse')),
 
       // Center Info
@@ -1915,7 +1915,7 @@
         h('div', {
           style: {
             width: `${Math.min(100, Math.max(0, pct))}%`, height: '100%',
-            background: isHealing ? 'linear-gradient(90deg, #a855f7, #ec4899)' : (isTranslatingTitles ? 'linear-gradient(90deg, #38bdf8, #6366f1)' : 'linear-gradient(90deg, #6366f1, #a855f7)'),
+            background: isHealing ? 'linear-gradient(90deg, #a855f7, #ec4899)' : (isTranslatingTitles ? '#38bdf8' : 'var(--p-accent, #F5F5F5)'),
             transition: 'width 0.3s ease'
           }
         })

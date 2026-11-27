@@ -26,67 +26,53 @@
     const isConnected = Boolean(auth && auth.cookieString);
 
     return h('div', {
-      className: 'gloss-overlay',
-      style: { zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+      className: 'omni-sheet-backdrop',
+      style: { position: 'fixed', inset: 0, zIndex: 10045 },
       onClick: (e) => { if (e.target === e.currentTarget) onClose(); }
     },
       h('div', {
-        className: 'gloss-box',
+        className: 'omni-sheet',
         style: {
-          maxWidth: 520,
-          width: '94vw',
-          maxHeight: '85vh',
+          padding: '10px 0 calc(20px + env(safe-area-inset-bottom, 0px))',
           display: 'flex',
-          flexDirection: 'column',
-          borderRadius: 14,
-          background: 'var(--surface-modal, #11131a)',
-          border: '1px solid var(--border)',
-          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
-          overflow: 'hidden'
-        }
+          flexDirection: 'column'
+        },
+        onClick: (e) => e.stopPropagation()
       },
+        h('div', { className: 'p-sheet-handle' }),
         // Header
         h('div', {
-          className: 'gloss-head',
-          style: {
-            padding: '14px 18px',
-            borderBottom: '1px solid var(--hairline)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: 'rgba(255, 255, 255, 0.02)'
-          }
+          className: 'p-topbar',
+          style: { position: 'static', background: 'transparent', padding: '4px 16px 12px', minHeight: 44 }
         },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
             ic('Shield', 18),
-            h('span', { style: { fontWeight: 700, fontSize: 15, color: 'var(--paper)' } }, 'Lofter Account Session Vault')
+            h('span', { style: { fontWeight: 700, fontSize: 16, color: 'var(--p-ink)' } }, 'Lofter Session Vault')
           ),
           h('button', {
             type: 'button',
-            className: 'icon-btn',
-            style: { cursor: 'pointer', padding: '4px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center' },
+            className: 'p-icon-btn',
             onClick: onClose,
             title: 'Close'
-          }, ic('X', 14))
+          }, ic('X', 17))
         ),
 
         // Body
         h('div', {
           style: {
-            padding: '18px',
+            padding: '14px 16px',
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
             gap: 14
           }
         },
-          // Status card
+          // Status strip
           h('div', {
             style: {
               padding: '12px 14px',
-              borderRadius: 10,
-              border: isConnected ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--hairline)',
-              background: isConnected ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+              borderRadius: 14,
+              background: isConnected ? 'rgba(34, 197, 94, 0.12)' : 'var(--p-input, #171A21)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between'
@@ -98,50 +84,40 @@
                   width: 8,
                   height: 8,
                   borderRadius: '50%',
-                  background: isConnected ? '#10b981' : '#64748b'
+                  background: isConnected ? '#22c55e' : 'var(--p-dim)'
                 }
               }),
               h('div', null,
-                h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--paper)' } },
+                h('div', { style: { fontSize: 13.5, fontWeight: 650, color: 'var(--p-ink)' } },
                   isConnected ? 'Active Account Session' : 'No Session Connected'
                 ),
-                h('div', { style: { fontSize: 11, color: 'var(--text-muted, #94a3b8)' } },
+                h('div', { style: { fontSize: 11.5, color: 'var(--p-muted)' } },
                   isConnected
-                    ? `Saved in GeminiNovelDB (${auth.updatedAt ? new Date(auth.updatedAt).toLocaleDateString() : 'Active'})`
+                    ? `Saved offline (${auth.updatedAt ? new Date(auth.updatedAt).toLocaleDateString() : 'Active'})`
                     : 'Public access only. Member-locked chapters will be restricted.'
                 )
               )
             ),
             isConnected && h('button', {
               type: 'button',
-              className: 'mini-btn ghost',
-              style: { color: '#f87171', fontSize: 11, padding: '4px 8px' },
+              className: 'p-pill-btn is-danger',
+              style: { height: 28, fontSize: 11.5, padding: '0 10px' },
               onClick: onDisconnect
             }, 'Disconnect')
           ),
 
           // Explanation
-          h('div', { style: { fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted, #94a3b8)' } },
-            'Provides your Lofter login credentials to authenticate chapter and illustration downloads, unlocking author member posts and bypassing anti-bot checks.'
+          h('div', { style: { fontSize: 12.5, lineHeight: 1.5, color: 'var(--p-muted)' } },
+            'Provides your Lofter login credentials to authenticate chapter and illustration downloads.'
           ),
 
           // Primary login button
           h('button', {
             type: 'button',
             disabled: isConnecting,
+            className: 'p-cta-btn',
             style: {
               width: '100%',
-              padding: '10px 16px',
-              borderRadius: 8,
-              background: 'var(--accent, #6366f1)',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: 13,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              cursor: isConnecting ? 'default' : 'pointer',
               opacity: isConnecting ? 0.7 : 1
             },
             onClick: onInAppLogin
@@ -152,11 +128,11 @@
 
           // Manual cookie toggle
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4 } },
-            h('span', { style: { fontSize: 11, color: 'var(--text-muted, #94a3b8)' } }, 'Advanced: manual cookie input'),
+            h('span', { style: { fontSize: 12, color: 'var(--p-muted)' } }, 'Advanced: manual cookie input'),
             h('button', {
               type: 'button',
-              className: 'mini-btn ghost',
-              style: { fontSize: 11, padding: '2px 6px', color: 'var(--accent, #6366f1)' },
+              className: 'p-pill-btn',
+              style: { height: 30, fontSize: 11.5, color: 'var(--p-accent)' },
               onClick: () => setShowManual(!showManual)
             }, showManual ? 'Hide' : 'Paste Cookie')
           ),
@@ -164,17 +140,11 @@
           // Manual cookie input box
           showManual && h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
             h('textarea', {
+              className: 'p-textarea',
               style: {
-                width: '100%',
-                padding: '8px 10px',
-                fontSize: 11,
-                fontFamily: 'monospace',
-                borderRadius: 8,
-                background: 'rgba(0, 0, 0, 0.3)',
-                border: '1px solid var(--border)',
-                color: 'var(--paper)',
-                resize: 'vertical',
-                minHeight: 60
+                fontSize: 11.5,
+                fontFamily: "'IBM Plex Mono', monospace",
+                minHeight: 72
               },
               placeholder: 'Paste raw Cookie header (e.g. NTES_PASSPORT=...; NTES_SESS=...)',
               value: manualVal,
@@ -183,10 +153,9 @@
             h('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
               h('button', {
                 type: 'button',
-                className: 'mini-btn primary',
-                style: { padding: '6px 14px', fontSize: 12 },
+                className: 'p-pill-btn is-primary',
                 onClick: () => onSaveManualCookie(manualVal)
-              }, 'Save Cookie to Vault')
+              }, 'Save Cookie')
             )
           ),
 
@@ -194,35 +163,16 @@
           h('div', {
             style: {
               padding: '10px 12px',
-              borderRadius: 8,
-              background: 'rgba(255, 255, 255, 0.02)',
-              fontSize: 11,
-              lineHeight: 1.4,
-              color: 'var(--text-muted, #94a3b8)'
+              borderRadius: 12,
+              background: 'var(--p-input, #171A21)',
+              fontSize: 11.5,
+              lineHeight: 1.45,
+              color: 'var(--p-muted)'
             }
           },
-            h('strong', { style: { color: 'var(--paper)' } }, 'Privacy Guarantee: '),
-            'Your session credentials never leave this device. They are stored securely in IndexedDB and sent strictly to NetEase servers when requesting chapters.'
+            h('strong', { style: { color: 'var(--p-ink)' } }, 'Privacy Guarantee: '),
+            'Your session credentials stay on this device and are sent only when fetching Lofter chapters.'
           )
-        ),
-
-        // Footer
-        h('div', {
-          className: 'gloss-foot',
-          style: {
-            padding: '12px 18px',
-            borderTop: '1px solid var(--hairline)',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            background: 'rgba(255, 255, 255, 0.02)'
-          }
-        },
-          h('button', {
-            type: 'button',
-            className: 'mini-btn primary',
-            style: { padding: '6px 16px', borderRadius: 8 },
-            onClick: onClose
-          }, 'Done')
         )
       )
     );

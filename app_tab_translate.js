@@ -273,8 +273,9 @@
         marginTop: 8,
         padding: '6px 8px',
         background: 'var(--omni-surface)',
-        border: '1px solid var(--omni-border)',
-        borderRadius: 6
+        border: 'none',
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+        borderRadius: 10
       }
     },
       h('button', {
@@ -314,8 +315,9 @@
         marginTop: 8,
         padding: '6px 10px',
         background: 'var(--omni-surface)',
-        border: '1px solid var(--omni-border)',
-        borderRadius: 6
+        border: 'none',
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+        borderRadius: 10
       }
     },
       h('span', { style: { fontSize: 11.5, color: 'var(--omni-text-sub)' } },
@@ -497,12 +499,12 @@
       })(),
 
       // 5. Collapsible Glossary & Prompt Rules Drawer (Elevated Hairline Layout)
-      glossaryCardOpen && h('div', { style: { padding: '12px 0', borderBottom: '1px solid var(--omni-hairline)' } },
-        h('div', { className: 'omni-section-label-row', style: { marginTop: 0 } },
+      glossaryCardOpen && h('div', { style: { padding: '12px 16px', borderBottom: '1px solid var(--omni-hairline)' } },
+        h('div', { className: 'omni-section-label-row', style: { marginTop: 0, paddingLeft: 0, paddingRight: 0 } },
           h('span', { className: 'omni-section-label' }, `Glossary & Profiles (${glossaryTermCount} terms)`),
           h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '3px 9px', fontSize: 11 }, onClick: () => setGlossaryCardOpen(false) }, 'Done')
         ),
-        h('div', { className: 'omni-soft-tabs', style: { paddingBottom: 8 } },
+        h('div', { className: 'omni-soft-tabs', style: { paddingLeft: 0, paddingRight: 0, paddingBottom: 8 } },
           ['ri', 'lotm', 'cote', 'xianxia'].map(p => h('button', {
             key: p,
             type: 'button',
@@ -523,7 +525,7 @@
         ),
         h('div', { style: { display: 'flex', gap: 8, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' } },
           activeGlossaryId && h('button', { type: 'button', className: 'omni-flat-cta', style: { flex: 'none', height: 34, padding: '0 12px', fontSize: 12 }, disabled, onClick: () => handleSaveGlossary(activeGlossaryId) }, `Update "${activeGlossaryId}"`),
-          h('div', { className: 'omni-search-bar', style: { flex: 1, minWidth: 140, height: 36, marginBottom: 0 } },
+          h('div', { className: 'omni-search-bar', style: { flex: 1, minWidth: 140, height: 36, margin: 0 } },
             h('input', { type: 'text', value: newGlossaryName, disabled, onChange: e => setNewGlossaryName(e.target.value), placeholder: 'Save terms as profile...' })
           ),
           h('button', { type: 'button', className: 'omni-soft-tab active', disabled, onClick: () => handleSaveGlossary(newGlossaryName) }, 'Save'),
@@ -556,7 +558,7 @@
             disabled,
             onChange: e => { setCustomInstructions(e.target.value); localStorage.setItem('customInstructions', e.target.value); },
             placeholder: 'e.g. "Formal literary prose", "Keep honorifics"...',
-            style: { width: '100%', height: 64, background: 'var(--omni-input)', border: '1px solid var(--omni-border)', borderRadius: 6, padding: 8, color: 'var(--omni-text)', fontSize: 12.5, outline: 'none' }
+            style: { width: '100%', height: 64, background: 'var(--omni-input)', border: 'none', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)', borderRadius: 12, padding: 10, color: 'var(--omni-text)', fontSize: 12.5, outline: 'none' }
           })
         )
       ),
@@ -575,8 +577,8 @@
       ),
 
       // PANE 1: Bounded Lifted Prose Source Canvas
-      activePaneTab === 'source' && h('div', { onDragOver, onDragLeave, onDrop, style: isDragOver ? { outline: '1px dashed var(--omni-accent)', outlineOffset: 4 } : null },
-        chapters && chapters.length > 0 && h('div', { className: 'omni-hairline-row' },
+      activePaneTab === 'source' && h('div', { onDragOver, onDragLeave, onDrop, style: { padding: '0 16px', ...(isDragOver ? { outline: '1px dashed var(--omni-accent)', outlineOffset: -4 } : {}) } },
+        chapters && chapters.length > 0 && h('div', { className: 'omni-hairline-row', style: { paddingLeft: 0, paddingRight: 0 } },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 } },
             currentDocCover && h('div', { className: 'omni-poster-frame', style: { width: 34, height: 51 } }, h('img', { src: currentDocCover, alt: 'Cover' })),
             h('div', { style: { flex: 1, minWidth: 0 } },
@@ -645,8 +647,8 @@
       ),
 
       // PANE 2: Bounded Lifted Translated Canvas
-      activePaneTab === 'translated' && h('div', null,
-        hasCompletedTranslation && h('div', { className: 'omni-hairline-row', style: { flexWrap: 'wrap' } },
+      activePaneTab === 'translated' && h('div', { style: { padding: '0 16px' } },
+        hasCompletedTranslation && h('div', { className: 'omni-hairline-row', style: { flexWrap: 'wrap', paddingLeft: 0, paddingRight: 0 } },
           h('div', { style: { flex: 1, minWidth: 180 } },
             h('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--omni-jade)' } }, 'Translation Complete & Saved'),
             h('div', { style: { fontSize: 11.5, color: 'var(--omni-text-sub)' } }, `${translatedChapters.filter(c => c && (c.content || c.text)).length} chapters ready`)
@@ -718,7 +720,7 @@
       ),
 
       // PANE 3: Live Stream, Progress, Token Telemetry & Logs
-      activePaneTab === 'stream' && h('div', { style: { paddingTop: 12 } },
+      activePaneTab === 'stream' && h('div', { style: { padding: '12px 16px 0' } },
         isTranslating ? h('div', { style: { paddingBottom: 14, borderBottom: '1px solid var(--omni-hairline)' } },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
             h('span', { style: { fontSize: 13.5, fontWeight: 700, color: 'var(--omni-accent)' } }, progressLabel || 'Translating...'),
@@ -734,7 +736,7 @@
         ) : null,
 
         lastUsageStats && h('div', { style: { paddingBottom: 12, borderBottom: '1px solid var(--omni-hairline)' } },
-          h('div', { className: 'omni-section-label-row' },
+          h('div', { className: 'omni-section-label-row', style: { paddingLeft: 0, paddingRight: 0 } },
             h('span', { className: 'omni-section-label' }, 'Last Translation Summary'),
             h('div', { style: { display: 'flex', gap: 6 } },
               h('button', { type: 'button', className: 'omni-soft-tab active', style: { fontSize: 11, padding: '3px 9px' }, onClick: copyDiagnosticsReport }, 'Copy Report'),
@@ -746,7 +748,7 @@
           h('div', { className: 'omni-hairline-row', style: { minHeight: 40, padding: '6px 0', borderBottom: 'none' } }, h('span', { style: { fontSize: 12.5, color: 'var(--omni-text-sub)' } }, 'Cost & Duration'), h('span', { style: { fontSize: 12.5, fontWeight: 650, color: 'var(--omni-text)' } }, `${lastUsageStats.cost || '$0.0000'} · ${lastUsageStats.duration || ''}`))
         ),
 
-        h('div', { className: 'omni-section-label-row' },
+        h('div', { className: 'omni-section-label-row', style: { paddingLeft: 0, paddingRight: 0 } },
           h('span', { className: 'omni-section-label' }, `Live Stream & API Logs (${liveLogs.length})`),
           h('div', { style: { display: 'flex', gap: 6 } },
             h('button', { type: 'button', className: 'omni-soft-tab', style: { fontSize: 11, padding: '3px 9px' }, onClick: copyLogsWithReport }, 'Copy'),
@@ -762,10 +764,11 @@
             maxHeight: 200,
             overflowY: 'auto',
             whiteSpace: 'pre-wrap',
-            padding: '10px 12px',
-            background: '#16181F',
-            border: '1px solid var(--omni-border)',
-            borderRadius: 6,
+            padding: '12px 14px',
+            background: 'var(--p-surface)',
+            border: 'none',
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)',
+            borderRadius: 12,
             marginBottom: 8
           }
         }, assembledText.slice(-2600)),

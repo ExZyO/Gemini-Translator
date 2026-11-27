@@ -136,19 +136,18 @@
               width: 32,
               height: 32,
               minWidth: 32,
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+              borderRadius: 999,
+              background: 'var(--p-accent, #F5F5F5)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 16,
-              boxShadow: '0 3px 8px rgba(99, 102, 241, 0.4)',
-              color: '#fff'
+              color: 'var(--p-accent-ink, #000000)'
             }
           }, ic('Package', 16)),
           h('div', { style: { minWidth: 0, flex: 1 } },
-            h('div', { style: { fontWeight: 700, fontSize: 13.5, color: '#f8fafc', lineHeight: 1.2 } }, 'Packaging EPUB…'),
-            h('div', { style: { fontSize: 11, color: '#94a3b8', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, epubPackagingModal.title || 'Novel Archive')
+            h('div', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--p-ink, #F5F6F8)', lineHeight: 1.2 } }, 'Packaging EPUB…'),
+            h('div', { style: { fontSize: 11, color: 'var(--p-muted, #AEB4C2)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, epubPackagingModal.title || 'Novel Archive')
           )
         ),
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
@@ -156,24 +155,19 @@
             style: {
               fontWeight: 800,
               fontSize: 14,
-              color: '#818cf8',
+              color: 'var(--p-accent, #F5F5F5)',
               fontFamily: "'IBM Plex Mono', monospace"
             }
           }, `${Math.min(100, Math.max(0, epubPackagingModal.pct || 0))}%`),
           h('button', {
             type: 'button',
+            className: 'p-icon-btn',
             style: {
-              background: 'var(--omni-control, #23262F)',
-              border: '1px solid var(--omni-border, #363A48)',
-              color: 'var(--omni-text-sub, #AEB4C2)',
-              borderRadius: 6,
-              width: 26,
-              height: 26,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 12,
-              cursor: 'pointer',
+              minWidth: 28,
+              minHeight: 28,
+              width: 28,
+              height: 28,
+              color: 'var(--p-muted, #AEB4C2)',
               padding: 0
             },
             onClick: () => setEpubPackagingModal(null),
@@ -187,8 +181,8 @@
       h('div', {
         style: {
           width: '100%',
-          height: 6,
-          borderRadius: 4,
+          height: 5,
+          borderRadius: 999,
           background: 'rgba(255, 255, 255, 0.1)',
           overflow: 'hidden',
           margin: '8px 0 10px',
@@ -199,8 +193,8 @@
           style: {
             height: '100%',
             width: `${Math.min(100, Math.max(0, epubPackagingModal.pct || 0))}%`,
-            background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #10b981 100%)',
-            borderRadius: 4,
+            background: 'var(--p-accent, #F5F5F5)',
+            borderRadius: 999,
             transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
           }
         })

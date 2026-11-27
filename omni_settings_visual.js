@@ -176,15 +176,15 @@
       );
     };
 
-    return h('div', { className: 'omni-visual-settings', style: { paddingBottom: 32 } },
+    return h('div', { className: 'omni-visual-settings', style: { padding: '0 16px 32px' } },
       // ── Sticky Top Back Header + Pinned Live Preview Card ──
       h('div', {
         style: {
           position: 'sticky',
           top: 0,
           zIndex: 14,
-          background: 'var(--omni-canvas, #0F1014)',
-          borderBottom: '1px solid var(--omni-hairline, #262A36)',
+          background: 'var(--p-canvas, var(--omni-canvas, #111318))',
+          borderBottom: '1px solid var(--p-hairline, rgba(255,255,255,0.065))',
           paddingTop: 4,
           paddingBottom: 12
         }
@@ -208,7 +208,7 @@
             }, ic('ArrowLeft', 18)),
             h('div', { style: { minWidth: 0 } },
               h('div', { style: { fontSize: 16, fontWeight: 750, color: 'var(--omni-text)', letterSpacing: '-0.015em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, 'Visual Presentation & Colors'),
-              h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)' } }, 'Elevated Dark surfaces, accent polarity & screen layouts')
+              h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub)' } }, 'Charcoal & AMOLED surfaces, accent polarity & screen layouts')
             )
           ),
           h('button', {
@@ -219,18 +219,11 @@
                 toggleAmoledCanvas(false);
               }
             },
+            className: 'p-pill-btn',
             style: {
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '6px 11px',
-              borderRadius: 6,
-              background: 'var(--omni-control, #23262F)',
-              border: '1px solid var(--omni-border, #363A48)',
-              color: 'var(--omni-text, #F5F6F8)',
+              height: 30,
+              padding: '0 11px',
               fontSize: 11.5,
-              fontWeight: 600,
-              cursor: 'pointer',
               flexShrink: 0
             }
           }, ic('RotateCcw', 12), 'Reset')
@@ -240,10 +233,11 @@
         h('div', {
           style: {
             position: 'relative',
-            borderRadius: 8,
+            borderRadius: 14,
             overflow: 'hidden',
-            background: isAmoledOn ? '#000000' : 'var(--omni-surface, #181A20)',
-            border: '1px solid var(--omni-border, #363A48)',
+            background: isAmoledOn ? '#000000' : 'var(--p-surface, #1A1D24)',
+            border: 'none',
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
             minHeight: 108
           }
         },
@@ -382,13 +376,14 @@
         )
       ),
 
-      // ── 0. Screen Canvas Surface Toggle (Elevated Dark vs Pitch Black) ──
-      hairlineSectionHeader('Page Canvas Background', isAmoledOn ? 'Pitch Black #000000' : 'Elevated #0F1014'),
+      // ── 0. Screen Canvas Surface Toggle (Charcoal Dark vs Pitch Black) ──
+      hairlineSectionHeader('Page Canvas Background', isAmoledOn ? 'Pitch Black #000000' : 'Charcoal #111318'),
       h('div', {
         style: {
-          background: 'var(--omni-surface, #181A20)',
-          border: '1px solid var(--omni-border, #363A48)',
-          borderRadius: 8,
+          background: 'var(--p-surface, #1A1D24)',
+          border: 'none',
+          boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+          borderRadius: 14,
           padding: '12px 14px',
           display: 'flex',
           alignItems: 'center',
@@ -400,7 +395,7 @@
       },
         h('div', { style: { minWidth: 0, flex: 1 } },
           h('div', { style: { fontSize: 13.5, fontWeight: 650, color: 'var(--omni-text, #F5F6F8)' } }, 'AMOLED Pitch-Black Page Canvas (#000000)'),
-          h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub, #AEB4C2)', marginTop: 2, lineHeight: 1.35 } }, 'Turn ON for pure black page background while keeping sheets (#14161C) and buttons (#23262F) separated.')
+          h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub, #AEB4C2)', marginTop: 2, lineHeight: 1.35 } }, 'Turn ON for pure black page background while keeping sheets and controls elevated.')
         ),
         h('button', {
           type: 'button',
@@ -432,9 +427,10 @@
             alignItems: 'flex-start',
             gap: 6,
             padding: '9px 10px',
-            borderRadius: 8,
-            background: isSelected ? 'var(--omni-control-hover, #2A2E39)' : 'var(--omni-surface, #181A20)',
-            border: isSelected ? ('1.5px solid ' + swatchPrimary) : '1px solid var(--omni-border, #363A48)',
+            borderRadius: 12,
+            background: isSelected ? 'var(--p-accent-soft, rgba(255,255,255,0.09))' : 'var(--p-surface, #1A1D24)',
+            border: 'none',
+            boxShadow: isSelected ? ('inset 0 0 0 2px ' + swatchPrimary) : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
             cursor: 'pointer',
             textAlign: 'left'
           }
@@ -711,10 +707,10 @@
                 onClick: function () { setPref('heroBlur', opt.val); },
                 style: {
                   padding: '7px 6px',
-                  borderRadius: 6,
-                  background: activeBlur ? activePalette.accent : 'var(--omni-control, #23262F)',
-                  color: activeBlur ? activePalette.onAccent : 'var(--omni-text, #F5F6F8)',
-                  border: activeBlur ? ('1px solid ' + activePalette.accent) : '1px solid var(--omni-border, #363A48)',
+                  borderRadius: 999,
+                  background: activeBlur ? activePalette.accent : 'var(--p-control, #262A35)',
+                  color: activeBlur ? activePalette.onAccent : 'var(--p-ink, #F5F6F8)',
+                  border: 'none',
                   fontSize: 11.5,
                   fontWeight: activeBlur ? 750 : 600,
                   cursor: 'pointer'

@@ -529,9 +529,11 @@
 
             const row = document.createElement('div');
             row.dataset.idx = idx;
-            row.className = `stu-toc-row py-3 px-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors ${
-                ch.level === 2 ? 'pl-6 sm:pl-10 bg-indigo-500/[0.02]' : ''
+            row.className = `stu-toc-row py-3 px-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors ${
+                ch.level === 2 ? 'pl-6 sm:pl-10' : ''
             }`;
+            row.style.borderBottom = '1px solid var(--p-hairline, rgba(255,255,255,0.05))';
+            if (ch.level === 2) row.style.background = 'var(--p-accent-soft, rgba(199,184,234,0.06))';
 
             // Left / Top: Index badge & Title input
             const rowLeft = document.createElement('div');
@@ -539,14 +541,16 @@
 
             const num = document.createElement('span');
             num.className = 'toc-idx-badge text-xs font-mono font-bold shrink-0 px-2.5 py-1 rounded-full select-none';
-            num.style.color = ch.level === 2 ? '#818cf8' : '#94a3b8';
-            num.style.background = 'rgba(255,255,255,0.06)';
+            num.style.color = ch.level === 2 ? 'var(--p-accent, #c7b8ea)' : 'var(--slate, #94a3b8)';
+            num.style.background = 'var(--p-surface, rgba(255,255,255,0.06))';
             num.textContent = ch.level === 2 ? `↳ #${idx + 1}` : `#${idx + 1}`;
             rowLeft.appendChild(num);
 
             const input = document.createElement('input');
             input.type = 'text';
-            input.className = 'toc-title-input bg-white/[0.03] border border-white/[0.06] hover:border-white/20 focus:border-sky-400 focus:bg-white/[0.06] text-sm font-semibold text-white focus:outline-none flex-1 min-w-0 px-3 py-1.5 rounded-lg transition-all';
+            input.className = 'toc-title-input text-sm font-semibold text-white focus:outline-none flex-1 min-w-0 px-3 py-1.5 rounded-lg transition-all';
+            input.style.background = 'var(--p-input, #171a22)';
+            input.style.border = 'none';
             input.dataset.idx = idx;
             input.value = ch.title;
             input.placeholder = `Chapter ${idx + 1} Title`;
@@ -576,7 +580,7 @@
                     lvlBtn.disabled = true;
                 } else {
                     lvlBtn.innerHTML = '<span>↳ Sub</span>';
-                    lvlBtn.style.color = '#818cf8';
+                    lvlBtn.style.color = 'var(--p-accent, #c7b8ea)';
                     lvlBtn.title = `Nest as Sub-Chapter under Chapter #${idx}`;
                 }
             }
@@ -897,11 +901,13 @@
         tabBtns.forEach(btn => {
             btn.onclick = () => {
                 tabBtns.forEach(b => {
-                    b.classList.remove('active', 'bg-indigo-600', 'text-white');
-                    b.classList.add('text-slate-400');
+                    b.classList.remove('active');
+                    b.style.background = 'transparent';
+                    b.style.color = 'var(--slate)';
                 });
-                btn.classList.add('active', 'bg-indigo-600', 'text-white');
-                btn.classList.remove('text-slate-400');
+                btn.classList.add('active');
+                btn.style.background = 'var(--p-accent, #c7b8ea)';
+                btn.style.color = 'var(--p-accent-ink, #12101a)';
                 activeGalleryFilter = btn.dataset.filter || 'all';
                 renderGalleryGrid();
             };
@@ -917,7 +923,7 @@
             }
 
             if (filtered.length === 0) {
-                grid.innerHTML = `<div class="col-span-full text-center py-16 italic text-sm text-slate-400">
+                grid.innerHTML = `<div class="col-span-full text-center py-16 italic text-sm" style="color:var(--slate);">
                     No images found in this filter. Tap "Upload Image" to add illustrations to your book!
                 </div>`;
                 return;
@@ -926,20 +932,21 @@
             filtered.forEach((item, idx) => {
                 const isCover = state.coverUrl && (state.coverUrl === item.url);
                 const card = document.createElement('div');
-                card.className = 'flex flex-col rounded-2xl overflow-hidden bg-[#0c101a] border border-white/[0.06] hover:border-sky-500/50 transition-all shadow-xl group';
+                card.className = 'flex flex-col rounded-2xl overflow-hidden transition-all group';
+                card.style.background = 'var(--p-surface, #1b1e27)';
                 card.innerHTML = `
-                    <div class="relative flex items-center justify-center bg-[#07090e] cursor-pointer overflow-hidden p-2"
-                         style="aspect-ratio: 2/3; min-height: 200px;" title="Tap to inspect full screen">
+                    <div class="relative flex items-center justify-center cursor-pointer overflow-hidden p-2"
+                         style="aspect-ratio: 2/3; min-height: 200px; background: var(--p-input, #171a22);" title="Tap to inspect full screen">
                         <img src="${item.url}" class="w-full h-full object-contain rounded-xl transition-transform duration-200 group-hover:scale-105" alt="${escapeXml(item.name)}" />
-                        ${isCover ? '<span class="absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-black shadow-lg">CURRENT COVER</span>' : ''}
+                        ${isCover ? '<span class="absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-bold shadow-lg" style="background:var(--p-accent,#c7b8ea); color:var(--p-accent-ink,#12101a);">CURRENT COVER</span>' : ''}
                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span class="px-3 py-1.5 rounded-full bg-sky-500 text-white text-xs font-semibold shadow-lg">View Fullscreen</span>
+                            <span class="px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg" style="background:var(--p-accent,#c7b8ea); color:var(--p-accent-ink,#12101a);">View Fullscreen</span>
                         </div>
                     </div>
-                    <div class="p-3 flex flex-col gap-2 border-t border-white/[0.04] bg-[#0c101a]">
-                        <span class="text-xs font-semibold truncate text-slate-100" title="${escapeXml(item.name)}">${escapeXml(item.name)}</span>
+                    <div class="p-3 flex flex-col gap-2" style="background:var(--p-surface, #1b1e27); border-top: 1px solid var(--p-hairline, rgba(255,255,255,0.06));">
+                        <span class="text-xs font-semibold truncate" style="color:var(--paper);" title="${escapeXml(item.name)}">${escapeXml(item.name)}</span>
                         <div class="flex items-center gap-1.5 pt-0.5 flex-wrap">
-                            <button type="button" class="stu-chip-btn ghost shrink-0 text-[11px] set-cover-btn" style="color:#fbbf24; height:28px; padding:0 8px;" title="Set as Book Cover">Set Cover</button>
+                            <button type="button" class="stu-chip-btn ghost shrink-0 text-[11px] set-cover-btn" style="color:var(--p-accent,#c7b8ea); height:28px; padding:0 8px;" title="Set as Book Cover">Set Cover</button>
                             <button type="button" class="stu-chip-btn ghost shrink-0 text-[11px] view-btn" style="height:28px; padding:0 8px;" title="View Fullscreen">View</button>
                             <button type="button" class="stu-chip-btn ghost shrink-0 text-[11px] dl-btn" style="height:28px; padding:0 8px;" title="Download image file">Save</button>
                             <button type="button" class="stu-chip-btn danger shrink-0 text-[11px] del-btn" style="height:28px; padding:0 8px;" title="Remove from book">Delete</button>

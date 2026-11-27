@@ -56,15 +56,14 @@
 
     const isHealing = activeMode === 'heal';
     const isTitles = activeMode === 'titles';
-    const accentColor = isHealing ? '#c084fc' : (isTitles ? '#38bdf8' : '#818cf8');
-    const accentBorder = isHealing ? 'rgba(168, 85, 247, 0.4)' : (isTitles ? 'rgba(56, 189, 248, 0.4)' : 'rgba(99, 102, 241, 0.4)');
+    const accentColor = isHealing ? '#c084fc' : (isTitles ? '#38bdf8' : 'var(--p-accent, var(--r-accent, #F5F5F8))');
 
     return h('div', {
       style: {
         position: 'fixed',
         inset: 0,
-        zIndex: 10006,
-        background: 'rgba(0, 0, 0, 0.75)',
+        zIndex: 10045,
+        background: 'rgba(0, 0, 0, 0.72)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         display: 'flex',
@@ -78,29 +77,29 @@
         style: {
           width: '100%',
           maxWidth: 620,
-          maxHeight: '90vh',
-          background: 'var(--r-card, #181A20)',
-          border: '1px solid var(--r-border, #363A48)',
-          borderRadius: 12,
+          maxHeight: '90dvh',
+          background: 'var(--p-surface, #1A1D24)',
+          border: 'none',
+          borderRadius: 20,
           padding: '20px 22px',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.7)',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.72), inset 0 0 0 1px rgba(255,255,255,0.06)',
           display: 'flex',
           flexDirection: 'column',
           gap: 16,
-          color: '#f8fafc',
+          color: 'var(--p-ink, #F5F6F8)',
           overflow: 'hidden'
         },
         onClick: (e) => e.stopPropagation()
       },
         // Header Row
-        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 12 } },
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--p-hairline)', paddingBottom: 12 } },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
             h('div', {
               style: {
                 width: 32,
                 height: 32,
                 borderRadius: 8,
-                background: `rgba(${isHealing ? '168, 85, 247' : (isTitles ? '56, 189, 248' : '99, 102, 241')}, 0.2)`,
+                background: 'var(--p-accent-soft, rgba(255,255,255,0.12))',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -171,17 +170,16 @@
         h('div', {
           style: {
             padding: '8px 12px',
-            borderRadius: 8,
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 10,
+            background: 'var(--p-input, #171A21)',
             fontSize: 11.5,
-            color: '#cbd5e1',
+            color: 'var(--p-ink)',
             display: 'flex',
             alignItems: 'center',
             gap: 8
           }
         },
-          ic('Info', 13, 'shrink-0 text-indigo-400'),
+          h('span', { style: { color: accentColor, display: 'inline-flex', flexShrink: 0 } }, ic('Info', 13)),
           h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, statusMsg || 'Translating prose chunks…')
         ),
 

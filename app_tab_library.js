@@ -130,6 +130,7 @@
       ongoingEpubInputRef,
       handleRestoreFromEpubFiles,
       handleSelectOngoingEpubFile,
+      triggerOngoingEpubPicker: propTriggerOngoingEpubPicker,
       libTab = 'all',
       setLibTab,
       allCountLabel = 0,
@@ -643,20 +644,9 @@
       }
     };
 
-    const triggerOngoingEpubPicker = async () => {
-      if (window.NativeBridge && window.NativeBridge.pickEpubFile) {
-        try {
-          const res = await window.NativeBridge.pickEpubFile();
-          if (res && res.file) {
-            handleSelectOngoingEpubFile?.(res.file, { fileUri: res.fileUri, displayPath: res.displayPath });
-            return;
-          }
-        } catch (err) {
-          if (String(err).includes('canceled')) return;
-        }
-      }
-      ongoingEpubInputRef.current?.click();
-    };
+    const triggerOngoingEpubPicker = typeof propTriggerOngoingEpubPicker === 'function'
+      ? propTriggerOngoingEpubPicker
+      : () => ongoingEpubInputRef?.current?.click();
 
     const hasWebSources = webImportHistory.some(b => b.sourceUrl && b.sourceUrl.startsWith('http'));
     const useEditorialHero = omniPrefs.libraryLayout !== 'minimal' && !isSelectMode && libTab !== 'audio' && libTab !== 'trash' && !libQuery && heroItems.length > 0;
@@ -1022,27 +1012,7 @@
                 renderIconToolbar(false)
               )),
 
-      // Hidden file pickers for Restore & Ongoing EPUB
-      h('input', {
-        type: 'file',
-        ref: epubRestoreInputRef,
-        accept: '.epub,application/epub+zip,application/zip,application/octet-stream',
-        style: { display: 'none' },
-        onChange: handleRestoreFromEpubFiles
-      }),
-      h('input', {
-        type: 'file',
-        ref: ongoingEpubInputRef,
-        accept: '.epub',
-        style: { display: 'none' },
-        onChange: (e) => {
-          const f = e.target.files?.[0];
-          if (f) handleSelectOngoingEpubFile(f);
-          e.target.value = '';
-        }
-      }),
-
-      // 2. Quick "+" Import Drawer (Frameless Hairline Rows)
+      // 2. Quick "+" Import Drawer (Frameless Hairline Rows — hidden inputs live in AppTabsContainer)
       importMenuOpen && !isSelectMode && h('div', { style: { marginBottom: 10, borderTop: '0.6px solid var(--omni-hairline)' } },
         h('div', { className: 'omni-hairline-row', onClick: () => { setImportMenuOpen(false); epubRestoreInputRef.current?.click(); } },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },

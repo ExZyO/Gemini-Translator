@@ -42,7 +42,7 @@
                 </div>
                 <div class="w-full rounded-full h-2.5 overflow-hidden" style="background: rgba(255,255,255,0.06);">
                     <div id="edit-load-progress-bar" class="h-2.5 rounded-full transition-all duration-200 ease-out"
-                         style="width: 0%; background: linear-gradient(90deg, #38bdf8, #818cf8);"></div>
+                         style="width: 0%; background: var(--p-accent, #F5F5F5);"></div>
                 </div>
             </div>
         </div>
@@ -207,7 +207,7 @@
 
                         <!-- Group 4: Illustration Picker & History -->
                         <div class="stu-toolbar-btn-group">
-                            <button type="button" id="btn-edit-modal-insert-img" class="stu-tb-btn text-indigo-300 font-semibold" title="Insert Book Illustration or Upload New Image">Illustration</button>
+                            <button type="button" id="btn-edit-modal-insert-img" class="stu-tb-btn font-semibold" style="color: var(--p-accent, #F5F5F5);" title="Insert Book Illustration or Upload New Image">Illustration</button>
                             <button type="button" id="btn-edit-modal-undo" class="stu-tb-btn" title="Undo (Ctrl+Z)">Undo</button>
                             <button type="button" id="btn-edit-modal-redo" class="stu-tb-btn" title="Redo (Ctrl+Y)">Redo</button>
                         </div>
@@ -319,16 +319,16 @@
         </div>
 
         <!-- ═══ MODAL 2: BOOK-WIDE ILLUSTRATION GALLERY (FULLSCREEN) ═══ -->
-        <div id="edit-gallery-modal" class="hidden fixed inset-0 z-[9999]" style="position:fixed; inset:0; z-index:9999; background:#0a0d14 !important; display:none; flex-direction:column; width:100%; height:100%; overflow:hidden;">
+        <div id="edit-gallery-modal" class="hidden" style="position:fixed; inset:0; z-index:10045; background:var(--p-canvas, #111318) !important; display:none; flex-direction:column; width:100%; height:100%; overflow:hidden;">
             <!-- Header Bar -->
-            <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-800/80 bg-[#0c101a] shrink-0">
+            <div class="flex items-center justify-between px-4 sm:px-6 py-4 shrink-0" style="background:var(--p-canvas, #111318); border-bottom:1px solid var(--p-hairline, rgba(255,255,255,0.065)); padding-top:max(16px, env(safe-area-inset-top, 16px));">
                 <div class="flex items-center gap-3">
                     <div>
                         <div class="flex items-center gap-2.5">
-                            <h3 class="font-bold text-base sm:text-lg text-white">Book Illustration & Cover Gallery</h3>
-                            <span id="edit-gallery-total" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-sky-300 border border-slate-700/60 font-mono">0 images</span>
+                            <h3 class="font-bold text-base sm:text-lg" style="color:var(--p-ink, #F5F6F8);">Book Illustration & Cover Gallery</h3>
+                            <span id="edit-gallery-total" class="text-xs px-2.5 py-0.5 rounded-full font-mono" style="background:var(--p-surface, #1A1D24); color:var(--p-accent, #F5F5F5);">0 images</span>
                         </div>
-                        <p class="text-xs text-slate-400 mt-0.5">View covers, chapter art, set book cover, or inspect full-size</p>
+                        <p class="text-xs mt-0.5" style="color:var(--p-muted, #AEB4C2);">View covers, chapter art, set book cover, or inspect full-size</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2.5">
@@ -339,13 +339,13 @@
             </div>
 
             <!-- Filter Tabs & Controls -->
-            <div class="flex items-center justify-between px-4 sm:px-6 py-3 bg-[#0d121e] border-b border-slate-800/80 shrink-0 flex-wrap gap-2.5">
+            <div class="flex items-center justify-between px-4 sm:px-6 py-3 shrink-0 flex-wrap gap-2.5" style="background:var(--p-canvas, #111318); border-bottom:1px solid var(--p-hairline, rgba(255,255,255,0.065));">
                 <div class="flex items-center gap-2" id="gallery-filter-tabs">
-                    <button type="button" class="gallery-tab active px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-sky-500/20 text-sky-200 border border-sky-500/30" data-filter="all">All Images</button>
-                    <button type="button" class="gallery-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800" data-filter="covers">Covers</button>
-                    <button type="button" class="gallery-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800" data-filter="chapters">Chapter Art</button>
+                    <button type="button" class="gallery-tab active p-pill-btn is-primary" style="height:32px; min-height:32px; font-size:12px;" data-filter="all">All Images</button>
+                    <button type="button" class="gallery-tab p-pill-btn" style="height:32px; font-size:12px;" data-filter="covers">Covers</button>
+                    <button type="button" class="gallery-tab p-pill-btn" style="height:32px; font-size:12px;" data-filter="chapters">Chapter Art</button>
                 </div>
-                <span class="text-xs text-slate-500 hidden sm:inline">Tap any image to view in fullscreen lightbox</span>
+                <span class="text-xs hidden sm:inline" style="color:var(--p-dim, #7C8394);">Tap any image to view in fullscreen lightbox</span>
             </div>
 
             <!-- Fullscreen Gallery Grid (Portrait Aspect Ratio for Full Covers) -->
@@ -355,15 +355,15 @@
             </div>
 
             <!-- Footer Bar -->
-            <div class="px-4 sm:px-6 py-3.5 flex items-center justify-between border-t border-slate-800/80 bg-[#0c101a] shrink-0" style="padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));">
-                <span class="text-xs text-slate-400 font-mono">100% original illustrations & covers preserved</span>
+            <div class="px-4 sm:px-6 py-3.5 flex items-center justify-between shrink-0" style="background:var(--p-canvas, #111318); border-top:1px solid var(--p-hairline, rgba(255,255,255,0.065)); padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));">
+                <span class="text-xs font-mono" style="color:var(--p-muted, #AEB4C2);">100% original illustrations & covers preserved</span>
                 <button type="button" onclick="if(window.closeGalleryModal) window.closeGalleryModal(); else document.getElementById('edit-gallery-modal').style.display='none';" class="stu-btn-radiant-sky" style="padding:8px 24px;">Done</button>
             </div>
         </div>
 
         <!-- ═══ MODAL 2B: FULLSCREEN IMAGE LIGHTBOX ═══ -->
-        <div id="edit-gallery-lightbox" class="hidden fixed inset-0 z-[10000]"
-             style="position:fixed; inset:0; z-index:10000; background:#000000 !important; display:none; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; padding:14px;">
+        <div id="edit-gallery-lightbox" class="hidden"
+             style="position:fixed; inset:0; z-index:10055; background:#000000 !important; display:none; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; padding:14px;">
             <!-- Top bar -->
             <div class="w-full flex items-center justify-between py-3 px-4 text-white max-w-5xl shrink-0" style="background:transparent;">
                 <span id="lightbox-img-name" class="font-mono text-xs sm:text-sm truncate text-slate-200 max-w-xs sm:max-w-md">image.jpg</span>

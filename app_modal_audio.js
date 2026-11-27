@@ -417,7 +417,7 @@
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '0.1em',
-                color: '#a5b4fc'
+                color: 'var(--p-accent, #F5F5F5)'
               }
             }, 'Audiobook'),
             h('div', {
@@ -592,13 +592,13 @@
             ),
             h('span', {
               style: {
-                padding: '3px 8px',
-                borderRadius: 6,
+                padding: '3px 9px',
+                borderRadius: 999,
                 fontSize: 10,
                 fontWeight: 800,
-                background: 'rgba(99, 102, 241, 0.20)',
-                color: '#a5b4fc',
-                border: '1px solid rgba(99, 102, 241, 0.35)',
+                background: 'var(--p-accent-soft, rgba(255,255,255,0.14))',
+                color: 'var(--p-accent, #F5F5F5)',
+                border: 'none',
                 flexShrink: 0,
                 letterSpacing: '0.05em'
               }
@@ -827,11 +827,12 @@
                   padding: '7px 4px',
                   borderRadius: 10,
                   background: (!audioPlayerState?.playbackMode || audioPlayerState?.playbackMode === 'continuous')
-                    ? 'rgba(99, 102, 241, 0.30)' : 'transparent',
-                  border: (!audioPlayerState?.playbackMode || audioPlayerState?.playbackMode === 'continuous')
-                    ? '1px solid rgba(99, 102, 241, 0.60)' : '1px solid transparent',
+                    ? 'var(--p-accent-soft)' : 'transparent',
+                  border: 'none',
+                  boxShadow: (!audioPlayerState?.playbackMode || audioPlayerState?.playbackMode === 'continuous')
+                    ? 'inset 0 0 0 1px var(--p-accent)' : 'none',
                   color: (!audioPlayerState?.playbackMode || audioPlayerState?.playbackMode === 'continuous')
-                    ? '#c7d2fe' : '#94a3b8',
+                    ? 'var(--p-accent)' : '#94a3b8',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -854,11 +855,12 @@
                   padding: '7px 4px',
                   borderRadius: 10,
                   background: audioPlayerState?.playbackMode === 'repeat_chapter'
-                    ? 'rgba(99, 102, 241, 0.30)' : 'transparent',
-                  border: audioPlayerState?.playbackMode === 'repeat_chapter'
-                    ? '1px solid rgba(99, 102, 241, 0.60)' : '1px solid transparent',
+                    ? 'var(--p-accent-soft)' : 'transparent',
+                  border: 'none',
+                  boxShadow: audioPlayerState?.playbackMode === 'repeat_chapter'
+                    ? 'inset 0 0 0 1px var(--p-accent)' : 'none',
                   color: audioPlayerState?.playbackMode === 'repeat_chapter'
-                    ? '#c7d2fe' : '#94a3b8',
+                    ? 'var(--p-accent)' : '#94a3b8',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -881,11 +883,12 @@
                   padding: '7px 4px',
                   borderRadius: 10,
                   background: audioPlayerState?.playbackMode === 'pause_at_end'
-                    ? 'rgba(99, 102, 241, 0.30)' : 'transparent',
-                  border: audioPlayerState?.playbackMode === 'pause_at_end'
-                    ? '1px solid rgba(99, 102, 241, 0.60)' : '1px solid transparent',
+                    ? 'var(--p-accent-soft)' : 'transparent',
+                  border: 'none',
+                  boxShadow: audioPlayerState?.playbackMode === 'pause_at_end'
+                    ? 'inset 0 0 0 1px var(--p-accent)' : 'none',
                   color: audioPlayerState?.playbackMode === 'pause_at_end'
-                    ? '#c7d2fe' : '#94a3b8',
+                    ? 'var(--p-accent)' : '#94a3b8',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -911,7 +914,7 @@
               gridTemplateColumns: 'repeat(3, 1fr)',
               gap: 8,
               paddingTop: 8,
-              borderTop: '1px solid rgba(255, 255, 255, 0.10)',
+              borderTop: '1px solid var(--p-hairline)',
               fontSize: 12
             }
           },
@@ -920,9 +923,9 @@
               type: 'button',
               style: {
                 padding: '7px 8px',
-                borderRadius: 12,
+                borderRadius: 999,
                 background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.14)',
+                border: 'none',
                 color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
@@ -939,17 +942,18 @@
                 const nextRate = rates[(curIdx + 1) % rates.length];
                 window.SwiftAudioEngine?.Player?.setPlaybackRate(nextRate);
               }
-            }, ic('Zap', 13, 'text-indigo-400'), `${playbackRate}x`),
+            }, h('span', { style: { color: 'var(--p-accent)', display: 'inline-flex' } }, ic('Zap', 13)), `${playbackRate}x`),
 
             // Sleep Timer Pill
             h('button', {
               type: 'button',
               style: {
                 padding: '7px 8px',
-                borderRadius: 12,
-                background: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.08)',
-                border: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? '1px solid rgba(99, 102, 241, 0.50)' : '1px solid rgba(255, 255, 255, 0.14)',
-                color: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? '#a5b4fc' : '#cbd5e1',
+                borderRadius: 999,
+                background: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? 'var(--p-accent-soft)' : 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                boxShadow: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? 'inset 0 0 0 1px var(--p-accent)' : 'none',
+                color: audioPlayerState?.sleepTimerRemainingSeconds > 0 ? 'var(--p-accent)' : 'var(--p-muted)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -966,7 +970,7 @@
                 else window.SwiftAudioEngine?.Player?.setSleepTimer('60');
               }
             },
-              ic('Clock', 13, audioPlayerState?.sleepTimerRemainingSeconds > 0 ? 'text-indigo-400' : 'text-slate-400'),
+              ic('Clock', 13),
               audioPlayerState?.sleepTimerRemainingSeconds > 0
                 ? window.SwiftAudioEngine?.formatDuration(audioPlayerState.sleepTimerRemainingSeconds)
                 : 'Sleep Off'
@@ -977,10 +981,11 @@
               type: 'button',
               style: {
                 padding: '7px 8px',
-                borderRadius: 12,
-                background: isChapterQueueOpen ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.08)',
-                border: isChapterQueueOpen ? '1px solid rgba(99, 102, 241, 0.50)' : '1px solid rgba(255, 255, 255, 0.14)',
-                color: isChapterQueueOpen ? '#a5b4fc' : '#cbd5e1',
+                borderRadius: 999,
+                background: isChapterQueueOpen ? 'var(--p-accent-soft)' : 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                boxShadow: isChapterQueueOpen ? 'inset 0 0 0 1px var(--p-accent)' : 'none',
+                color: isChapterQueueOpen ? 'var(--p-accent)' : 'var(--p-muted)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -992,35 +997,33 @@
               title: 'Open Chapters Drawer',
               onClick: () => setIsChapterQueueOpen(prev => !prev)
             },
-              ic('ListMusic', 13, 'text-indigo-400'),
+              ic('ListMusic', 13),
               'Chapters'
             )
           ),
 
-          // Dedicated Full-Width Open in Poweramp Button (100% visible, centered, comfortable)
+          // Dedicated Full-Width Open in Poweramp Button
           h('button', {
             type: 'button',
             style: {
               width: '100%',
-              padding: '9px 12px',
-              borderRadius: 14,
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(168, 85, 247, 0.18) 100%)',
-              border: '1px solid rgba(165, 180, 252, 0.35)',
-              color: '#e0e7ff',
+              padding: '10px 14px',
+              borderRadius: 999,
+              background: 'var(--p-accent-soft)',
+              border: 'none',
+              color: 'var(--p-accent)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
-              fontSize: 12,
+              fontSize: 12.5,
               fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
-              transition: 'all 0.15s ease'
+              cursor: 'pointer'
             },
             title: 'Open current chapter in Poweramp player',
             onClick: () => window.SwiftAudioEngine?.Player?.openInPoweramp()
           },
-            ic('ExternalLink', 14, 'text-indigo-400'),
+            ic('ExternalLink', 14),
             'Open Chapter in Poweramp'
           ),
 
@@ -1065,19 +1068,19 @@
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  background: isCur ? 'rgba(99, 102, 241, 0.20)' : 'rgba(255, 255, 255, 0.03)',
-                  border: isCur ? '1px solid rgba(99, 102, 241, 0.45)' : '1px solid transparent',
+                  padding: '8px 10px',
+                  borderRadius: 10,
+                  background: isCur ? 'var(--p-accent-soft)' : 'transparent',
+                  border: 'none',
                   cursor: 'pointer'
                 },
                 onClick: () => window.SwiftAudioEngine?.Player?.playTrack(idx)
               },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
-                  h('span', { style: { fontSize: 11, fontWeight: 700, color: isCur ? '#818cf8' : '#64748b', width: 22 } }, `${idx + 1}`),
-                  h('span', { style: { fontSize: 12, fontWeight: isCur ? 700 : 500, color: isCur ? '#ffffff' : '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t.title)
+                  h('span', { style: { fontSize: 11, fontWeight: 700, color: isCur ? 'var(--p-accent)' : 'var(--p-dim)', width: 22 } }, `${idx + 1}`),
+                  h('span', { style: { fontSize: 12, fontWeight: isCur ? 700 : 500, color: isCur ? 'var(--p-ink)' : 'var(--p-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, t.title)
                 ),
-                isCur && h('span', { style: { color: '#818cf8' } }, isPlaying ? ic('Play', 12) : ic('Pause', 12))
+                isCur && h('span', { style: { color: 'var(--p-accent)' } }, isPlaying ? ic('Play', 12) : ic('Pause', 12))
               );
             })
           )
@@ -1095,14 +1098,14 @@
           right: 12,
           maxWidth: 480,
           margin: '0 auto',
-          background: 'var(--omni-surface, #181A20)',
+          background: 'var(--p-surface, #1A1D24)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid var(--omni-border, #363A48)',
-          borderRadius: 10,
+          border: 'none',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255,255,255,0.06)',
+          borderRadius: 16,
           padding: '10px 14px',
           zIndex: 998,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -1110,7 +1113,7 @@
         },
         onClick: () => setAudioDownloadModal(prev => ({ ...prev, isMinimized: false }))
       },
-        ic('Download', 18, 'text-indigo-400'),
+        h('span', { style: { color: 'var(--p-accent)', display: 'inline-flex' } }, ic('Download', 18)),
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'var(--paper)' } },
             h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, audioDownloadModal.status || 'Downloading audio tracks...'),
@@ -1120,7 +1123,7 @@
             h('div', { style: { height: '100%', width: `${audioDownloadModal.percent || 0}%`, background: 'var(--p-accent, var(--omni-accent))', transition: 'width 0.25s' } })
           )
         ),
-        h('span', { style: { fontSize: 11, color: 'var(--accent, #6366f1)', fontWeight: 600, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4 } }, 'Expand', ic('Maximize2', 12))
+        h('span', { style: { fontSize: 11, color: 'var(--p-accent)', fontWeight: 700, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4 } }, 'Expand', ic('Maximize2', 12))
       ),
 
       // ══════════════════════════════════════════════════════════════════════
@@ -1129,10 +1132,7 @@
       hasModalDl && h('div', {
         className: 'modal-overlay',
         style: {
-          zIndex: 1050,
-          background: 'rgba(0, 0, 0, 0.85)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)'
+          zIndex: 10045
         },
         onClick: () => {
           if (audioDownloadModal.active) {
@@ -1147,20 +1147,19 @@
           style: {
             maxWidth: 460,
             width: '92%',
-            maxHeight: '88vh',
+            maxHeight: '88dvh',
             boxSizing: 'border-box',
             overflowX: 'hidden',
-            background: amoledMode ? '#14161C' : 'var(--omni-surface, #181A20)',
-            border: glassCardBorder,
-            borderRadius: 12,
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7)'
+            background: 'var(--p-surface, #1A1D24)',
+            border: 'none',
+            borderRadius: 20
           },
           onClick: e => e.stopPropagation()
         },
           h('div', { className: 'modal-hd' },
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-              ic('Download', 18, 'text-indigo-400'),
-              h('span', { className: 't' }, 'Download Audiobook MP3s')
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, color: 'var(--p-accent)' } },
+              ic('Download', 18),
+              h('span', { className: 't', style: { color: 'var(--p-ink)' } }, 'Download Audiobook MP3s')
             ),
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
               audioDownloadModal.active && h('button', {

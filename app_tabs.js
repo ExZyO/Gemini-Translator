@@ -15,25 +15,52 @@
   'use strict';
 
   function AppTabsContainer(props) {
-    const { activeTab } = props;
+    const {
+      activeTab,
+      epubRestoreInputRef,
+      ongoingEpubInputRef,
+      handleRestoreFromEpubFiles,
+      handleSelectOngoingEpubFile
+    } = props;
     const h = typeof React !== 'undefined' ? React.createElement : window.React?.createElement;
 
+    let tabEl = null;
     if (activeTab === 'text') {
-      return h(window.TabTranslate || TabTranslate, props);
+      tabEl = h(window.TabTranslate || TabTranslate, props);
+    } else if (activeTab === 'web_importer') {
+      tabEl = h(window.TabImporter || TabImporter, props);
+    } else if (activeTab === 'studio') {
+      tabEl = h(window.TabStudio || TabStudio, props);
+    } else if (activeTab === 'history') {
+      tabEl = h(window.TabLibrary || TabLibrary, props);
+    } else if (activeTab === 'settings') {
+      tabEl = h(window.TabSettings || TabSettings, props);
     }
-    if (activeTab === 'web_importer') {
-      return h(window.TabImporter || TabImporter, props);
-    }
-    if (activeTab === 'studio') {
-      return h(window.TabStudio || TabStudio, props);
-    }
-    if (activeTab === 'history') {
-      return h(window.TabLibrary || TabLibrary, props);
-    }
-    if (activeTab === 'settings') {
-      return h(window.TabSettings || TabSettings, props);
-    }
-    return null;
+
+    return h(React.Fragment, null,
+      tabEl,
+      // Mounted unconditionally so Restore & Continue EPUB pickers work from both Library and Discover
+      h('input', {
+        type: 'file',
+        ref: epubRestoreInputRef,
+        accept: '.epub,application/epub+zip,application/zip,application/octet-stream',
+        style: { display: 'none' },
+        onChange: handleRestoreFromEpubFiles
+      }),
+      h('input', {
+        type: 'file',
+        ref: ongoingEpubInputRef,
+        accept: '.epub,application/epub+zip,application/zip,application/octet-stream',
+        style: { display: 'none' },
+        onChange: (e) => {
+          const f = e.target.files?.[0];
+          if (f && typeof handleSelectOngoingEpubFile === 'function') {
+            handleSelectOngoingEpubFile(f);
+          }
+          e.target.value = '';
+        }
+      })
+    );
   }
 
   return AppTabsContainer;

@@ -195,11 +195,11 @@
                 width: 32,
                 height: 32,
                 borderRadius: 8,
-                background: 'rgba(99, 102, 241, 0.2)',
+                background: 'var(--p-accent-soft, rgba(255,255,255,0.12))',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--r-accent, #818cf8)',
+                color: 'var(--p-accent, var(--r-accent, #F5F5F5))',
                 flexShrink: 0
               }
             }, ic('Sparkles', 18)),
@@ -257,10 +257,10 @@
                   className: 'mini-btn' + (isSel ? ' active' : ' ghost'),
                   style: {
                     padding: '8px 4px',
-                    borderRadius: 8,
-                    border: '1px solid ' + (isSel ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,255,0.1)'),
-                    background: isSel ? 'var(--r-accent, #6366f1)' : 'rgba(255,255,254,0.04)',
-                    color: isSel ? '#fff' : 'var(--r-text)',
+                    borderRadius: 10,
+                    border: 'none',
+                    background: isSel ? 'var(--p-accent, var(--r-accent, #F5F5F5))' : 'var(--p-control, rgba(255,255,255,0.06))',
+                    color: isSel ? 'var(--p-accent-ink, #000000)' : 'var(--p-ink, var(--r-text))',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -292,7 +292,7 @@
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { fontSize: 11, padding: '3px 8px', color: 'var(--r-accent, #818cf8)', fontWeight: 600, border: 'none' },
+                style: { fontSize: 11, padding: '3px 8px', color: 'var(--p-accent, var(--r-accent, #F5F5F5))', fontWeight: 600, border: 'none' },
                 onClick: () => setBatchMode(b => !b)
               }, batchMode ? 'Hide Chapter Picker' : (selectedIndices.length > 1 ? `Change (${selectedIndices.length})` : 'Select Specific Chapters…'))
             ),
@@ -315,17 +315,16 @@
                 type: 'button',
                 className: 'mini-btn',
                 style: {
-                  background: 'var(--r-accent, #6366f1)',
-                  color: '#fff',
+                  background: 'var(--p-accent, var(--r-accent, #F5F5F5))',
+                  color: 'var(--p-accent-ink, #000000)',
                   padding: '11px 12px',
-                  borderRadius: 10,
+                  borderRadius: 999,
                   fontWeight: 700,
                   fontSize: 12.5,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: 6,
-                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                  gap: 6
                 },
                 onClick: () => handleExecuteAction('full')
               },
@@ -429,10 +428,10 @@
                         padding: '8px 0',
                         fontSize: 11.5,
                         fontWeight: 700,
-                        borderRadius: 6,
-                        border: '1px solid ' + (isSel ? 'var(--r-accent, #6366f1)' : 'var(--omni-border, #363A48)'),
-                        background: isSel ? 'var(--r-accent, #6366f1)' : 'var(--omni-control, #23262F)',
-                        color: isSel ? 'var(--r-on-accent, #ffffff)' : 'var(--r-text)',
+                        borderRadius: 8,
+                        border: 'none',
+                        background: isSel ? 'var(--p-accent, var(--r-accent, #F5F5F5))' : 'var(--p-control, #262A35)',
+                        color: isSel ? 'var(--p-accent-ink, #000000)' : 'var(--p-ink, var(--r-text))',
                         textTransform: 'capitalize'
                       },
                       onClick: () => setProvider(p)
@@ -708,10 +707,10 @@
             type: 'button',
             className: 'mini-btn',
             style: {
-              padding: '8px 20px',
-              borderRadius: 8,
-              background: 'var(--r-accent, #6366f1)',
-              color: '#fff',
+              padding: '9px 20px',
+              borderRadius: 999,
+              background: 'var(--p-accent, var(--r-accent, #F5F5F5))',
+              color: 'var(--p-accent-ink, #000000)',
               fontWeight: 700,
               fontSize: 12.5
             },

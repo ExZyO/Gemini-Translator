@@ -49,14 +49,28 @@
     const ReactComp = typeof React !== 'undefined' ? React : window.React;
     const [newRepoUrl, setNewRepoUrl] = ReactComp.useState ? ReactComp.useState('') : ['', () => {}];
     const [repoListTick, setRepoListTick] = ReactComp.useState ? ReactComp.useState(0) : [0, () => {}];
+    if (ReactComp.useEffect) {
+      ReactComp.useEffect(() => {
+        if (!isOpen) return undefined;
+        if (typeof window !== 'undefined' && window.OmniBackStack && typeof window.OmniBackStack.push === 'function') {
+          return window.OmniBackStack.push('source-extensions-modal', () => {
+            if (typeof onClose === 'function') onClose();
+            return true;
+          });
+        }
+        return undefined;
+      }, [isOpen, onClose]);
+    }
     if (!isOpen) return null;
 
     return h('div', {
+      'data-modal': 'source-extensions',
       style: {
         position: 'fixed',
         inset: 0,
-        zIndex: 9999,
+        zIndex: 10045,
         background: 'var(--p-canvas, #111318)',
+        color: 'var(--p-ink, #F5F6F8)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden'
@@ -68,50 +82,41 @@
           display: 'flex',
           flexDirection: 'column',
           padding: 'max(14px, env(safe-area-inset-top, 14px)) 16px 10px',
-          borderBottom: '1px solid var(--omni-hairline, #262A36)',
-          background: 'var(--omni-canvas, #0F1014)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          gap: 12,
+          borderBottom: '1px solid var(--p-hairline)',
+          background: 'var(--p-canvas, #111318)',
+          gap: 10,
           flexShrink: 0
         }
       },
         // Row 1: Back button, Title, Sideload & Done buttons
-        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 } },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 } },
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 } },
             h('button', {
               type: 'button',
-              className: 'icon-btn',
-              style: { width: 36, height: 36, borderRadius: 7, background: 'var(--omni-control, #23262F)', border: '1px solid var(--omni-border, #363A48)', color: 'var(--omni-text, #F5F6F8)', fontSize: 16, cursor: 'pointer', flexShrink: 0 },
+              className: 'p-icon-btn',
               onClick: onClose,
               'aria-label': 'Back to Import',
               title: 'Back to Import'
-            }, '←'),
+            }, ic('ArrowLeft', 19)),
             h('div', { style: { minWidth: 0, flex: 1 } },
-              h('div', { style: { fontWeight: 800, fontSize: 16, color: 'var(--omni-text, #F5F6F8)', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 8 } },
+              h('div', { style: { fontWeight: 800, fontSize: 16.5, color: 'var(--p-ink)', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 } },
                 h('span', null, 'Extensions & Sources'),
-                h('span', { className: 'badge', style: { background: 'var(--omni-control, #23262F)', border: '1px solid var(--omni-border, #363A48)', color: 'var(--omni-accent, #F5F6F8)', fontSize: 10, padding: '2px 8px', borderRadius: 5 } },
-                  `${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length} Installed`
+                h('span', { className: 'badge' },
+                  `${((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length}`
                 )
               ),
-              h('div', { style: { fontSize: 11, color: 'var(--omni-text-sub, #AEB4C2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+              h('div', { style: { fontSize: 11.5, color: 'var(--p-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
                 'Mihon & LNReader compatible source extensions and built-in scrapers'
               )
             )
           ),
-          h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 } },
+          h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 } },
             h('button', {
               type: 'button',
-              className: `mini-btn ${pluginSelectedTab === 'custom' ? '' : 'ghost'}`,
-              style: { fontSize: 11, padding: '6px 12px', borderRadius: 6, whiteSpace: 'nowrap', borderColor: 'var(--omni-border, #363A48)' },
+              className: 'p-pill-btn',
+              style: { fontSize: 12, color: pluginSelectedTab === 'custom' ? 'var(--p-accent)' : 'var(--p-ink)' },
               onClick: () => setPluginSelectedTab(pluginSelectedTab === 'custom' ? 'installed' : 'custom')
-            }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic(pluginSelectedTab === 'custom' ? 'X' : 'Link', 13), pluginSelectedTab === 'custom' ? 'Close Sideload' : 'Sideload')),
-            h('button', {
-              type: 'button',
-              className: 'mini-btn ghost',
-              style: { fontSize: 11, padding: '6px 12px', borderRadius: 6, whiteSpace: 'nowrap' },
-              onClick: onClose
-            }, 'Done')
+            }, ic(pluginSelectedTab === 'custom' ? 'X' : 'Link', 13), pluginSelectedTab === 'custom' ? 'Close' : 'Sideload')
           )
         ),
         // Row 2: Pinned Segmented Tabs: Installed & Browse Catalog (Always visible at the top!)
@@ -185,31 +190,30 @@
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 } },
                   h('div', {
                     style: {
-                      width: 40,
-                      height: 40,
-                      borderRadius: 8,
-                      background: isBuiltin ? 'rgba(99, 102, 241, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                      width: 38,
+                      height: 38,
+                      borderRadius: 10,
+                      background: isBuiltin ? 'var(--p-accent-soft)' : 'rgba(16, 185, 129, 0.14)',
+                      color: isBuiltin ? 'var(--p-accent)' : '#34d399',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: 20,
                       flexShrink: 0
                     }
-                  }, isBuiltin ? ic('Zap', 14, 'text-indigo-400') : ic('Plug', 14, 'text-emerald-400')),
+                  }, isBuiltin ? ic('Zap', 15) : ic('Plug', 15)),
                   h('div', { style: { flex: 1, minWidth: 0 } },
                     h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
-                      h('span', { style: { fontWeight: 700, fontSize: 14, color: 'var(--paper)' } }, p.name),
+                      h('span', { style: { fontWeight: 700, fontSize: 14, color: 'var(--p-ink)' } }, p.name),
                       h('span', {
                         className: 'badge',
                         style: {
                           fontSize: 9.5,
                           padding: '2px 7px',
-                          background: isBuiltin ? 'rgba(99, 102, 241, 0.2)' : 'rgba(16, 185, 129, 0.2)',
-                          color: isBuiltin ? 'var(--iris)' : '#10b981',
-                          borderRadius: 4
+                          background: isBuiltin ? 'var(--p-accent-soft)' : 'rgba(16, 185, 129, 0.16)',
+                          color: isBuiltin ? 'var(--p-accent)' : '#34d399'
                         }
                       }, isBuiltin ? 'Built-in' : 'Extension'),
-                      h('span', { style: { fontSize: 10.5, color: 'var(--slate)', fontFamily: 'monospace' } }, `v${p.version || '1.0.0'}`)
+                      h('span', { style: { fontSize: 10.5, color: 'var(--p-muted)', fontFamily: 'monospace' } }, `v${p.version || '1.0.0'}`)
                     ),
                     h('div', { style: { fontSize: 11.5, color: 'var(--slate)', marginTop: 2 } }, `ID: ${p.id}${p.site ? ` · ${p.site}` : ''}`)
                   )
@@ -273,16 +277,8 @@
               return h('button', {
                 key: pill.id,
                 type: 'button',
-                className: `mini-btn ${isSel ? '' : 'ghost'}`,
-                style: {
-                  fontSize: 11.5,
-                  padding: '5px 12px',
-                  fontWeight: isSel ? 700 : 500,
-                  borderRadius: 14,
-                  borderColor: isSel ? 'var(--iris)' : 'var(--hairline)',
-                  background: isSel ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.02)',
-                  color: isSel ? 'var(--iris)' : 'var(--paper-dim)'
-                },
+                className: `omni-soft-tab ${isSel ? 'active' : ''}`,
+                style: { fontSize: 11.5 },
                 onClick: () => setPluginSelectedLangFilter(pill.id)
               }, pill.label);
             })
@@ -428,8 +424,8 @@
 
           // ── REPOSITORY FEEDS MANAGER ──
           h('div', { style: { marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--hairline)' } },
-            h('div', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--paper)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 } },
-              ic('Globe', 15, 'text-indigo-400'),
+            h('div', { style: { fontWeight: 700, fontSize: 13.5, color: 'var(--p-ink)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--p-accent)' } },
+              ic('Globe', 15),
               'Plugin Repository Feeds'
             ),
             h('div', { style: { fontSize: 12, color: 'var(--slate)', lineHeight: 1.5, marginBottom: 12 } },

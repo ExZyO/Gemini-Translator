@@ -27,39 +27,40 @@
     const h = getH();
     const toast = getToast();
 
-    return h('div', { className: 'gloss-overlay', style: { zIndex: 9999 } },
-      h('div', { className: 'gloss-box', style: { maxWidth: 700, height: '85vh', display: 'flex', flexDirection: 'column' } },
+    return h('div', { className: 'gloss-overlay', style: { zIndex: 10045 } },
+      h('div', { className: 'gloss-box', style: { maxWidth: 700, height: '85dvh', display: 'flex', flexDirection: 'column', background: 'var(--p-surface)', border: 'none', borderRadius: 20 } },
         h('div', { className: 'gloss-head', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-          h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 14 } }, ic('FileText', 16), 'Live Diagnostics & API Logs'),
+          h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14, color: 'var(--p-ink)' } }, ic('FileText', 16), 'Live Diagnostics & API Logs'),
           h('div', { style: { display: 'flex', gap: 6 } },
-            h('button', { type: 'button', className: 'chip-act', style: { background: 'var(--accent, #6366f1)', color: '#fff' }, onClick: copyLogsWithReport }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Copy', 13), 'Copy All')),
+            h('button', { type: 'button', className: 'p-pill-btn is-primary', style: { height: 30, minHeight: 30, fontSize: 11.5, padding: '0 12px' }, onClick: copyLogsWithReport }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Copy', 13), 'Copy All')),
             h('button', {
               type: 'button',
-              className: 'chip-act',
+              className: 'p-pill-btn',
+              style: { height: 30, fontSize: 11.5, padding: '0 10px' },
               title: 'Send all buffered logs to PC Agent over Wi-Fi',
               onClick: () => {
                 const logs = window.AppLogger ? window.AppLogger.getFormattedText() : '';
                 window.sendTelemetry?.('MANUAL_DUMP', 'Manual log buffer dump requested by user', logs);
                 toast('Log buffer sent to PC Agent!', 'success');
               }
-            }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Send', 13), 'Send to Agent')),
-            h('button', { type: 'button', className: 'chip-act', onClick: () => { window.AppLogger?.clear(); toast('Logs cleared', 'info'); } }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Trash2', 13), 'Clear')),
-            h('button', { type: 'button', className: 'icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
+            }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Send', 13), 'Agent')),
+            h('button', { type: 'button', className: 'p-pill-btn', style: { height: 30, fontSize: 11.5, padding: '0 10px' }, onClick: () => { window.AppLogger?.clear(); toast('Logs cleared', 'info'); } }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Trash2', 13), 'Clear')),
+            h('button', { type: 'button', className: 'p-icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
           )
         ),
         h('div', {
           style: {
             flex: 1,
             overflowY: 'auto',
-            background: 'var(--omni-input, #1B1D24)',
-            color: 'var(--omni-text, #F5F6F8)',
+            background: 'var(--p-input, #171A21)',
+            color: 'var(--p-ink, #F5F6F8)',
             fontFamily: "'IBM Plex Mono', monospace",
             fontSize: 11,
             lineHeight: 1.5,
             padding: 12,
-            borderRadius: 8,
+            borderRadius: 14,
             margin: '10px 0',
-            border: '1px solid var(--omni-border, #363A48)',
+            border: 'none',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word'
           }
@@ -102,18 +103,18 @@
     const h = getH();
     const toast = getToast();
 
-    return h('div', { className: 'gloss-overlay', style: { zIndex: 9999 } },
-      h('div', { className: 'gloss-box', style: { maxWidth: 520 } },
+    return h('div', { className: 'gloss-overlay', style: { zIndex: 10045 } },
+      h('div', { className: 'gloss-box', style: { maxWidth: 520, background: 'var(--p-surface)', border: 'none', borderRadius: 20 } },
         h('div', { className: 'gloss-head', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-          h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 14 } }, ic('Key', 16), `Bulk Paste ${(provider || '').toUpperCase()} Keys`),
-          h('button', { type: 'button', className: 'icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
+          h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14, color: 'var(--p-ink)' } }, ic('Key', 16), `Bulk Paste ${(provider || '').toUpperCase()} Keys`),
+          h('button', { type: 'button', className: 'p-icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0' } },
-          h('p', { style: { fontSize: 12, color: 'var(--paper-dim)', margin: 0 } }, 'Paste keys below (one per line or comma-separated):'),
+          h('p', { style: { fontSize: 12, color: 'var(--p-muted)', margin: 0 } }, 'Paste keys below (one per line or comma-separated):'),
           h('button', {
             type: 'button',
-            className: 'mini-btn ghost',
-            style: { fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 6 },
+            className: 'p-pill-btn',
+            style: { height: 28, fontSize: 11, padding: '0 10px' },
             onClick: async () => {
               try {
                 const clipText = await navigator.clipboard.readText();
@@ -127,29 +128,22 @@
                 toast('Clipboard access denied', 'error');
               }
             }
-          }, ic('Clipboard', 13), 'Paste from Clipboard')
+          }, ic('Clipboard', 13), 'Paste')
         ),
         h('textarea', {
           value: bulkKeyText,
           onChange: e => setBulkKeyText(e.target.value),
           placeholder: "AIzaSyAr12345...\nAIzaSyBc67890...\nAIzaSyCd11223...",
+          className: 'p-textarea',
           style: {
-            width: '100%',
             height: 160,
-            background: 'var(--void)',
-            color: 'var(--paper)',
-            border: '1px solid var(--hairline)',
-            borderRadius: 8,
-            padding: 10,
-            fontSize: 11,
-            fontFamily: "'IBM Plex Mono', monospace",
-            outline: 'none',
-            resize: 'vertical'
+            fontSize: 11.5,
+            fontFamily: "'IBM Plex Mono', monospace"
           }
         }),
         h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 } },
-          h('button', { type: 'button', className: 'mini-btn ghost', onClick: onClose }, 'Cancel'),
-          h('button', { type: 'button', className: 'mini-btn', style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 }, onClick: onImport }, 'Import All Keys')
+          h('button', { type: 'button', className: 'p-pill-btn', onClick: onClose }, 'Cancel'),
+          h('button', { type: 'button', className: 'p-pill-btn is-primary', style: { height: 36, minHeight: 36 }, onClick: onImport }, 'Import All Keys')
         )
       )
     );
@@ -198,7 +192,7 @@
           h('button', {
             type: 'button',
             className: 'chip-act accent',
-            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700, padding: '4px 10px' },
+            style: { background: 'var(--p-accent, #F5F5F5)', color: 'var(--p-accent-ink, #000000)', fontWeight: 700, padding: '4px 10px' },
             onClick: async () => {
               await handleSaveGlossary(activeGlossaryId);
             }
@@ -250,7 +244,7 @@
           h('button', {
             type: 'button',
             className: 'chip-act accent',
-            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700 },
+            style: { background: 'var(--p-accent, #F5F5F5)', color: 'var(--p-accent-ink, #000000)', fontWeight: 700 },
             onClick: async () => {
               await handleSaveGlossary(activeGlossaryId);
               onClose();
@@ -342,14 +336,14 @@
     return h('div', { className: 'modal-overlay', onClick: onClose },
       h('div', { className: 'modal-box', style: { maxWidth: 660, maxHeight: '90vh' }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            ic('Activity', 20, 'text-indigo-400'),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, color: 'var(--p-accent)' } },
+            ic('Activity', 20),
             h('div', null,
-              h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Novel Health & Translation QA Report'),
-              h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, qaAuditResult?.title || 'Active Document')
+              h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--p-ink)' } }, 'Novel Health & Translation QA Report'),
+              h('div', { style: { fontSize: 11, color: 'var(--p-muted)' } }, qaAuditResult?.title || 'Active Document')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'p-icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
           h('div', {
@@ -404,13 +398,13 @@
 
           h('div', {
             style: {
-              background: 'rgba(99, 102, 241, 0.05)',
-              border: '1px solid rgba(99, 102, 241, 0.2)',
-              borderRadius: 6,
-              padding: '10px 12px'
+              background: 'var(--p-input, #171A21)',
+              border: 'none',
+              borderRadius: 14,
+              padding: '12px 14px'
             }
           },
-            h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--iris)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 } },
+            h('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--p-accent)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 } },
               'Active Heuristic Rules (Toggle On/Off)'
             ),
             h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } },
@@ -424,16 +418,8 @@
               ].map(r => h('button', {
                 key: r.key,
                 type: 'button',
-                className: `seg-btn ${r.val ? 'active' : ''}`,
-                style: {
-                  fontSize: 11,
-                  padding: '3px 8px',
-                  borderRadius: 4,
-                  background: r.val ? 'var(--iris)' : 'var(--void)',
-                  color: r.val ? '#fff' : 'var(--slate)',
-                  border: r.val ? '1px solid var(--iris)' : '1px solid var(--hairline)',
-                  fontWeight: r.val ? 600 : 400
-                },
+                className: `omni-soft-tab ${r.val ? 'active' : ''}`,
+                style: { fontSize: 11 },
                 onClick: () => handleToggleRule(r.key, !r.val)
               }, `${r.val ? 'Active: ' : 'Off: '} ${r.label}`))
             )
@@ -452,7 +438,7 @@
               key: tab.id,
               type: 'button',
               className: `seg-btn ${qaFilterCategory === tab.id ? 'active' : ''}`,
-              style: qaFilterCategory === tab.id ? { background: 'var(--iris)', color: '#fff', fontWeight: 600, fontSize: 11.5 } : { fontSize: 11.5 },
+              style: qaFilterCategory === tab.id ? { background: 'var(--p-accent, #c7b8ea)', color: 'var(--p-accent-ink, #12101a)', fontWeight: 600, fontSize: 11.5 } : { fontSize: 11.5 },
               onClick: () => setQaFilterCategory(tab.id)
             }, tab.label))
           ),
@@ -581,22 +567,22 @@
     return h('div', { className: 'modal-overlay', onClick: onClose },
       h('div', { className: 'modal-box', style: { maxWidth: 760, maxHeight: '90vh', width: '92vw' }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            ic('GitCompare', 20, 'text-indigo-400'),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, color: 'var(--p-accent)' } },
+            ic('GitCompare', 20),
             h('div', null,
-              h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Translation Diff & Revision History (§8.6)'),
-              h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, activeDiffData?.title || 'Chapter Revisions')
+              h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--p-ink)' } }, 'Translation Diff & Revision History'),
+              h('div', { style: { fontSize: 11, color: 'var(--p-muted)' } }, activeDiffData?.title || 'Chapter Revisions')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'p-icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd custom-scrollbar', style: { overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
-          h('div', { style: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)' } },
+          h('div', { style: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'var(--p-input)', padding: '10px 14px', borderRadius: 12 } },
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
-              h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' } }, 'Compare with Snapshot:'),
+              h('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--p-muted)' } }, 'Compare with Snapshot:'),
               h('select', {
-                className: 'field-select',
-                style: { fontSize: 12, padding: '4px 8px', minWidth: 160 },
+                className: 'p-select',
+                style: { fontSize: 12, padding: '5px 10px', width: 'auto', minWidth: 160 },
                 value: selectedDiffSnapId,
                 onChange: (e) => handleSelectDiffSnapshot(e.target.value)
               },
@@ -606,11 +592,11 @@
               ),
               h('button', {
                 type: 'button',
-                className: 'mini-btn',
-                style: { padding: '4px 10px', fontSize: 11.5, background: 'rgba(99, 102, 241, 0.2)', color: 'var(--iris)', border: '1px solid rgba(99, 102, 241, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 4 },
+                className: 'p-pill-btn',
+                style: { height: 30, fontSize: 11.5, background: 'var(--p-accent-soft)', color: 'var(--p-accent)' },
                 onClick: handleManualSnapshot,
                 title: 'Save a snapshot of current text now'
-              }, h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } }, ic('Camera', 13), 'Snapshot Current Text'))
+              }, ic('Camera', 13), 'Snapshot Current Text')
             ),
             h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', fontSize: 11, fontWeight: 600 } },
               h('span', { style: { background: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7', padding: '3px 8px', borderRadius: 4 } }, `+${activeDiffData?.addedWords || 0} words`),
@@ -621,24 +607,23 @@
 
           h('div', {
             style: {
-              background: 'rgba(99, 102, 241, 0.08)',
-              border: '1px solid rgba(99, 102, 241, 0.25)',
-              borderRadius: 8,
+              background: 'var(--p-accent-soft)',
+              borderRadius: 12,
               padding: '10px 14px',
               fontSize: 12,
-              color: '#c7d2fe',
+              color: 'var(--p-ink)',
               lineHeight: 1.5,
               display: 'flex',
               alignItems: 'flex-start',
               gap: 8
             }
           },
-            ic('HelpCircle', 15, 'text-indigo-400 shrink-0 mt-0.5'),
+            h('span', { style: { color: 'var(--p-accent)', flexShrink: 0, marginTop: 2 } }, ic('HelpCircle', 15)),
             h('div', null,
-              h('strong', { style: { color: '#ffffff' } }, 'How to test Translation Diffs: '),
-              '1) Take a snapshot or let translation run. 2) Switch models, adjust prompt/glossary, or edit text and translate again. 3) Select the revision above to see color-coded additions (green) & deletions (red), or click ',
+              h('strong', { style: { color: '#ffffff' } }, 'How to inspect Translation Diffs: '),
+              '1) Take a snapshot or let translation run. 2) Switch models, adjust prompt/glossary, or edit text and translate again. 3) Select the revision above to see color-coded additions & deletions, or tap ',
               h('strong', null, 'Rollback'),
-              ' to restore!'
+              ' to restore.'
             )
           ),
 
@@ -855,11 +840,11 @@
     return h('div', { className: 'modal-overlay', onClick: onClose },
       h('div', { className: 'modal-box', style: { maxWidth: 640 }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            ic('Search', 18, 'text-indigo-400'),
-            h('span', { style: { fontWeight: 700, fontSize: 14 } }, 'Name Consistency & Leak Verifier')
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, color: 'var(--p-accent)' } },
+            ic('Search', 18),
+            h('span', { style: { fontWeight: 700, fontSize: 14, color: 'var(--p-ink)' } }, 'Name Consistency & Leak Verifier')
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'p-icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd' },
           h('p', { style: { fontSize: 12, color: 'var(--slate)', marginBottom: 14, lineHeight: 1.5 } },
@@ -977,11 +962,11 @@
           h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd', style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-          h('div', { style: { background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 6, padding: '10px 12px' } },
-            h('div', { style: { fontSize: 11, fontWeight: 700, color: '#818cf8', marginBottom: 4 } }, 'No Developer Account? Use 1-Tap File Backup!'),
-            h('div', { style: { fontSize: 10.5, color: 'var(--slate)', lineHeight: 1.45 } },
+          h('div', { style: { background: 'var(--p-accent-soft)', borderRadius: 12, padding: '10px 12px' } },
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--p-accent)', marginBottom: 4 } }, 'No Developer Account? Use 1-Tap File Backup!'),
+            h('div', { style: { fontSize: 11, color: 'var(--p-muted)', lineHeight: 1.45 } },
               'If you don\'t want to configure Google Cloud Console, use ',
-              h('strong', { style: { color: 'var(--paper-dim)' } }, '1-Tap Google Drive File Backup'),
+              h('strong', { style: { color: 'var(--p-ink)' } }, '1-Tap Google Drive File Backup'),
               ' in Settings. It uses Android Storage Access Framework to save/restore directly into your Google Drive with zero setup.'
             )
           ),
@@ -1076,8 +1061,8 @@
           }, 'Cancel'),
           h('button', {
             type: 'button',
-            className: 'mini-btn',
-            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+            className: 'p-pill-btn is-primary',
+            style: { height: 36, minHeight: 36 },
             onClick: async () => {
               if (gdriveClientId) {
                 localStorage.setItem('gdrive_client_id', gdriveClientId);
@@ -1143,14 +1128,14 @@
     return h('div', { className: 'modal-overlay', onClick: onClose },
       h('div', { className: 'modal-box', style: { maxWidth: 440 }, onClick: e => e.stopPropagation() },
         h('div', { className: 'modal-hd' },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            ic('Edit', 20, 'text-indigo-400'),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, color: 'var(--p-accent)' } },
+            ic('Edit', 20),
             h('div', null,
-              h('div', { style: { fontWeight: 700, fontSize: 14 } }, 'Rename Novel'),
-              h('div', { style: { fontSize: 11, color: 'var(--slate)' } }, 'Custom title for EPUB export, library, and future updates')
+              h('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--p-ink)' } }, 'Rename Novel'),
+              h('div', { style: { fontSize: 11, color: 'var(--p-muted)' } }, 'Custom title for EPUB export, library, and future updates')
             )
           ),
-          h('button', { type: 'button', className: 'icon-btn', style: { width: 30, height: 30 }, onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
+          h('button', { type: 'button', className: 'p-icon-btn', onClick: onClose, 'aria-label': 'Close', title: 'Close' }, ic('X', 16))
         ),
         h('div', { className: 'modal-bd', style: { padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 } },
           novel.originalSourceTitle && novel.originalSourceTitle !== (value || '').trim() && h('div', {
@@ -1188,9 +1173,9 @@
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 } },
             h('button', {
               type: 'button',
-              className: 'mini-btn ghost',
+              className: 'p-pill-btn',
               disabled: isTranslatingTitle,
-              style: { fontSize: 11, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--accent, #6366f1)' },
+              style: { height: 28, fontSize: 11, padding: '0 10px', color: 'var(--p-accent)' },
               onClick: handleAiTranslateNovelTitle
             }, ic('Sparkles', 12), isTranslatingTitle ? 'Translating…' : 'Translate Title with AI'),
             novel.originalSourceTitle && novel.originalSourceTitle !== (value || '').trim() && h('button', {
@@ -1298,15 +1283,16 @@
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  borderRadius: 6,
-                  background: m.recommended ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.02)',
-                  border: m.recommended ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid var(--hairline)'
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  background: m.recommended ? 'var(--p-accent-soft)' : 'var(--p-input)',
+                  border: 'none',
+                  boxShadow: m.recommended ? 'inset 0 0 0 1.5px var(--p-accent)' : 'none'
                 }
               },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                  h('span', { style: { fontWeight: 700, fontSize: 13, color: 'var(--paper)' } }, m.name),
-                  m.tag && h('span', { className: 'badge', style: { fontSize: 9, padding: '1px 6px', background: m.recommended ? 'rgba(99, 102, 241, 0.25)' : undefined, color: m.recommended ? 'var(--iris)' : undefined } }, m.tag)
+                  h('span', { style: { fontWeight: 700, fontSize: 13, color: 'var(--p-ink)' } }, m.name),
+                  m.tag && h('span', { className: 'badge', style: { fontSize: 9.5, padding: '1px 7px', background: m.recommended ? 'var(--p-accent-soft)' : undefined, color: m.recommended ? 'var(--p-accent)' : undefined } }, m.tag)
                 ),
                 h('div', { style: { textAlign: 'right' } },
                   h('div', { style: { fontSize: 14, fontWeight: 800, color: m.recommended ? '#34d399' : 'var(--paper)' } }, m.totalCost),

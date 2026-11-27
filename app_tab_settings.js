@@ -366,22 +366,24 @@
     ];
 
     const inputStyle = {
-      background: 'var(--omni-input, #1B1D24)',
-      border: '1px solid var(--omni-border, #363A48)',
-      color: 'var(--omni-text, #F5F6F8)',
-      borderRadius: 6,
-      padding: '8px 10px',
+      background: 'var(--p-input, var(--omni-input, #171A21))',
+      border: 'none',
+      boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.06)',
+      color: 'var(--p-ink, var(--omni-text, #F5F6F8))',
+      borderRadius: 10,
+      padding: '9px 11px',
       fontSize: 12,
       outline: 'none',
       fontFamily: "'IBM Plex Mono', monospace"
     };
 
     const selectStyle = {
-      background: 'var(--omni-control, #23262F)',
-      border: '1px solid var(--omni-border, #363A48)',
-      color: 'var(--omni-text, #F5F6F8)',
-      borderRadius: 6,
-      padding: '7px 10px',
+      background: 'var(--p-control, var(--omni-control, #262A35))',
+      border: 'none',
+      boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.06)',
+      color: 'var(--p-ink, var(--omni-text, #F5F6F8))',
+      borderRadius: 10,
+      padding: '8px 11px',
       fontSize: 12.5,
       fontWeight: 600,
       outline: 'none',
@@ -499,7 +501,7 @@
           setAmoledMode
         });
       }
-      return h('div', { style: { paddingBottom: 32 } },
+      return h('div', { className: 'omni-subpage-pad' },
         subHeader('Visual Presentation & Colors', 'Palette & Layouts'),
         h('div', { style: { padding: '24px 0', color: 'var(--omni-text-sub)', fontSize: 13 } }, 'Visual customizer module loading...')
       );
@@ -507,7 +509,7 @@
 
     // ── Sub-View 2: Reader, EPUB & Speech ──
     if (activeSubView === 'display') {
-      return h('div', { style: { paddingBottom: 32 } },
+      return h('div', { className: 'omni-subpage-pad' },
         subHeader('Reader, EPUB & Speech', `${amoledMode ? 'AMOLED' : 'Elevated Dark'} · ${epubFontTheme || 'Literata'} · ${opdsRunning ? 'OPDS Online' : 'OPDS Idle'}`),
 
         sectionTitle('THEME & EPUB TYPOGRAPHY', amoledMode ? 'AMOLED' : 'ELEVATED DARK'),
@@ -620,7 +622,7 @@
       const uniqueCount = new Set(provKeysNonEmpty.map(k => k.key.trim())).size;
       const hasDuplicates = provKeysNonEmpty.length > uniqueCount;
 
-      return h('div', { style: { paddingBottom: 32 } },
+      return h('div', { className: 'omni-subpage-pad' },
         subHeader('AI Provider, Models & API Keys', `${provider.toUpperCase()} · ${provKeysNonEmpty.length} key slots (${uniqueCount} unique)`),
 
         sectionTitle('PROVIDER & MODEL SELECTION', provider.toUpperCase()),
@@ -937,7 +939,7 @@
 
     // ── Sub-View 4: Quality & Translation Memory ──
     if (activeSubView === 'quality') {
-      return h('div', { style: { paddingBottom: 32 } },
+      return h('div', { className: 'omni-subpage-pad' },
         subHeader('Quality & Translation Memory', `${healthAuditEnabled ? 'Audit Active' : 'Audit Off'} · ${tmStats.totalUnits || 0} cached segments`),
 
         sectionTitle('QUALITY ASSURANCE & PROOFREADING', healthAuditEnabled ? 'ACTIVE' : 'DISABLED'),
@@ -976,7 +978,7 @@
     // ── Sub-View 5: Sources & Scraping Recipes ──
     if (activeSubView === 'sources') {
       const sourceCount = ((window.sourceRegistry || window.SourceRegistry)?.getAll?.() || []).length;
-      return h('div', { style: { paddingBottom: 32 } },
+      return h('div', { className: 'omni-subpage-pad' },
         subHeader('Sources & Scraping Recipes', `${sourceCount} registered source plugins`),
 
         h('div', { className: 'omni-hairline-row', style: { justifyContent: 'space-between', padding: '14px 0' } },
@@ -1000,7 +1002,7 @@
 
     // ── Sub-View 6: Cloud Sync, Storage & Full Backup ──
     if (activeSubView === 'backup') {
-      return h('div', { style: { paddingBottom: 32 } },
+      return h('div', { className: 'omni-subpage-pad' },
         subHeader('Cloud Sync, Storage & Backup', `${cloudProvider === 'gdrive' ? 'Google Drive' : 'WebDAV'} · ${webImportHistory?.length || 0} books`),
 
         sectionTitle('CLOUD BACKUP & SYNC', cloudProvider === 'gdrive' ? 'GOOGLE DRIVE' : 'WEBDAV / NAS'),
@@ -1187,8 +1189,8 @@
 
     // ── Sub-View 7: Hardware, Telemetry & App Build ──
     if (activeSubView === 'system') {
-      return h('div', { style: { paddingBottom: 32 } },
-        subHeader('Hardware, Telemetry & System', `v${appVersion} (Build ${appVersionCode || 8564})`),
+      return h('div', { className: 'omni-subpage-pad' },
+        subHeader('Hardware, Telemetry & System', `v${appVersion} (Build ${appVersionCode || 8566})`),
 
         availableUpdate && h('div', {
           style: {
@@ -1399,7 +1401,7 @@
             id: 'system',
             icon: 'Settings',
             title: 'Hardware, Telemetry & System',
-            sub: `v${appVersion} (Build ${appVersionCode || 8564}) · WakeLock ${deviceWakeLock ? 'On' : 'Off'}`,
+            sub: `v${appVersion} (Build ${appVersionCode || 8566}) · WakeLock ${deviceWakeLock ? 'On' : 'Off'}`,
             keywords: 'wakelock keep awake live logs telemetry server debugging update apk force clear cache notifications battery unrestricted pwa install reset shortcuts'
           }
         ]
@@ -1413,7 +1415,7 @@
       h('div', { className: 'omni-page-hd' },
         h('div', { style: { minWidth: 0 } },
           h('h1', { className: 'omni-page-title' }, 'Settings'),
-          h('div', { className: 'omni-page-sub' }, `v${appVersion} (Build ${appVersionCode || 8564}) · ${amoledMode ? 'AMOLED Pitch Black' : 'Elevated Dark'}`)
+          h('div', { className: 'omni-page-sub' }, `v${appVersion} (Build ${appVersionCode || 8566}) · ${amoledMode ? 'AMOLED Pitch Black' : 'Elevated Dark'}`)
         ),
         h('div', { className: 'omni-header-actions' },
           h('button', {
@@ -1439,7 +1441,7 @@
           justifyContent: 'space-between',
           gap: 10,
           padding: '10px 0',
-          marginBottom: 12,
+          margin: '0 16px 12px',
           borderTop: '0.6px solid rgba(255,255,255,0.08)',
           borderBottom: '0.6px solid rgba(255,255,255,0.08)'
         }
@@ -1453,7 +1455,7 @@
         }, isUpdating ? 'Updating...' : 'Install')
       ),
 
-      // Flat 6px Search Bar
+      // Flat Search Bar
       h('div', { className: 'omni-search-bar', style: { marginBottom: 14 } },
         ic('Search', 15),
         h('input', {
@@ -1475,7 +1477,7 @@
           display: 'flex',
           gap: 6,
           flexWrap: 'wrap',
-          paddingBottom: 14,
+          padding: '0 16px 14px',
           borderBottom: '0.6px solid rgba(255, 255, 255, 0.08)'
         }
       },
@@ -1552,7 +1554,7 @@
         if (filteredRows.length === 0) return null;
 
         return h('div', { key: group.heading, style: { marginTop: 18 } },
-          h('div', { className: 'p-section-label', style: { padding: '6px 2px 6px' } }, group.heading),
+          h('div', { className: 'p-section-label', style: { padding: '6px 16px 6px' } }, group.heading),
           h('div', null,
             filteredRows.map((row) => h('button', {
               key: row.id,
