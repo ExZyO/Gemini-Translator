@@ -45,18 +45,16 @@
 
   function OmniArtworkPickerModal(props) {
     const { isOpen, book, onClose, onSaved, setWebImportHistory } = props || {};
-    if (!isOpen || !book) return null;
-
     const h = getH();
     const ic = getIc();
-    const toast = getToast();
     const resolver = getResolver();
     const ReactObj = typeof React !== 'undefined' ? React : window.React;
     const useState = ReactObj?.useState || function (init) { return [init, function () {}]; };
     const useEffect = ReactObj?.useEffect || function () {};
     const useRef = ReactObj?.useRef || function (init) { return { current: init }; };
 
-    const merged = resolver ? resolver.mergeBookArtwork(book) : book;
+    const safeBook = book || {};
+    const merged = resolver ? resolver.mergeBookArtwork(safeBook) : safeBook;
     const [customCover, setCustomCover] = useState(merged.customCover || '');
     const [customBanner, setCustomBanner] = useState(merged.customBanner || '');
     const [focalX, setFocalX] = useState(Number(merged.bannerFocalX) || 0);
@@ -69,18 +67,40 @@
     const previewRef = useRef(null);
 
     useEffect(() => {
+      if (!isOpen || !book) return;
+      const next = resolver ? resolver.mergeBookArtwork(book) : book;
+      setCustomCover(next.customCover || '');
+      setCustomBanner(next.customBanner || '');
+      setFocalX(Number(next.bannerFocalX) || 0);
+      setFocalY(Number(next.bannerFocalY) || 0);
+      setZoom(Math.max(1, Number(next.bannerZoom) || 1));
+      setArtworkRole(next.artworkRole || 'auto');
+    }, [isOpen, book?.id, book?.title]);
+
+    useEffect(() => {
+      if (!isOpen || !book) return;
+      let popReg = null;
       if (typeof window !== 'undefined') {
         window.closeOmniArtworkPicker = () => {
           onClose?.();
           return true;
         };
+        if (window.OmniBackStack && typeof window.OmniBackStack.push === 'function') {
+          popReg = window.OmniBackStack.push('artwork-picker', () => {
+            onClose?.();
+            return true;
+          });
+        }
       }
       return () => {
+        if (typeof popReg === 'function') popReg();
         if (typeof window !== 'undefined' && window.closeOmniArtworkPicker) {
           delete window.closeOmniArtworkPicker;
         }
       };
-    }, [onClose]);
+    }, [isOpen, !!book]);
+
+    if (!isOpen || !book) return null;
 
     const previewBook = Object.assign({}, book, {
       customCover,

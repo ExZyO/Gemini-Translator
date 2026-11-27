@@ -84,9 +84,8 @@
             if (b) b.click();
             else if (typeof window.initMerger === 'function') window.initMerger();
           }
-          toast('Studio tool reset.', 'info');
         } catch (e) {
-          toast('Studio reset: ' + e.message, 'warning');
+          if (typeof setPanelError === 'function') setPanelError(e.message);
         }
       });
     };
@@ -153,31 +152,32 @@
     const [pastedText, setPastedText] = useState('');
     const [isDone, setIsDone] = useState(false);
     const [mergeStats, setMergeStats] = useState(null);
+    const [panelNotice, setPanelNotice] = useState(null);
 
     const handleProcessMaster = (text, fileName) => {
-      if (!text || typeof text !== 'string') return toast('Empty file content.', 'warning');
+      if (!text || typeof text !== 'string') { setPanelNotice({ tone: 'error', msg: 'Empty file content.' }); return; }
       const info = window.MoonReaderEngine?.inspectMrexpt?.(text);
-      if (!info || info.entryCount === 0) return toast('No valid Moon+ Reader bookmarks detected.', 'warning');
+      if (!info || info.entryCount === 0) { setPanelNotice({ tone: 'error', msg: 'No valid Moon+ Reader bookmarks detected.' }); return; }
       setMasterFile({ text, fileName: fileName || 'backup.mrexpt', info });
       setTargetTitle(info.oldTitle || '');
       setTargetPath(info.oldFilePath || ('/storage/emulated/0/Books/' + (info.oldTitle || 'Book.epub')));
       setTargetBookId(info.bookId || '');
       setIsDone(false);
       setMergeStats(null);
-      toast(`Loaded ${info.entryCount} bookmarks.`, 'success');
+      setPanelNotice({ tone: 'success', msg: `Loaded ${info.entryCount} bookmarks` });
     };
 
     const handleProcessSample = (text, fileName) => {
       if (!text || typeof text !== 'string') return;
       const sample = window.MoonReaderEngine?.extractTemplateFromMrexpt?.(text);
-      if (!sample || (!sample.bookId && !sample.title)) return toast('Could not detect target book info.', 'warning');
+      if (!sample || (!sample.bookId && !sample.title)) { setPanelNotice({ tone: 'error', msg: 'Could not detect target book info.' }); return; }
       setSampleFile({ text, fileName, sample });
       if (sample.bookId) setTargetBookId(sample.bookId);
       if (sample.title) setTargetTitle(sample.title.replace(/\s*\(\d+\)\.epub$/i, '.epub'));
       if (sample.filePath) setTargetPath(sample.filePath.replace(/\s*\(\d+\)\.epub$/i, '.epub'));
       setDiscardDummy(sample.entryCount <= 1);
       setIsDone(false);
-      toast(`Captured target Book ID (${sample.bookId || 'detected'}).`, 'success');
+      setPanelNotice({ tone: 'success', msg: `Captured target Book ID (${sample.bookId || 'detected'})` });
     };
 
     const handleProcessEpub = async (file) => {
@@ -188,11 +188,11 @@
       setTargetPath(curFolder + cleanFileName);
       if (file.size) setTargetBookId(String(file.size));
       setIsDone(false);
-      toast(`Captured EPUB "${cleanFileName}" (Size ID: ${file.size}).`, 'success');
+      setPanelNotice({ tone: 'success', msg: `Captured EPUB "${cleanFileName}"` });
     };
 
     const handleDownloadFixed = () => {
-      if (!masterFile || !masterFile.text) return toast('Select or paste your master backup file first.', 'warning');
+      if (!masterFile || !masterFile.text) { setPanelNotice({ tone: 'error', msg: 'Select or paste your master backup file first.' }); return; }
       const engine = window.MoonReaderEngine;
       const epubSize = Number(targetBookId) || null;
       let updatedText = '';
@@ -223,7 +223,7 @@
         updatedText = engine.migrateMrexpt(masterFile.text, { newBookId: targetBookId, newTitle: targetTitle, newFilePath: targetPath });
       }
 
-      if (!updatedText) return toast('Failed to generate aligned bookmark file.', 'error');
+      if (!updatedText) { setPanelNotice({ tone: 'error', msg: 'Failed to generate aligned bookmark file.' }); return; }
       const blob = new Blob([updatedText], { type: 'application/octet-stream' });
       const downloadName = (targetTitle ? targetTitle.replace(/\.epub$/i, '') : 'bookmarks') + '.mrexpt';
       if (typeof window.saveUniversalBlob === 'function') {
@@ -237,7 +237,7 @@
       }
       setIsDone(true);
       setMergeStats(stats);
-      toast(`Downloaded "${downloadName}" ready for Moon+ Reader.`, 'success');
+      setPanelNotice({ tone: 'success', msg: `Aligned & saved ${downloadName}` });
     };
 
     const folderPresets = [
@@ -256,6 +256,12 @@
           'Aligns master highlights and bookmarks to match your phone EPUB ID and folder path so Moon+ Reader imports cleanly.'
         )
       ),
+
+      panelNotice && window.OmniInlineStrip && h(window.OmniInlineStrip, {
+        message: panelNotice.msg,
+        tone: panelNotice.tone,
+        onDismiss: () => setPanelNotice(null)
+      }),
 
       // Step 1: Master Backup File
       h('div', { style: { padding: '14px 0', borderBottom: '1px solid var(--omni-hairline)' } },

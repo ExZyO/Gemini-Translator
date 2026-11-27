@@ -58,6 +58,25 @@
     const hasBgDl = !!(audioDownloadModal?.active && audioDownloadModal?.isMinimized);
     const hasModalDl = !!(audioDownloadModal && !audioDownloadModal.isMinimized);
 
+    (ReactComp?.useEffect || window.React?.useEffect)(() => {
+      if (typeof document !== 'undefined' && document.body) {
+        document.body.classList.toggle('has-audio-mini', !!(hasMini && !hasFull));
+      }
+      return () => {
+        if (typeof document !== 'undefined' && document.body) {
+          document.body.classList.remove('has-audio-mini');
+        }
+      };
+    }, [hasMini, hasFull]);
+
+    (ReactComp?.useEffect || window.React?.useEffect)(() => {
+      if (!hasFull || typeof window === 'undefined' || !window.OmniBackStack?.push) return undefined;
+      return window.OmniBackStack.push('audio-full-player', () => {
+        if (setIsFullPlayerOpen) setIsFullPlayerOpen(false);
+        return true;
+      });
+    }, [hasFull]);
+
     if (!hasMini && !hasFull && !hasBgDl && !hasModalDl) return null;
 
     const currentBook = audioPlayerState?.currentBook || {};
@@ -71,33 +90,33 @@
     const totalTracks = audioPlayerState?.totalTracks || (currentBook.tracks ? currentBook.tracks.length : 1);
     const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (displayTime / duration) * 100)) : 0;
 
-    const glassCardBg = amoledMode ? 'rgba(20, 22, 28, 0.96)' : 'rgba(24, 26, 32, 0.95)';
-    const glassCardBorder = '1px solid var(--omni-border, #363A48)';
+    const glassCardBg = amoledMode ? 'rgba(14, 16, 22, 0.92)' : 'rgba(22, 24, 30, 0.92)';
 
     return h(ReactComp.Fragment, null,
       // ══════════════════════════════════════════════════════════════════════
-      // 1. SLEEK FLOATING FROSTED-GLASS MINI-PLAYER
+      // 1. SLEEK FLOATING FROSTED-GLASS MINI-PLAYER (ABOVE FLOATING NAVBAR)
       // ══════════════════════════════════════════════════════════════════════
       hasMini && h('div', {
         className: 'swift-mini-player',
         style: {
           position: 'fixed',
-          bottom: 'calc(88px + env(safe-area-inset-bottom, 16px))',
+          bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))',
           left: 12,
           right: 12,
           maxWidth: 480,
           margin: '0 auto',
-          height: 60,
+          height: 58,
           background: glassCardBg,
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
-          border: glassCardBorder,
-          borderRadius: 12,
+          border: 'none',
+          boxShadow: '0 10px 28px rgba(0, 0, 0, 0.52), inset 0 0 0 1px rgba(var(--p-accent-rgb, 232,194,106), 0.2)',
+          borderRadius: 18,
           display: 'flex',
           alignItems: 'center',
           padding: '0 10px',
           gap: 8,
-          zIndex: 995,
+          zIndex: 640,
           boxShadow: '0 16px 36px rgba(0, 0, 0, 0.65)',
           cursor: 'pointer',
           overflow: 'hidden',
@@ -122,8 +141,7 @@
             style: {
               height: '100%',
               width: `${progressPercent}%`,
-              background: 'linear-gradient(90deg, #6366f1, #a855f7)',
-              boxShadow: '0 0 8px rgba(99, 102, 241, 0.8)',
+              background: 'var(--p-accent, var(--omni-accent))',
               transition: 'width 0.25s linear'
             }
           })
@@ -149,14 +167,14 @@
             width: 40,
             height: 40,
             borderRadius: 10,
-            background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+            background: 'var(--p-accent-soft, rgba(255,255,255,0.12))',
+            color: 'var(--p-accent, var(--omni-accent))',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexShrink: 0,
-            border: '1px solid rgba(255, 255, 255, 0.15)'
+            flexShrink: 0
           }
-        }, ic('BookOpen', 18, 'text-white')),
+        }, ic('BookOpen', 18)),
 
         // Book & Chapter Title Info
         h('div', { style: { flex: 1, minWidth: 0 } },
@@ -489,8 +507,7 @@
               height: 'min(240px, 34vh)',
               borderRadius: 22,
               objectFit: 'cover',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(99, 102, 241, 0.35)',
-              border: '1px solid rgba(255, 255, 255, 0.20)',
+              boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.78), 0 0 32px rgba(var(--p-accent-rgb, 232,194,106), 0.25)',
               transform: isPlaying ? 'scale(1.02)' : 'scale(1)',
               transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
             }
@@ -499,9 +516,8 @@
               width: 'min(240px, 34vh)',
               height: 'min(240px, 34vh)',
               borderRadius: 22,
-              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(99, 102, 241, 0.35)',
-              border: '1px solid rgba(255, 255, 255, 0.20)',
+              background: 'linear-gradient(160deg, rgba(var(--p-accent-rgb, 232,194,106), 0.28) 0%, var(--p-surface, #1A1D24) 70%)',
+              boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.78), 0 0 32px rgba(var(--p-accent-rgb, 232,194,106), 0.2)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -1098,10 +1114,10 @@
         h('div', { style: { flex: 1, minWidth: 0 } },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'var(--paper)' } },
             h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, audioDownloadModal.status || 'Downloading audio tracks...'),
-            h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", color: 'var(--accent, #6366f1)', marginLeft: 8 } }, `${audioDownloadModal.percent || 0}%`)
+            h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", color: 'var(--p-accent, var(--omni-accent))', marginLeft: 8 } }, `${audioDownloadModal.percent || 0}%`)
           ),
           h('div', { style: { width: '100%', height: 4, borderRadius: 99, background: 'rgba(255, 255, 255, 0.1)', overflow: 'hidden', marginTop: 6 } },
-            h('div', { style: { height: '100%', width: `${audioDownloadModal.percent || 0}%`, background: 'linear-gradient(90deg, #6366f1, #10b981)', transition: 'width 0.25s' } })
+            h('div', { style: { height: '100%', width: `${audioDownloadModal.percent || 0}%`, background: 'var(--p-accent, var(--omni-accent))', transition: 'width 0.25s' } })
           )
         ),
         h('span', { style: { fontSize: 11, color: 'var(--accent, #6366f1)', fontWeight: 600, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4 } }, 'Expand', ic('Maximize2', 12))
@@ -1253,7 +1269,7 @@
                       justifyContent: 'space-between',
                       padding: '4px 6px',
                       borderRadius: 6,
-                      background: isChecked ? 'rgba(99, 102, 241, 0.10)' : 'transparent',
+                      background: isChecked ? 'var(--p-accent-soft, rgba(255,255,255,0.08))' : 'transparent',
                       fontSize: 11.5
                     }
                   },
@@ -1269,7 +1285,7 @@
                             return { ...prev, selectedIndices: next };
                           });
                         },
-                        style: { accentColor: 'var(--accent, #6366f1)', cursor: audioDownloadModal.active ? 'default' : 'pointer' }
+                        style: { accentColor: 'var(--p-accent, var(--omni-accent))', cursor: audioDownloadModal.active ? 'default' : 'pointer' }
                       }),
                       h('span', { style: { color: isChecked ? 'var(--paper)' : 'var(--slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
                         `${tIdx + 1}. ${track.title}`
@@ -1287,10 +1303,8 @@
                           e.stopPropagation();
                           try {
                             setDownloadingTrackId(tIdx);
-                            toast(`Downloading "${track.title}"...`, 'info');
                             const fOpts = audioDownloadModal.folderOptions || (getNovelFolderOptions ? getNovelFolderOptions(audioDownloadModal.book) : {});
                             await window.SwiftAudioEngine.Downloader.downloadSingleTrack(track, audioDownloadModal.book, fOpts);
-                            toast(`Downloaded "${track.title}"!`, 'success');
                           } catch (err) {
                             toast(`Download failed: ${err.message}`, 'error');
                           } finally {
@@ -1307,7 +1321,7 @@
             h('div', { style: { marginBottom: 8 } },
               h('div', { style: { fontSize: 11.5, color: 'var(--paper-dim)', marginBottom: 4 } }, audioDownloadModal.status || 'Ready'),
               h('div', { style: { width: '100%', height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' } },
-                h('div', { style: { height: '100%', width: `${Math.min(100, Math.max(0, audioDownloadModal.percent || 0))}%`, background: 'linear-gradient(90deg, #6366f1, #10b981)', transition: 'width 0.25s' } })
+                h('div', { style: { height: '100%', width: `${Math.min(100, Math.max(0, audioDownloadModal.percent || 0))}%`, background: 'var(--p-accent, var(--omni-accent))', transition: 'width 0.25s' } })
               )
             )
           ),
@@ -1317,7 +1331,7 @@
                 key: 'bg',
                 type: 'button',
                 className: 'mini-btn',
-                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600 },
+                style: { background: 'var(--p-accent, var(--omni-accent))', color: 'var(--p-accent-ink, #111318)', fontWeight: 600 },
                 onClick: () => setAudioDownloadModal(prev => ({ ...prev, isMinimized: true }))
               }, 'Run in Background'),
               h('button', {
@@ -1327,7 +1341,6 @@
                 style: { display: 'inline-flex', alignItems: 'center', gap: 4 },
                 onClick: () => {
                   window.SwiftAudioEngine?.Downloader?.cancel();
-                  toast('Cancelling download...', 'info');
                 }
               }, ic('X', 13), 'Cancel Download')
             ] : [
@@ -1341,7 +1354,7 @@
                 key: 'start',
                 type: 'button',
                 className: 'mini-btn',
-                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 },
+                style: { background: 'var(--p-accent, var(--omni-accent))', color: 'var(--p-accent-ink, #111318)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 },
                 onClick: handleExecuteAudioBatchDownload
               }, ic('Download', 14), `Download Selected (${(audioDownloadModal.selectedIndices || []).length})`)
             ]

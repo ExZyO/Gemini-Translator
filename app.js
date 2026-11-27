@@ -7,7 +7,7 @@
       console.warn("Global error caught:", event.message, event.filename, event.lineno);
     });
 
-    let VERSION = '8.22.53';
+    let VERSION = '8.23.0';
 
     // Destructure Core App Utilities, Icons, Tooltips, Estimators, Models, and Constants from window
     const {
@@ -1198,7 +1198,7 @@
 
       const [toasts, setToasts] = useState([]);
       const [appVersion, setAppVersion] = useState(VERSION);
-      const [appVersionCode, setAppVersionCode] = useState(8564);
+      const [appVersionCode, setAppVersionCode] = useState(8565);
       const [renameModalNovel, setRenameModalNovel] = useState(null);
       const [newNovelTitleInput, setNewNovelTitleInput] = useState('');
       const [assignWebsiteModalNovel, setAssignWebsiteModalNovel] = useState(null);
@@ -1295,37 +1295,48 @@
         if (!msg) return;
         let actionObj = action;
         let options = opts || {};
-        if (action && typeof action === 'object' && !action.onClick && !action.label && (action.position || action.isBottom !== undefined)) {
+        if (action && typeof action === 'object' && !action.onClick && !action.label && (action.position || action.isBottom !== undefined || action.force !== undefined || action.inlineShown !== undefined)) {
           options = action;
           actionObj = null;
         }
-        const isUpdateToast = options.position === 'bottom' || options.isBottom || /updat(?:e|ing|ed)|latest version|new version|chapter\(s\)/i.test(msg);
-        const position = options.position || (isUpdateToast ? 'bottom' : 'top');
-        setToasts(prev => {
-          if (prev.some(t => t.msg === msg)) return prev;
-          const id = genId();
-          setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), actionObj ? 7500 : 3200);
-          return [...prev.slice(-2), { id, msg, type, action: actionObj, position, isBottom: position === 'bottom' }];
-        });
+        const fb = typeof window !== 'undefined' ? window.OmniFeedback : null;
+        if (fb && typeof fb.shouldSurfaceToast === 'function') {
+          const gate = fb.shouldSurfaceToast(msg, type, actionObj, options);
+          if (!gate.show) return;
+          if (gate.kind === 'error') {
+            fb.showError(gate.cleanMsg, actionObj && typeof actionObj.onClick === 'function' ? actionObj.onClick : null, gate.ms);
+          } else if (actionObj && typeof actionObj.onClick === 'function') {
+            if (/undo/i.test(actionObj.label || '')) {
+              fb.showUndo(gate.cleanMsg, actionObj.onClick, gate.ms);
+            } else {
+              fb.showNotice(gate.cleanMsg, gate.ms || 4800, actionObj);
+            }
+          } else {
+            fb.showNotice(gate.cleanMsg, gate.ms || 2400);
+          }
+          return;
+        }
       };
 
-      // Unmask silent errors with immediate toast notification
+      // Surface inline error banner cleanly without firing duplicate floating toasts
       const setError = useCallback((msg) => {
         _setError(msg || '');
-        if (msg && typeof msg === 'string' && msg.trim()) {
-          const isErr = /error|fail|invalid|corrupt/i.test(msg);
-          toast(msg, isErr ? 'error' : 'warning');
-        }
       }, []);
 
-      // Bind global references for outer helpers
-      window.__setDownloadModal = setDownloadSuccessModal;
+      // Bind global references for outer helpers (route modal save popups into quiet inline notice)
+      window.__setDownloadModal = (payload) => {
+        if (payload && window.OmniFeedback && typeof window.OmniFeedback.notifySaveReady === 'function') {
+          window.OmniFeedback.notifySaveReady(payload);
+          return;
+        }
+        if (payload === null) setDownloadSuccessModal(null);
+      };
       window.__toast = toast;
       window.setEpubPackagingModal = setEpubPackagingModal;
       window.notifyModelChange = (fromModel, toModel, reason) => {
-        const msg = `Model switched: ${fromModel} → ${toModel} (${reason})`;
-        toast(msg, 'warning');
-        window.NativeBridge?.haptic?.('warning');
+        if (window.AppLogger && typeof window.AppLogger.info === 'function') {
+          window.AppLogger.info(`Model switched: ${fromModel} -> ${toModel} (${reason})`);
+        }
       };
 
       // --- Novel Health & QA Proofreader Handlers (§5.9 + §7.1 + §7.5) ---
@@ -1543,10 +1554,27 @@
         });
       }, []);
 
+      const activeTabRef = useRef(activeTab);
+      activeTabRef.current = activeTab;
+      const tabHistoryRef = useRef([]);
+      const navigateToTab = (nextTab, opts = {}) => {
+        if (!nextTab) return;
+        const prev = activeTabRef.current;
+        if (!opts.skipHistory && prev && prev !== nextTab) {
+          const stack = tabHistoryRef.current;
+          if (stack[stack.length - 1] !== prev) {
+            stack.push(prev);
+            if (stack.length > 24) stack.shift();
+          }
+        }
+        setActiveTab(nextTab);
+        try { localStorage.setItem('activeTab', nextTab); } catch (_) {}
+      };
+
       useEffect(() => {
         localStorage.setItem('activeTab', activeTab);
         window.setActiveAppTab = (tab, subTab) => {
-          if (tab) { setActiveTab(tab); localStorage.setItem('activeTab', tab); }
+          if (tab) navigateToTab(tab);
           if (subTab) { setStudioSubTab(subTab); localStorage.setItem('studioSubTab', subTab); }
         };
         if (activeTab === 'studio') {
@@ -1568,65 +1596,55 @@
       const backActionsRef = useRef({});
       backActionsRef.current = {
         closeActiveModal: () => {
-          // 0. Site Recipe Editor Modal (Full-screen overlay)
-          if (siteRecipeEditor) { setSiteRecipeEditor(null); return true; }
-          // 1. Export Tools Sheet
-          if (sheetOpen) { setSheetOpen(false); return true; }
-          // 2. Diagnostics & Telemetry Logs Modal
-          if (logsModalOpen) { setLogsModalOpen(false); return true; }
-          // 3. Bulk API Key Import Modal
-          if (bulkKeyModalOpen) { setBulkKeyModalOpen(false); return true; }
-          // 4. Glossary Full-Screen Editor Modal
-          if (glossaryEditorOpen) { setGlossaryEditorOpen(false); return true; }
-          // 5. Confirm Dialog
-          if (showModal) { setShowModal(false); if (modalCallback) setModalCallback(null); return true; }
-          // 6. EPUB Packaging Progress Dock
-          if (epubPackagingModal) { setEpubPackagingModal(null); return true; }
-          // 7. Download Success Modal
-          if (downloadSuccessModal) { setDownloadSuccessModal(null); return true; }
-          // 8. Moon+ Reader Modal
-          if (readerOpen) { setReaderOpen(false); return true; }
-          // 9. Library Novel Action Sheet
-          if (activeBookMenuNovel) { setActiveBookMenuNovel(null); return true; }
-          // 10. Ongoing EPUB Continuation Modal
-          if (ongoingEpubModal && ongoingEpubModal.isOpen) {
+          if (window.OmniBackStack?.pop?.()) return true;
+          if (ongoingEpubModal?.isOpen) {
             if (!ongoingEpubModal.isFetching) setOngoingEpubModal(null);
             return true;
           }
-          // 11. QA Health Audit Modal
-          if (qaModalOpen) { setQaModalOpen(false); return true; }
-          // 12. Translation Diff & Revision History Modal
-          if (diffModalOpen) { setDiffModalOpen(false); return true; }
-          // 13. Auto-Glossary Modal
+          if (showModal) { setShowModal(false); if (modalCallback) setModalCallback(null); return true; }
           if (autoGlossaryModalOpen) {
             setAutoGlossaryModalOpen(false);
             if (typeof setAutoGlossaryTargetNovel === 'function') setAutoGlossaryTargetNovel(null);
             return true;
           }
-          // 14. Name Consistency Verifier Modal
-          if (consistencyModalOpen) { setConsistencyModalOpen(false); return true; }
-          // 15. Google Drive Configuration Modal
-          if (gdriveConfigModalOpen) { setGdriveConfigModalOpen(false); return true; }
-          // 16. Audio Download Modal
-          if (audioDownloadModal) { setAudioDownloadModal(null); return true; }
-          // 17. SwiftAudio Full Player
-          if (isFullPlayerOpen) { setIsFullPlayerOpen(false); return true; }
-          // 18. Novel Rename Modal
-          if (renameModalNovel) { setRenameModalNovel(null); return true; }
-          // 18b. Novel Assign Website Modal
-          if (assignWebsiteModalNovel) { setAssignWebsiteModalNovel(null); return true; }
-          // 19. Source Extensions / Plugins Modal
-          if (sourcePluginsModalOpen) { setSourcePluginsModalOpen(false); return true; }
-          // 20. Cost & Time Estimator Modal
-          if (costEstimatorModalOpen) { setCostEstimatorModalOpen(false); return true; }
-          // 21. Library Novel View
-          if (activeNovelView) { setActiveNovelView(null); return true; }
+          const closers = [
+            [siteRecipeEditor, () => setSiteRecipeEditor(null)],
+            [sheetOpen, () => setSheetOpen(false)],
+            [logsModalOpen, () => setLogsModalOpen(false)],
+            [bulkKeyModalOpen, () => setBulkKeyModalOpen(false)],
+            [glossaryEditorOpen, () => setGlossaryEditorOpen(false)],
+            [epubPackagingModal, () => setEpubPackagingModal(null)],
+            [downloadSuccessModal, () => setDownloadSuccessModal(null)],
+            [readerOpen, () => setReaderOpen(false)],
+            [activeBookMenuNovel, () => setActiveBookMenuNovel(null)],
+            [qaModalOpen, () => setQaModalOpen(false)],
+            [diffModalOpen, () => setDiffModalOpen(false)],
+            [consistencyModalOpen, () => setConsistencyModalOpen(false)],
+            [gdriveConfigModalOpen, () => setGdriveConfigModalOpen(false)],
+            [audioDownloadModal, () => setAudioDownloadModal(null)],
+            [isFullPlayerOpen, () => setIsFullPlayerOpen(false)],
+            [renameModalNovel, () => setRenameModalNovel(null)],
+            [assignWebsiteModalNovel, () => setAssignWebsiteModalNovel(null)],
+            [sourcePluginsModalOpen, () => setSourcePluginsModalOpen(false)],
+            [costEstimatorModalOpen, () => setCostEstimatorModalOpen(false)],
+            [activeNovelView, () => setActiveNovelView(null)]
+          ];
+          for (const [open, close] of closers) {
+            if (open) { close(); return true; }
+          }
           return false;
         },
         popTab: () => {
-          if (activeTab !== 'history') {
-            setActiveTab('history');
-            localStorage.setItem('activeTab', 'history');
+          const stack = tabHistoryRef.current;
+          while (stack.length > 0) {
+            const prev = stack.pop();
+            if (prev && prev !== activeTabRef.current) {
+              navigateToTab(prev, { skipHistory: true });
+              return true;
+            }
+          }
+          if (activeTabRef.current !== 'history') {
+            navigateToTab('history', { skipHistory: true });
             return true;
           }
           return false;
@@ -2863,60 +2881,46 @@
                     if (isFetchingPaused) handleStartFetch(true, activeCrawlSession);
                     else handlePauseFetch();
                   }
-                }, isFetchingPaused ? '▶' : '⏸')
+                }, isFetchingPaused
+                  ? (window.Icons && window.Icons.Play ? h(window.Icons.Play, { size: 13 }) : 'Resume')
+                  : (window.Icons && window.Icons.Pause ? h(window.Icons.Pause, { size: 13 }) : 'Pause')
+                )
               )
             ),
             h(window.AppTabsContainer || AppTabsContainer, appTabProps)
           ),
 
-        // ── BOTTOM NAV (iOS Liquid Sliding Glass Dock matching NuvioMobile) ──
-          h(window.LiquidGlassDock || window.NavigationEngine?.LiquidGlassDock || LiquidGlassDock, {
+        // ── BOTTOM NAV (OmniTrack Floating Liquid-Glass Jelly Navbar) ──
+          h(window.OmniFloatingNav?.LiquidGlassDock || window.LiquidGlassDock || LiquidGlassDock, {
             activeTab,
             navItems,
             onSelectTab: (key) => {
-              setActiveTab(key);
-              localStorage.setItem('activeTab', key);
+              navigateToTab(key);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }
-          })
+          }),
+          window.OmniQuietStrip ? h(window.OmniQuietStrip) : null
         ),
 
         // ══════════════════════════════════════════════════════════════════════
         // CONSOLIDATED ROOT MODALS CONTAINER
         // ══════════════════════════════════════════════════════════════════════
         h(window.AppModalsContainer || AppModalsContainer, {
-          // Export Tools Sheet
           sheetOpen, setSheetOpen, handleExportRow, isTranslating, handleAutoDetectSplit,
           setBoxPreset, setGlossaryEditorOpen, toast,
-
-          // Diagnostics Logs Modal
           logsModalOpen, setLogsModalOpen, liveLogs, copyLogsWithReport,
-
-          // Bulk API Key Import Modal
           bulkKeyModalOpen, setBulkKeyModalOpen, provider, bulkKeyText, setBulkKeyText, handleBulkImportKeys,
-
-          // Glossary Editor Modal
           glossaryEditorOpen, setGlossaryEditorOpen, terminology, setTerminology, glossaryTermCount,
           activeGlossaryId, handleSaveGlossary, applyGlossaryPreset, handleAiOptimizeGlossary,
           isOptimizingGlossary, importGlossaryFile, exportGlossaryTxt, smartGlossary, setSmartGlossary,
-
-          // Toast System
           toasts, setToasts, isBatchChecking, checkingUpdates,
-
-          // Confirmation Dialog
           showModal, setShowModal, modalMessage, modalCallback, setModalCallback,
-
-          // EPUB Packaging Progress Dock & Success
           epubPackagingModal, setEpubPackagingModal, downloadSuccessModal, setDownloadSuccessModal,
-
-          // Moon+ Reader Modal
           MoonReaderModal, readerOpen, setReaderOpen, assembledText, getExportChapters,
           readerChapterIdx, setReaderChapterIdx, readerTheme, setReaderTheme, readerFont,
           setReaderFont, readerFontSize, setFontSize: setReaderFontSize, tgtLang,
-          readerNovelId, readerNovelTitle, readerChapters, setReaderChapters, handleRunConsistencyCheck, handleOpenActiveQaModal, handleOpenDiffModal,
-          handleTranslateSingleChapter, handleDownloadEPUB,
-
-          // Library Novel Action Sheet (Editorial Book Details)
+          readerNovelId, readerNovelTitle, readerChapters, setReaderChapters, handleRunConsistencyCheck,
+          handleOpenActiveQaModal, handleOpenDiffModal, handleTranslateSingleChapter, handleDownloadEPUB,
           activeBookMenuNovel, setActiveBookMenuNovel, activeNovelRecord, setActiveNovelRecord,
           currentDocTitle, setCurrentDocTitle, setInputText, setChapters, setTranslatedChapters, setAssembledText, setFileName,
           setCurrentDocCover, getNovelFolderOptions, setRenameModalNovel,
@@ -2925,57 +2929,31 @@
           handleOpenContinuationForNovel, handleOpenAutoGlossary,
           toggleNovelSavedSpace, handleSetNovelFolder, handleOpenNovelHealthModal,
           handleEnrichNovelMetadata, handleUpgradeNovelIllustrations, handleSplitNovelIntoArcs, confirmAction, deleteNovelFromHistory, setWebImportHistory,
-
-          // Ongoing EPUB Continuation Modal
           ongoingEpubModal, setOngoingEpubModal, updateNovelFolderRecord, handleScanContinuationToc,
           handleSearchContinuationSources, handleSelectContinuationSource, handleExecuteContinuation,
-
-          // QA Report Modal
           qaModalOpen, setQaModalOpen, qaAuditResult, qaFilterCategory, setQaFilterCategory,
           qaCheckGaps, setQaCheckGaps, qaCheckCorrupt, setQaCheckCorrupt, qaCheckCjk, setQaCheckCjk,
           qaCheckAntiMtl, setQaCheckAntiMtl, qaCheckLoops, setQaCheckLoops, qaCheckDuplicates, setQaCheckDuplicates,
           qaAuditNovelRef, runNovelHealthAudit, onInspectChapterInReader: handleInspectChapterInReader,
-
-          // Translation Diff & Revision History Modal
           diffModalOpen, setDiffModalOpen, activeDiffData, selectedDiffSnapId,
           handleSelectDiffSnapshot, diffSnapshotsList, handleManualSnapshot, handleRollbackDiffSnapshot,
-
-          // Auto-Glossary Modal
           autoGlossaryModalOpen, setAutoGlossaryModalOpen, autoGlossaryTargetNovel, setAutoGlossaryTargetNovel,
           chapters, activeNovelRecord, autoGlossaryChapterCount, setAutoGlossaryChapterCount,
           isExtractingGlossary, handleExtractGlossary, extractedTerms, setExtractedTerms, handleApplyExtractedTerms,
-
-          // Name Consistency Modal
           consistencyModalOpen, setConsistencyModalOpen, consistencyAuditResults, handleBatchFixDrift, isAuditingConsistency,
-
-          // Google Drive Config Modal
           gdriveConfigModalOpen, setGdriveConfigModalOpen, gdriveClientId, setGdriveClientId,
           gdriveManualToken, setGdriveManualToken, setGdriveConnected, testGoogleDriveConnection,
-
-          // SwiftAudio Player & Batch Downloader
           audioPlayerState, amoledMode, isFullPlayerOpen, setIsFullPlayerOpen, isPlayerFullscreen, setIsPlayerFullscreen,
           isAudiobookInLibrary, saveAudiobookToLibrary, removeAudiobookFromLibrary, handleOpenAudioDownload,
           downloadingTrackId, setDownloadingTrackId, audioDownloadModal, setAudioDownloadModal, handleExecuteAudioBatchDownload,
-
-          // Novel Rename Modal
           renameModalNovel, newNovelTitleInput, handleSaveNovelRename,
-
-          // Novel Assign Website Modal
           assignWebsiteModalNovel, setAssignWebsiteModalNovel, newNovelWebsiteUrlInput, setNewNovelWebsiteUrlInput, handleSaveNovelWebsite,
-
-          // Source Extensions Modal
           sourcePluginsModalOpen, setSourcePluginsModalOpen, pluginSelectedTab, setPluginSelectedTab,
           pluginCatalog, isCatalogLoading, pluginSearchQuery, setPluginSearchQuery,
           pluginSelectedLangFilter, setPluginSelectedLangFilter, installingPluginId,
           handleUninstallPlugin, handleInstallPlugin, customPluginUrl, setCustomPluginUrl, handleInstallCustomPluginUrl,
-
-          // Cost Estimator Modal
           costEstimatorModalOpen, setCostEstimatorModalOpen, costEstimatorData, handleStartTranslation,
-
-          // Site Recipe Customizer Modal
           siteRecipeEditor, setSiteRecipeEditor, openSiteRecipeEditor,
-
-          // EPUB Studio Preview Modal
           modalHtml: window.modalHtml || (typeof modalHtml !== 'undefined' ? modalHtml : '')
         })
       );

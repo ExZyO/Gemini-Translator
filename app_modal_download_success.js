@@ -28,20 +28,26 @@
 
   function DownloadSuccessModal(props) {
     const { downloadSuccessModal, setDownloadSuccessModal } = props || {};
-    if (!downloadSuccessModal) return null;
     const h = getH();
+    const reactObj = typeof React !== 'undefined' ? React : window.React;
+    const useEffectFn = (reactObj && reactObj.useEffect) ? reactObj.useEffect : useEffect;
+
+    useEffectFn(() => {
+      if (!downloadSuccessModal) return;
+      if (window.OmniFeedback && typeof window.OmniFeedback.notifySaveReady === 'function') {
+        window.OmniFeedback.notifySaveReady(downloadSuccessModal);
+        if (typeof setDownloadSuccessModal === 'function') setDownloadSuccessModal(null);
+        return;
+      }
+      const timer = setTimeout(() => {
+        if (typeof setDownloadSuccessModal === 'function') setDownloadSuccessModal(null);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }, [downloadSuccessModal]);
+
+    if (!downloadSuccessModal || (typeof window !== 'undefined' && window.OmniFeedback)) return null;
     const isEpub = (downloadSuccessModal.fileName || '').toLowerCase().endsWith('.epub');
     const isContinuation = !!downloadSuccessModal.isContinuation;
-
-    const reactObj = typeof React !== 'undefined' ? React : window.React;
-    if (reactObj && reactObj.useEffect) {
-      reactObj.useEffect(() => {
-        const timer = setTimeout(() => {
-          if (typeof setDownloadSuccessModal === 'function') setDownloadSuccessModal(null);
-        }, 10000);
-        return () => clearTimeout(timer);
-      }, [downloadSuccessModal]);
-    }
 
     const handleOpenInReader = async () => {
       try {
@@ -50,7 +56,6 @@
           if (opened) { setDownloadSuccessModal(null); return; }
         }
       } catch (e) { console.warn('Reader open error:', e); }
-      if (typeof window.toast === 'function') window.toast('Opening in Moon+ Reader…', 'info');
       setDownloadSuccessModal(null);
     };
 
@@ -217,7 +222,7 @@
             whiteSpace: 'nowrap',
             color: '#cbd5e1'
           }
-        }, `⏱ ${epubPackagingModal.elapsed}`)
+        }, epubPackagingModal.elapsed)
       )
     );
   }

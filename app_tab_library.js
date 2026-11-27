@@ -45,13 +45,14 @@
 
     return h('div', {
       key: item.id || item.title,
-      className: `omni-poster-card ${isSelected ? 'selected' : ''}`,
+      className: `omni-poster-card omni-hold-item ${isSelected ? 'selected' : ''}`,
       onMouseDown: (e) => onCardTouchStart(item, e),
       onMouseUp: () => onCardTouchEnd(item),
       onMouseLeave: () => onCardTouchEnd(item),
       onTouchStart: (e) => onCardTouchStart(item, e),
       onTouchMove: (e) => onCardTouchMove(item, e),
       onTouchEnd: () => onCardTouchEnd(item),
+      onTouchCancel: () => onCardTouchEnd(item),
       onClick: (e) => onCardClick(item, e),
       onContextMenu: (e) => onContextMenu(item, e)
     },
@@ -210,19 +211,52 @@
     const lastLongPressTimeRef = useRef(0);
     const isTouchInteractionRef = useRef(false);
 
-    // Back button exits Chimanew multi-select cleanly
+    const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+    const [saveNotice, setSaveNotice] = useState(() => window.OmniFeedback?.getLastSaveReady?.() || null);
+    const [inlineStatus, setInlineStatus] = useState(null);
+
     useEffect(() => {
+      if (!window.OmniFeedback?.subscribeSaveReady) return;
+      return window.OmniFeedback.subscribeSaveReady((info) => setSaveNotice(info));
+    }, []);
+
+    // Sync Multi-Select body class + LIFO Back Stack
+    useEffect(() => {
+      if (typeof window === 'undefined' || !window.OmniBackStack?.push) return;
+      if (!moreSheetOpen) return;
+      return window.OmniBackStack.push('lib-more-sheet', () => {
+        setMoreSheetOpen(false);
+        return true;
+      });
+    }, [moreSheetOpen]);
+
+    useEffect(() => {
+      if (typeof document !== 'undefined' && document.body) {
+        document.body.classList.toggle('is-multi-select', !!isSelectMode);
+      }
       if (typeof window === 'undefined') return;
+      let popReg = null;
       if (isSelectMode) {
         window.exitLibraryMultiSelect = () => {
           setIsSelectMode(false);
           setSelectedBookIds([]);
           return true;
         };
+        if (window.OmniBackStack?.push) {
+          popReg = window.OmniBackStack.push('lib-multi-select', () => {
+            setIsSelectMode(false);
+            setSelectedBookIds([]);
+            return true;
+          });
+        }
       } else if (window.exitLibraryMultiSelect) {
         delete window.exitLibraryMultiSelect;
       }
       return () => {
+        if (typeof document !== 'undefined' && document.body) {
+          document.body.classList.remove('is-multi-select');
+        }
+        if (typeof popReg === 'function') popReg();
         if (typeof window !== 'undefined' && window.exitLibraryMultiSelect) {
           delete window.exitLibraryMultiSelect;
         }
@@ -322,7 +356,7 @@
         }
         if (blob) {
           try {
-            toast('Loading book contents...', 'info');
+            setInlineStatus({ tone: 'neutral', message: 'Unpacking book contents...' });
             const readFn = (typeof window.readEpub === 'function') ? window.readEpub : (window.DocumentParser?.parseFile || window.DocumentParser?.readEpub);
             if (readFn) {
               const parsed = await readFn(blob);
@@ -387,9 +421,6 @@
       const resumeIdx = (savedProg && typeof savedProg.chapterIdx === 'number') ? savedProg.chapterIdx : 0;
       setReaderChapterIdx(resumeIdx);
       setReaderOpen(true);
-      if (savedProg && resumeIdx > 0) {
-        toast(`Resuming "${item.title}" at Chapter ${resumeIdx + 1}`, 'success');
-      }
     };
 
     const toggleSelectBook = (id) => {
@@ -397,12 +428,18 @@
       setSelectedBookIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
+    const getSelectionPool = () => {
+      if (libTab === 'trash') return Array.isArray(trashList) ? trashList : [];
+      if (libTab === 'audio') return Array.isArray(filteredAudiobooks) ? filteredAudiobooks : [];
+      return Array.isArray(displayedBooks) ? displayedBooks : [];
+    };
+
     const selectAllBooks = () => {
-      setSelectedBookIds(displayedBooks.map(b => b.id || b.title).filter(Boolean));
+      setSelectedBookIds(getSelectionPool().map(b => b.id || b.url || b.title).filter(Boolean));
     };
 
     const invertSelectedBooks = () => {
-      const allIds = displayedBooks.map(b => b.id || b.title).filter(Boolean);
+      const allIds = getSelectionPool().map(b => b.id || b.url || b.title).filter(Boolean);
       setSelectedBookIds(prev => allIds.filter(id => !prev.includes(id)));
     };
 
@@ -417,26 +454,32 @@
     const handleBatchSaveSpace = async () => {
       const targets = getSelectedBookObjects();
       if (targets.length === 0) return;
+      const shouldSave = targets.some(b => !b.savedToSpace);
       for (const b of targets) {
-        if (typeof toggleNovelSavedSpace === 'function') {
+        const currentlySaved = !!b.savedToSpace;
+        if (currentlySaved !== shouldSave && typeof toggleNovelSavedSpace === 'function') {
           try { await toggleNovelSavedSpace(b.id, b); } catch (_) {}
         }
       }
-      toast(`Updated Saved Space for ${targets.length} book(s).`, 'success');
+      setInlineStatus({
+        tone: 'success',
+        message: `${shouldSave ? 'Saved' : 'Removed'} ${targets.length} book${targets.length === 1 ? '' : 's'} ${shouldSave ? 'to' : 'from'} Saved Space`
+      });
     };
 
     const handleBatchCheckSelectedUpdates = async () => {
       const targets = getSelectedBookObjects().filter(b => b.sourceUrl && /^https?:\/\//i.test(b.sourceUrl));
       if (targets.length === 0) {
-        toast('None of the selected books have an online web URL assigned.', 'info');
+        setInlineStatus({ tone: 'neutral', message: 'Selected books have no web source URL.' });
         return;
       }
-      toast(`Checking updates for ${targets.length} book(s)...`, 'info');
+      setInlineStatus({ tone: 'neutral', message: `Checking updates for ${targets.length} book${targets.length === 1 ? '' : 's'}...` });
       for (const b of targets) {
         if (typeof handleCheckNovelUpdate === 'function') {
           try { await handleCheckNovelUpdate(b); } catch (_) {}
         }
       }
+      setInlineStatus({ tone: 'success', message: `Finished update check (${targets.length} checked)` });
     };
 
     const handleBatchExportSelectedEpubs = async () => {
@@ -468,14 +511,15 @@
         }
       }
       if (setEpubPackagingModal) setEpubPackagingModal(null);
-      toast(`Exported ${targets.length} EPUB(s).`, 'success');
+      setInlineStatus({ tone: 'success', message: `Exported ${targets.length} EPUB${targets.length === 1 ? '' : 's'}` });
     };
 
     const deleteSelectedBooks = () => {
       if (selectedBookIds.length === 0) return;
-      const count = selectedBookIds.length;
+      const idsSnapshot = [...selectedBookIds];
+      const count = idsSnapshot.length;
       const doDelete = async () => {
-        for (const id of selectedBookIds) {
+        for (const id of idsSnapshot) {
           try {
             if (deleteNovelFromHistory) {
               await deleteNovelFromHistory(id);
@@ -493,13 +537,21 @@
         if (typeof setWebImportHistory === 'function') {
           setWebImportHistory(prev => {
             const list = Array.isArray(prev) ? prev : [];
-            return list.filter(item => !selectedBookIds.includes(item.id) && !selectedBookIds.includes(item.title));
+            return list.filter(item => !idsSnapshot.includes(item.id) && !idsSnapshot.includes(item.title));
           });
         }
         setSelectedBookIds([]);
         setIsSelectMode(false);
         if (typeof loadTrashCount === 'function') loadTrashCount();
-        toast(`Moved ${count} book(s) to Trash.`, 'success');
+        if (window.OmniFeedback && typeof window.OmniFeedback.showUndo === 'function') {
+          window.OmniFeedback.showUndo(`Moved ${count} book${count === 1 ? '' : 's'} to Trash`, async () => {
+            for (const rid of idsSnapshot) {
+              if (typeof handleRestoreNovel === 'function') {
+                try { await handleRestoreNovel(rid); } catch (_) {}
+              }
+            }
+          });
+        }
       };
 
       if (typeof confirmAction === 'function') {
@@ -512,11 +564,12 @@
     const handleCardContextMenu = (item, e) => {
       e.preventDefault();
       e.stopPropagation();
-      const timeSinceLongPress = Date.now() - (lastLongPressTimeRef.current || 0);
-      if (timeSinceLongPress >= 850 && !isSelectMode) {
+      const id = item.id || item.title;
+      if (longPressTriggered.current[id]) return;
+      if (!isSelectMode) {
         setIsSelectMode(true);
-        toggleSelectBook(item.id || item.title);
       }
+      toggleSelectBook(id);
     };
 
     const handleCardTouchStart = (item, e) => {
@@ -545,8 +598,8 @@
         if (!isSelectMode) {
           setIsSelectMode(true);
         }
-        toggleSelectBook(item.id || item.title);
-      }, 450);
+        toggleSelectBook(id);
+      }, 360);
     };
 
     const handleCardTouchMove = (item, e) => {
@@ -566,12 +619,14 @@
         clearTimeout(timerRefs.current[id]);
         timerRefs.current[id] = null;
       }
+      if (longPressTriggered.current[id]) {
+        setTimeout(() => { longPressTriggered.current[id] = false; }, 160);
+      }
     };
 
     const handleCardClick = (item, e) => {
       const id = item.id || item.title;
-      const timeSinceLongPress = Date.now() - (lastLongPressTimeRef.current || 0);
-      if (longPressTriggered.current[id] || timeSinceLongPress < 850) {
+      if (longPressTriggered.current[id]) {
         longPressTriggered.current[id] = false;
         if (e) {
           e.preventDefault?.();
@@ -655,11 +710,22 @@
       const totalCh = b.chapterCount || (b.chapters ? b.chapters.length : 0);
 
       return h('div', {
-        className: 'omni-hero',
+        className: `omni-hero omni-hold-item ${(selectedBookIds.includes(b.id) || selectedBookIds.includes(b.title)) ? 'is-selected' : ''}`,
+        onMouseDown: (e) => {
+          if (e.target && e.target.closest && e.target.closest('button')) return;
+          handleCardTouchStart(b, e);
+        },
+        onMouseUp: () => handleCardTouchEnd(b),
+        onMouseLeave: () => handleCardTouchEnd(b),
         onTouchStart: (e) => {
           heroTouchRef.current = { active: true, startX: e.touches?.[0]?.clientX || 0 };
+          if (e.target && e.target.closest && e.target.closest('button')) return;
+          handleCardTouchStart(b, e);
         },
+        onTouchMove: (e) => handleCardTouchMove(b, e),
+        onTouchCancel: () => { heroTouchRef.current.active = false; handleCardTouchEnd(b); },
         onTouchEnd: (e) => {
+          handleCardTouchEnd(b);
           const endX = e.changedTouches?.[0]?.clientX || 0;
           const dx = endX - heroTouchRef.current.startX;
           heroTouchRef.current.active = false;
@@ -667,7 +733,8 @@
             if (dx < 0) setHeroIndex(prev => (prev + 1) % heroItems.length);
             else setHeroIndex(prev => (prev - 1 + heroItems.length) % heroItems.length);
           }
-        }
+        },
+        onContextMenu: (e) => handleCardContextMenu(b, e)
       },
         h('div', { className: 'omni-hero-bg' },
           bannerInfo.src ? h('img', {
@@ -752,10 +819,28 @@
             const pct = prog?.pct || 0;
             const chNum = (prog?.chapterIdx || 0) + 1;
             const tStr = window.cleanLabel ? window.cleanLabel(book.title, 'Untitled Book') : (book.title || 'Untitled Book');
+            const cId = book.id || book.title;
+            const cSel = selectedBookIds.includes(book.id) || selectedBookIds.includes(book.title);
             return h('div', {
-              key: book.id || idx,
-              className: 'omni-continue-card',
-              onClick: () => openReaderForBook(book)
+              key: cId || idx,
+              className: `omni-continue-card omni-hold-item ${cSel ? 'is-selected' : ''}`,
+              onMouseDown: (e) => handleCardTouchStart(book, e),
+              onMouseUp: () => handleCardTouchEnd(book),
+              onMouseLeave: () => handleCardTouchEnd(book),
+              onTouchStart: (e) => handleCardTouchStart(book, e),
+              onTouchMove: (e) => handleCardTouchMove(book, e),
+              onTouchEnd: () => handleCardTouchEnd(book),
+              onTouchCancel: () => handleCardTouchEnd(book),
+              onContextMenu: (e) => handleCardContextMenu(book, e),
+              onClick: (e) => {
+                if (longPressTriggered.current[cId]) {
+                  longPressTriggered.current[cId] = false;
+                  e.preventDefault?.();
+                  return;
+                }
+                if (isSelectMode) toggleSelectBook(cId);
+                else openReaderForBook(book);
+              }
             },
               cSrc && h('img', { src: cSrc, alt: '', className: 'omni-continue-card-bg', referrerPolicy: 'no-referrer' }),
               h('div', { className: 'omni-continue-card-scrim' }),
@@ -786,8 +871,25 @@
       const tStr = window.cleanLabel ? window.cleanLabel(book.title, 'Untitled Book') : (book.title || 'Untitled Book');
 
       return h('div', {
-        className: 'omni-continue-card compact-wide',
-        onClick: () => openReaderForBook(book)
+        className: `omni-continue-card compact-wide omni-hold-item ${(selectedBookIds.includes(book.id) || selectedBookIds.includes(book.title)) ? 'is-selected' : ''}`,
+        onMouseDown: (e) => handleCardTouchStart(book, e),
+        onMouseUp: () => handleCardTouchEnd(book),
+        onMouseLeave: () => handleCardTouchEnd(book),
+        onTouchStart: (e) => handleCardTouchStart(book, e),
+        onTouchMove: (e) => handleCardTouchMove(book, e),
+        onTouchEnd: () => handleCardTouchEnd(book),
+        onTouchCancel: () => handleCardTouchEnd(book),
+        onContextMenu: (e) => handleCardContextMenu(book, e),
+        onClick: (e) => {
+          const bId = book.id || book.title;
+          if (longPressTriggered.current[bId]) {
+            longPressTriggered.current[bId] = false;
+            e.preventDefault?.();
+            return;
+          }
+          if (isSelectMode) toggleSelectBook(bId);
+          else openReaderForBook(book);
+        }
       },
         cSrc && h('img', { src: cSrc, alt: '', className: 'omni-continue-card-bg', referrerPolicy: 'no-referrer' }),
         h('div', { className: 'omni-continue-card-scrim' }),
@@ -880,21 +982,35 @@
     }
 
     return h(React.Fragment, null,
-      // 1. Top Header or Chimanew Hero or Multi-Select TopBar
+      // 1. Top Header or Chimanew Hero or OmniTrack Multi-Select TopBar
       isSelectMode
         ? h('div', { className: 'omni-select-topbar' },
-            h('div', { style: { fontWeight: 750, fontSize: 15, color: '#F5F5F5' } },
-              `${selectedBookIds.length} / ${displayedBooks.length} Selected`
-            ),
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
-              h('button', { type: 'button', className: 'omni-soft-tab', onClick: selectAllBooks }, 'All'),
-              h('button', { type: 'button', className: 'omni-soft-tab', onClick: invertSelectedBooks }, 'Invert'),
-              h('button', { type: 'button', className: 'omni-soft-tab', onClick: deselectAllBooks }, 'Clear'),
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
               h('button', {
                 type: 'button',
-                className: 'omni-soft-tab active',
+                className: 'p-icon-btn',
+                'aria-label': 'Exit selection mode',
                 onClick: () => { setIsSelectMode(false); setSelectedBookIds([]); }
-              }, 'Done')
+              }, ic(window.X || 'X', 19)),
+              h('div', { style: { fontWeight: 700, fontSize: 16, color: 'var(--p-ink)' } },
+                `${selectedBookIds.length} selected`
+              )
+            ),
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 2 } },
+              h('button', {
+                type: 'button',
+                className: 'p-icon-btn',
+                title: 'Select All',
+                'aria-label': 'Select All',
+                onClick: selectAllBooks
+              }, ic(window.CheckSquare || window.Check || 'Check', 18)),
+              h('button', {
+                type: 'button',
+                className: 'p-icon-btn',
+                title: 'Invert Selection',
+                'aria-label': 'Invert Selection',
+                onClick: invertSelectedBooks
+              }, ic(window.Shuffle || window.RefreshCw || 'RefreshCw', 17))
             )
           )
         : (useEditorialHero
@@ -981,7 +1097,7 @@
       ),
 
       // 4. Clean Chimanew Underline Shelf Tabs (Zero Bubble/Pill Shapes)
-      h('div', { className: 'omni-underline-tabs', style: { marginBottom: 12 } },
+      h('div', { className: 'omni-underline-tabs', style: { marginBottom: 8 } },
         [
           { id: 'all', label: `All (${allCountLabel})` },
           { id: 'saved', label: `Saved (${savedSpaceCount})` },
@@ -995,12 +1111,30 @@
           className: `omni-underline-tab ${libTab === tab.id ? 'active' : ''}`,
           onClick: () => {
             setLibTab(tab.id);
+            setSelectedBookIds([]);
             if (tab.id === 'trash') loadTrashCount();
           }
         }, tab.label))
       ),
 
-      // 5. Audio Shelf (Frameless Hairline List)
+      saveNotice && window.OmniInlineStrip && h(window.OmniInlineStrip, {
+        message: `Saved ${saveNotice.fileName || 'Document'}`,
+        tone: 'success',
+        actionLabel: 'Open',
+        onAction: () => {
+          try { window.NativeBridge?.openWithReader?.(saveNotice.fileName, saveNotice.path || ''); } catch (_) {}
+          setSaveNotice(null);
+        },
+        onDismiss: () => setSaveNotice(null)
+      }),
+
+      inlineStatus && window.OmniInlineStrip && h(window.OmniInlineStrip, {
+        message: inlineStatus.message,
+        tone: inlineStatus.tone,
+        onDismiss: () => setInlineStatus(null)
+      }),
+
+      // 5. Audio Shelf (Frameless Hairline List with Hold-to-Select)
       libTab === 'audio' && h(React.Fragment, null,
         h('div', { className: 'omni-section-label-row' },
           h('span', { className: 'omni-section-label' }, `Saved Audiobooks (${filteredAudiobooks.length})`),
@@ -1011,7 +1145,7 @@
             onClick: () => confirmAction('Clear all saved audiobooks from your library?', () => {
               setSavedAudiobooks([]);
               try { localStorage.removeItem('gemini_saved_audiobooks'); } catch (_) {}
-              toast('Audiobook library cleared.');
+              setInlineStatus({ tone: 'neutral', message: 'Audiobook library cleared' });
             })
           }, 'Clear All')
         ),
@@ -1026,9 +1160,38 @@
           : h('div', null,
               filteredAudiobooks.map((b, idx) => {
                 const isCurrentlyPlaying = audioPlayerState?.isPlaying && audioPlayerState?.currentBook?.url === b.url;
-                return h('div', { key: b.id || b.url || idx, className: 'omni-hairline-row', style: { cursor: 'default' } },
-                  h('div', { style: { display: 'flex', gap: 12, alignItems: 'center', flex: 1, minWidth: 0 } },
-                    h('div', { className: 'omni-poster-frame', style: { width: 46, height: 69 } },
+                const aId = b.id || b.url || b.title;
+                const aSel = selectedBookIds.includes(aId);
+                const holdItem = Object.assign({}, b, { id: aId });
+                return h('div', {
+                  key: aId || idx,
+                  className: `omni-hairline-row omni-hold-item ${aSel ? 'is-selected' : ''}`,
+                  onMouseDown: (e) => {
+                    if (e.target && e.target.closest && e.target.closest('button')) return;
+                    handleCardTouchStart(holdItem, e);
+                  },
+                  onMouseUp: () => handleCardTouchEnd(holdItem),
+                  onMouseLeave: () => handleCardTouchEnd(holdItem),
+                  onTouchStart: (e) => {
+                    if (e.target && e.target.closest && e.target.closest('button')) return;
+                    handleCardTouchStart(holdItem, e);
+                  },
+                  onTouchMove: (e) => handleCardTouchMove(holdItem, e),
+                  onTouchEnd: () => handleCardTouchEnd(holdItem),
+                  onTouchCancel: () => handleCardTouchEnd(holdItem),
+                  onContextMenu: (e) => handleCardContextMenu(holdItem, e),
+                  onClick: (e) => {
+                    if (e.target && e.target.closest && e.target.closest('button')) return;
+                    if (longPressTriggered.current[aId]) {
+                      longPressTriggered.current[aId] = false;
+                      return;
+                    }
+                    if (isSelectMode) toggleSelectBook(aId);
+                  }
+                },
+                  h('div', { style: { display: 'flex', gap: 12, alignItems: 'center', flex: 1, minWidth: 0, position: 'relative' } },
+                    h('div', { className: 'omni-poster-frame', style: { width: 46, height: 69, position: 'relative' } },
+                      aSel && h('div', { className: 'omni-hold-check' }, ic(window.Check || 'Check', 12)),
                       b.cover ? h('img', { src: b.cover, alt: 'Cover', referrerPolicy: 'no-referrer' }) : ic('Headphones', 18)
                     ),
                     h('div', { style: { flex: 1, minWidth: 0 } },
@@ -1095,9 +1258,38 @@
               h('p', { style: { fontSize: 12.5, color: 'rgba(255,255,255,0.48)', marginTop: 6 } }, 'Deleted novels remain recoverable here until permanently removed.')
             )
           : h('div', null,
-              trashList.map((item, idx) => h('div', { key: item.id || idx, className: 'omni-hairline-row', style: { cursor: 'default' } },
+              trashList.map((item, idx) => {
+                const tId = item.id || item.title;
+                const tSel = selectedBookIds.includes(tId);
+                return h('div', {
+                  key: tId || idx,
+                  className: `omni-hairline-row omni-hold-item ${tSel ? 'is-selected' : ''}`,
+                  onMouseDown: (e) => {
+                    if (e.target && e.target.closest && e.target.closest('button')) return;
+                    handleCardTouchStart(item, e);
+                  },
+                  onMouseUp: () => handleCardTouchEnd(item),
+                  onMouseLeave: () => handleCardTouchEnd(item),
+                  onTouchStart: (e) => {
+                    if (e.target && e.target.closest && e.target.closest('button')) return;
+                    handleCardTouchStart(item, e);
+                  },
+                  onTouchMove: (e) => handleCardTouchMove(item, e),
+                  onTouchEnd: () => handleCardTouchEnd(item),
+                  onTouchCancel: () => handleCardTouchEnd(item),
+                  onContextMenu: (e) => handleCardContextMenu(item, e),
+                  onClick: (e) => {
+                    if (e.target && e.target.closest && e.target.closest('button')) return;
+                    if (longPressTriggered.current[tId]) {
+                      longPressTriggered.current[tId] = false;
+                      return;
+                    }
+                    if (isSelectMode) toggleSelectBook(tId);
+                  }
+                },
                 h('div', { style: { display: 'flex', gap: 12, alignItems: 'center', flex: 1, minWidth: 0 } },
-                  h('div', { className: 'omni-poster-frame', style: { width: 42, height: 63 } },
+                  h('div', { className: 'omni-poster-frame', style: { width: 42, height: 63, position: 'relative' } },
+                    tSel && h('div', { className: 'omni-hold-check' }, ic(window.Check || 'Check', 12)),
                     item.cover ? h('img', { src: item.cover, alt: 'Cover', referrerPolicy: 'no-referrer' }) : ic('BookOpen', 16)
                   ),
                   h('div', { style: { flex: 1, minWidth: 0 } },
@@ -1123,7 +1315,8 @@
                     onClick: () => confirmAction(`Permanently delete "${item.title}"?`, () => handlePermanentDelete(item.id))
                   }, ic('Trash2', 14))
                 )
-              ))
+              );
+              })
             )
       ),
 
@@ -1225,32 +1418,132 @@
         )
       ),
 
-      // 8. Chimanew Floating Multi-Select Batch Dock above bottom navigation bar
+      // 8. OmniTrack Flush Vector Multi-Select Bottom Dock
       isSelectMode && h('div', { className: 'omni-select-dock' },
-        h('button', {
-          type: 'button',
-          className: 'omni-select-dock-btn',
-          disabled: selectedBookIds.length === 0,
-          onClick: handleBatchCheckSelectedUpdates
-        }, ic('RefreshCw', 16), h('span', null, 'Updates')),
-        h('button', {
-          type: 'button',
-          className: 'omni-select-dock-btn',
-          disabled: selectedBookIds.length === 0,
-          onClick: handleBatchSaveSpace
-        }, ic('Star', 16), h('span', null, 'Save')),
-        h('button', {
-          type: 'button',
-          className: 'omni-select-dock-btn',
-          disabled: selectedBookIds.length === 0,
-          onClick: handleBatchExportSelectedEpubs
-        }, ic('Download', 16), h('span', null, 'EPUB')),
-        h('button', {
-          type: 'button',
-          className: 'omni-select-dock-btn danger',
-          disabled: selectedBookIds.length === 0,
-          onClick: deleteSelectedBooks
-        }, ic('Trash2', 16), h('span', null, 'Trash'))
+        libTab === 'trash'
+          ? h(React.Fragment, null,
+              h('button', {
+                type: 'button',
+                className: 'omni-select-dock-btn',
+                disabled: selectedBookIds.length === 0,
+                onClick: async () => {
+                  const snap = [...selectedBookIds];
+                  for (const id of snap) {
+                    if (typeof handleRestoreNovel === 'function') {
+                      try { await handleRestoreNovel(id); } catch (_) {}
+                    }
+                  }
+                  setSelectedBookIds([]);
+                  setIsSelectMode(false);
+                }
+              }, ic('RotateCcw', 17), h('span', null, 'Restore')),
+              h('button', {
+                type: 'button',
+                className: 'omni-select-dock-btn is-danger',
+                disabled: selectedBookIds.length === 0,
+                onClick: () => confirmAction(`Permanently delete ${selectedBookIds.length} book(s)?`, async () => {
+                  const snap = [...selectedBookIds];
+                  for (const id of snap) {
+                    if (typeof handlePermanentDelete === 'function') {
+                      try { await handlePermanentDelete(id); } catch (_) {}
+                    }
+                  }
+                  setSelectedBookIds([]);
+                  setIsSelectMode(false);
+                })
+              }, ic('Trash2', 17), h('span', null, 'Delete')),
+              h('button', {
+                type: 'button',
+                className: 'omni-select-dock-btn',
+                onClick: () => { setIsSelectMode(false); setSelectedBookIds([]); }
+              }, ic('X', 17), h('span', null, 'Done'))
+            )
+          : (libTab === 'audio'
+              ? h(React.Fragment, null,
+                  h('button', {
+                    type: 'button',
+                    className: 'omni-select-dock-btn is-danger',
+                    disabled: selectedBookIds.length === 0,
+                    onClick: () => confirmAction(`Remove ${selectedBookIds.length} audiobook(s)?`, () => {
+                      const snap = [...selectedBookIds];
+                      for (const track of filteredAudiobooks) {
+                        const tid = track.id || track.url || track.title;
+                        if (snap.includes(tid) && typeof removeAudiobookFromLibrary === 'function') {
+                          removeAudiobookFromLibrary(track);
+                        }
+                      }
+                      setSelectedBookIds([]);
+                      setIsSelectMode(false);
+                    })
+                  }, ic('Trash2', 17), h('span', null, 'Remove')),
+                  h('button', {
+                    type: 'button',
+                    className: 'omni-select-dock-btn',
+                    onClick: () => { setIsSelectMode(false); setSelectedBookIds([]); }
+                  }, ic('X', 17), h('span', null, 'Done'))
+                )
+              : h(React.Fragment, null,
+                  h('button', {
+                    type: 'button',
+                    className: 'omni-select-dock-btn',
+                    disabled: selectedBookIds.length === 0,
+                    onClick: handleBatchCheckSelectedUpdates
+                  }, ic('RefreshCw', 17), h('span', null, 'Updates')),
+                  h('button', {
+                    type: 'button',
+                    className: 'omni-select-dock-btn',
+                    disabled: selectedBookIds.length === 0,
+                    onClick: handleBatchSaveSpace
+                  }, ic('Star', 17), h('span', null, 'Save')),
+                  h('button', {
+                    type: 'button',
+                    className: 'omni-select-dock-btn',
+                    disabled: selectedBookIds.length === 0,
+                    onClick: handleBatchExportSelectedEpubs
+                  }, ic('Download', 17), h('span', null, 'EPUB')),
+                  h('button', {
+                    type: 'button',
+                    className: 'omni-select-dock-btn is-danger',
+                    disabled: selectedBookIds.length === 0,
+                    onClick: deleteSelectedBooks
+                  }, ic('Trash2', 17), h('span', null, 'Trash')),
+                  h('button', {
+                    type: 'button',
+                    className: 'omni-select-dock-btn',
+                    onClick: () => setMoreSheetOpen(true)
+                  }, ic(window.MoreHorizontal || 'MoreHorizontal', 17), h('span', null, 'More'))
+                ))
+      ),
+
+      // Multi-Select "More" Bottom Sheet
+      moreSheetOpen && h('div', {
+        className: 'omni-sheet-backdrop',
+        onClick: (e) => { if (e.target === e.currentTarget) setMoreSheetOpen(false); }
+      },
+        h('div', { className: 'omni-sheet' },
+          h('div', { className: 'p-sheet-handle' }),
+          h('div', { className: 'p-section-label' }, 'Batch & Shelf Actions'),
+          hasWebSources && h('button', {
+            type: 'button',
+            className: 'p-row',
+            onClick: () => { setMoreSheetOpen(false); handleCheckAllUpdates(); }
+          }, ic('RefreshCw', 17), h('div', { className: 'p-row-title' }, 'Check All Online Books')),
+          h('button', {
+            type: 'button',
+            className: 'p-row',
+            onClick: () => { setMoreSheetOpen(false); selectAllBooks(); }
+          }, ic('Check', 17), h('div', { className: 'p-row-title' }, 'Select All In Current Shelf')),
+          h('button', {
+            type: 'button',
+            className: 'p-row',
+            onClick: () => { setMoreSheetOpen(false); invertSelectedBooks(); }
+          }, ic('RefreshCw', 17), h('div', { className: 'p-row-title' }, 'Invert Selection')),
+          h('button', {
+            type: 'button',
+            className: 'p-row',
+            onClick: () => { setMoreSheetOpen(false); deselectAllBooks(); }
+          }, ic('X', 17), h('div', { className: 'p-row-title' }, 'Clear Selection'))
+        )
       )
     );
   }

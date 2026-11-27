@@ -155,6 +155,8 @@
     const [activeTransChapIdx, setActiveTransChapIdx] = useState(0);
     const [showFullRawSource, setShowFullRawSource] = useState(false);
     const [showFullRawTrans, setShowFullRawTrans] = useState(false);
+    const [copiedInline, setCopiedInline] = useState(false);
+    const [coverSavedInline, setCoverSavedInline] = useState(false);
 
     // Buffered local typing state to prevent 30fps parent re-renders on big novels
     const [sourceDraft, setSourceDraft] = useState({ key: '', text: '', dirty: false });
@@ -335,7 +337,7 @@
 
     const openTranslatedInReader = () => {
       if (!assembledText.trim() && (!translatedChapters || translatedChapters.length === 0) && (!chapters || chapters.length === 0)) {
-        toast('Nothing loaded to open in Reader yet.', 'info');
+        if (typeof setError === 'function') setError('Nothing loaded to open in Reader yet.');
         return;
       }
       const docKey = currentDocTitle || fileName || 'translated_doc';
@@ -650,7 +652,7 @@
             h('div', { style: { fontSize: 11.5, color: 'var(--omni-text-sub)' } }, `${translatedChapters.filter(c => c && (c.content || c.text)).length} chapters ready`)
           ),
           h('label', { className: 'omni-soft-tab active', style: { cursor: 'pointer', fontSize: 11.5 } },
-            currentDocCover ? 'Change Cover' : 'Add Cover',
+            coverSavedInline ? 'Cover Updated' : (currentDocCover ? 'Change Cover' : 'Add Cover'),
             h('input', {
               type: 'file',
               accept: 'image/*',
@@ -662,7 +664,8 @@
                 r.onload = ev => {
                   setCurrentDocCover(ev.target.result);
                   if (activeNovelRecord) activeNovelRecord.cover = ev.target.result;
-                  toast('Cover updated.', 'success');
+                  setCoverSavedInline(true);
+                  setTimeout(() => setCoverSavedInline(false), 2200);
                 };
                 r.readAsDataURL(file);
               }
@@ -671,7 +674,19 @@
         ),
         h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0 0', flexWrap: 'wrap', gap: 6 } },
           h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-            h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '4px 9px', fontSize: 11.5 }, disabled: !assembledText.trim(), onClick: () => { flushTransDraft(); copyText(assembledText).then(() => toast('Copied!')); } }, 'Copy'),
+            h('button', {
+              type: 'button',
+              className: 'omni-soft-tab',
+              style: { padding: '4px 9px', fontSize: 11.5, color: copiedInline ? 'var(--omni-jade)' : undefined },
+              disabled: !assembledText.trim(),
+              onClick: () => {
+                flushTransDraft();
+                Promise.resolve(copyText(assembledText)).then(() => {
+                  setCopiedInline(true);
+                  setTimeout(() => setCopiedInline(false), 1800);
+                });
+              }
+            }, copiedInline ? 'Copied' : 'Copy'),
             h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '4px 9px', fontSize: 11.5 }, disabled: isTranslating || (!assembledText.trim() && (!translatedChapters || !translatedChapters.length)), onClick: () => { flushTransDraft(); handleOpenDiffModal(isMultiTransChapters ? safeTransChapIdx : 0); } }, 'Diffs'),
             h('button', { type: 'button', className: 'omni-soft-tab', style: { padding: '4px 9px', fontSize: 11.5, color: 'var(--omni-accent)' }, disabled: isTranslating || !assembledText.trim(), onClick: () => { flushTransDraft(); handleSaveTranslationToLibrarySpace(); } }, 'Save to Space')
           ),

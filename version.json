@@ -1,11 +1,11 @@
 {
-  "version": "8.22.53",
-  "versionCode": 8564,
-  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.53/GeminiTranslator.apk",
-  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.22.53/GeminiTLD-Debug.apk",
-  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.22.53/app-release.apk",
-  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.22.53",
-  "releaseDate": "2026-11-24",
-  "releaseNotes": "v8.22.53: Complete Chimanew Elevated Dark UI overhaul across all screens, menus, audiobook player, and Reader controls with crisp 6px-8px buttons, optional pitch-black AMOLED canvas toggle, Discover Sources directory, and zero-lag chapter-windowed Translator editing.",
-  "releaseUrl": "https://github.com/exzyo/gemini-translator/releases/tag/v8.22.53"
+  "version": "8.23.0",
+  "versionCode": 8565,
+  "apkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.23.0/GeminiTranslator.apk",
+  "debugApkUrl": "https://github.com/ExZyO/Gemini-Translator/releases/download/v8.23.0/GeminiTLD-Debug.apk",
+  "downloadUrl": "https://github.com/exzyo/gemini-translator/releases/download/v8.23.0/app-release.apk",
+  "releasePage": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.23.0",
+  "releaseDate": "2026-11-27",
+  "releaseNotes": "v8.23.0: Clean-slate phone-first Charcoal UI with one-tap AMOLED toggle, Floating Liquid-Glass Jelly Navbar with Glass Glow & pointer scrub, single quiet bottom strip notifications, universal 360ms hold-to-select across Library shelves, and OmniTrack Fallback Waterfall with FLIP drag.",
+  "releaseUrl": "https://github.com/ExZyO/Gemini-Translator/releases/tag/v8.23.0"
 }

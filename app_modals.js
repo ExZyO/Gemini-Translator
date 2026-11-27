@@ -1105,9 +1105,9 @@
   // ─────────────────────────────────────────────────────────────────────────
   function NovelRenameModal(props) {
     const { novel, onClose, value, setValue, onSave } = props;
-    if (!novel) return null;
     const h = getH();
     const [isTranslatingTitle, setIsTranslatingTitle] = (typeof React !== 'undefined' && React.useState) ? React.useState(false) : [false, () => {}];
+    if (!novel) return null;
 
     const handleAiTranslateNovelTitle = async () => {
       const src = novel.originalSourceTitle || novel.title || value;
@@ -1210,7 +1210,7 @@
           h('button', {
             type: 'button',
             className: 'mini-btn',
-            style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 700, padding: '7px 16px' },
+            style: { background: 'var(--p-accent, var(--omni-accent))', color: 'var(--p-accent-ink, #111318)', fontWeight: 700, padding: '7px 16px' },
             onClick: () => {
               onSave(novel, value);
               onClose();
@@ -1395,7 +1395,6 @@
       setReaderOpen,
       setActiveNovelRecord
     } = props;
-    if (!novel) return null;
     const h = getH();
     const toast = getToast();
 
@@ -1404,10 +1403,13 @@
 
     if (typeof React !== 'undefined' && React.useEffect) {
       React.useEffect(() => {
+        if (!novel) return;
         mountTimeRef.current = Date.now();
         hasIntentionalTouchRef.current = false;
       }, [novel]);
     }
+
+    if (!novel) return null;
 
     const handleActionClick = (actionFn, e) => {
       e?.preventDefault?.();

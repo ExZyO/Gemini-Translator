@@ -210,7 +210,7 @@
     const activeSubViewRef = useRef(activeSubView);
     activeSubViewRef.current = activeSubView;
 
-    // Register Android back button drill-out handler
+    // Register Android back button drill-out handler (Settings Sub-Page -> Settings Hub)
     useEffect(() => {
       if (typeof window === 'undefined') return undefined;
       window.exitSettingsSubView = () => {
@@ -224,6 +224,14 @@
         if (window.exitSettingsSubView) delete window.exitSettingsSubView;
       };
     }, []);
+
+    useEffect(() => {
+      if (!activeSubView || typeof window === 'undefined' || !window.OmniBackStack?.push) return undefined;
+      return window.OmniBackStack.push('settings-subview', () => {
+        setActiveSubView(null);
+        return true;
+      });
+    }, [activeSubView]);
 
     // Keep legacy settingsCategory in sync if another caller sets it
     useEffect(() => {
@@ -386,11 +394,11 @@
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
-      padding: '8px 12px',
-      borderRadius: 6,
-      background: 'var(--omni-control, #23262F)',
-      border: '1px solid var(--omni-border, #363A48)',
-      color: 'var(--omni-text, #F5F6F8)',
+      padding: '8px 13px',
+      borderRadius: 999,
+      background: 'rgba(255, 255, 255, 0.08)',
+      border: 'none',
+      color: 'var(--p-ink, #F5F6F8)',
       fontSize: 12,
       fontWeight: 600,
       cursor: 'pointer'
@@ -401,10 +409,10 @@
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
-      padding: '9px 14px',
-      borderRadius: 8,
-      background: 'var(--omni-accent, #F5F6F8)',
-      color: 'var(--omni-on-accent, #0F1014)',
+      padding: '10px 16px',
+      borderRadius: 999,
+      background: 'var(--p-accent, var(--omni-accent, #E8C26A))',
+      color: 'var(--p-accent-ink, #111318)',
       border: 'none',
       fontSize: 12.5,
       fontWeight: 750,
@@ -433,8 +441,8 @@
         position: 'sticky',
         top: 0,
         zIndex: 14,
-        background: 'var(--omni-canvas, #0F1014)',
-        borderBottom: '1px solid var(--omni-hairline, #262A36)',
+        background: 'var(--p-canvas, #111318)',
+        borderBottom: '1px solid var(--p-hairline, rgba(255,255,255,0.065))',
         padding: '6px 0 12px',
         marginBottom: 8,
         display: 'flex',
@@ -731,78 +739,17 @@
           'Strict Mode is active. Fallback cascading is disabled; the engine waits and rotates keys on your chosen model.'
         ) : h('div', {
           style: {
-            padding: '14px 0',
-            borderBottom: '0.6px solid rgba(255,255,255,0.08)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10
+            padding: '4px 0 10px',
+            borderBottom: '0.6px solid rgba(255,255,255,0.08)'
           }
         },
-          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-            h('span', { style: { fontSize: 12.5, fontWeight: 700, color: '#F5F5F5' } }, 'Fallback Model Ladder'),
-            h('button', { type: 'button', onClick: handleResetFallbackLadder, style: { ...ghostBtnStyle, padding: '4px 10px', fontSize: 11 } }, 'Reset Ladder')
-          ),
-          (Array.isArray(fallbackModels) && fallbackModels.length > 0) ? fallbackModels.map((modelId, idx) => h('div', {
-            key: `${modelId}-${idx}`,
-            style: {
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 8,
-              padding: '8px 0',
-              borderBottom: '0.6px solid rgba(255,255,255,0.06)'
-            }
-          },
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
-              h('span', { style: { fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: activePalette.accent, fontWeight: 700 } }, `#${idx + 1}`),
-              h('span', { style: { fontSize: 12.5, fontFamily: "'IBM Plex Mono', monospace", color: '#F5F5F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, modelId)
-            ),
-            h('div', { style: { display: 'flex', gap: 4 } },
-              h('button', { type: 'button', disabled: idx === 0, onClick: () => handleMoveFallbackModel(idx, -1), style: { ...ghostBtnStyle, padding: '6px 8px', opacity: idx === 0 ? 0.3 : 1 }, 'aria-label': 'Move Up' }, ic('ArrowUp', 13)),
-              h('button', { type: 'button', disabled: idx === fallbackModels.length - 1, onClick: () => handleMoveFallbackModel(idx, 1), style: { ...ghostBtnStyle, padding: '6px 8px', opacity: idx === fallbackModels.length - 1 ? 0.3 : 1 }, 'aria-label': 'Move Down' }, ic('ArrowDown', 13)),
-              h('button', { type: 'button', onClick: () => handleRemoveFallbackModel(idx), style: { ...ghostBtnStyle, padding: '6px 8px', color: '#f87171' }, 'aria-label': 'Remove' }, ic('X', 13))
-            )
-          )) : h('div', { style: { fontSize: 12, color: 'rgba(255,255,255,0.45)', padding: '6px 0' } }, 'No backup models configured. Tap a quick-add model below.'),
-
-          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-            [
-              { id: 'gemini-3.5-flash', label: '3.5 Flash' },
-              { id: 'gemini-3.5-flash-lite', label: '3.5 Flash Lite' },
-              { id: 'gemini-3.6-flash', label: '3.6 Flash' },
-              { id: 'gemini-3.7-flash', label: '3.7 Flash' },
-              { id: 'deepseek-chat', label: 'DeepSeek' }
-            ].map(preset => h('button', {
-              key: preset.id,
-              type: 'button',
-              onClick: () => handleAddFallbackModel(preset.id),
-              style: { ...ghostBtnStyle, padding: '5px 10px', fontSize: 11.5 }
-            }, `+ ${preset.label}`))
-          ),
-
-          h('div', { style: { display: 'flex', gap: 8 } },
-            h('input', {
-              type: 'text',
-              placeholder: 'e.g. gemini-custom-model',
-              value: newFallbackModelText,
-              onChange: e => setNewFallbackModelText(e.target.value),
-              onKeyDown: e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddFallbackModel(newFallbackModelText);
-                  setNewFallbackModelText('');
-                }
-              },
-              style: { ...inputStyle, flex: 1, minWidth: 0 }
-            }),
-            h('button', {
-              type: 'button',
-              onClick: () => {
-                handleAddFallbackModel(newFallbackModelText);
-                setNewFallbackModelText('');
-              },
-              style: primaryBtnStyle
-            }, 'Add Model')
-          )
+          window.OmniWaterfallList
+            ? h(window.OmniWaterfallList, {
+                fallbackModels: fallbackModels,
+                setFallbackModels: setFallbackModels,
+                onReset: handleResetFallbackLadder
+              })
+            : null
         ),
 
         sectionTitle('PERFORMANCE & SOURCES', `Concurrency ${concurrency}`),
@@ -1541,7 +1488,6 @@
               const next = !downloadedOnly;
               setDownloadedOnly(next);
               localStorage.setItem('downloadedOnly', String(next));
-              toast(next ? 'Downloaded only: ON' : 'Downloaded only: OFF', 'info');
             }
           },
           {
@@ -1552,7 +1498,6 @@
               const next = !incognitoMode;
               setIncognitoMode(next);
               localStorage.setItem('incognitoMode', String(next));
-              toast(next ? 'Incognito mode: ON (history paused)' : 'Incognito mode: OFF', 'info');
             }
           },
           {
@@ -1562,7 +1507,6 @@
             onToggle: () => {
               const next = !enableStreaming;
               setEnableStreaming(next);
-              toast(next ? 'Typewriter streaming: ON' : 'Typewriter streaming: OFF', 'info');
             }
           },
           {
@@ -1573,7 +1517,6 @@
               const next = !enableThinking;
               setEnableThinking(next);
               localStorage.setItem('enableThinking', String(next));
-              toast(next ? 'Extended Thinking: ON' : 'Extended Thinking: OFF', 'info');
             }
           }
         ].map(chip => h('button', {
@@ -1583,20 +1526,20 @@
           style: {
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 5,
-            padding: '6px 11px',
-            borderRadius: 6,
-            background: chip.active ? activePalette.accent : 'var(--omni-control, #23262F)',
-            color: chip.active ? activePalette.onAccent : 'var(--omni-text, #F5F6F8)',
-            border: chip.active ? ('1px solid ' + activePalette.accent) : '1px solid var(--omni-border, #363A48)',
-            fontSize: 11.5,
+            gap: 6,
+            padding: '7px 13px',
+            borderRadius: 999,
+            background: chip.active ? activePalette.accent : 'rgba(255, 255, 255, 0.07)',
+            color: chip.active ? activePalette.onAccent : 'var(--p-ink, #F5F6F8)',
+            border: 'none',
+            fontSize: 12,
             fontWeight: chip.active ? 750 : 600,
             cursor: 'pointer'
           }
-        }, ic(chip.icon, 12), chip.label))
+        }, ic(chip.icon, 13), chip.label))
       ),
 
-      // 3 Elevated Dark #181A20 Menu Group Panels
+      // Names-Only Edge-to-Edge Hairline Menu Groups (Zero Boxed Outlines)
       MENU_GROUPS.map(group => {
         const filteredRows = group.rows.filter(r => {
           if (!q) return true;
@@ -1609,63 +1552,29 @@
         if (filteredRows.length === 0) return null;
 
         return h('div', { key: group.heading, style: { marginTop: 18 } },
-          h('div', {
-            style: {
-              fontSize: 10.5,
-              fontWeight: 700,
-              letterSpacing: '0.11em',
-              textTransform: 'uppercase',
-              color: 'var(--omni-text-sub)',
-              marginBottom: 8
-            }
-          }, group.heading),
-          h('div', {
-            style: {
-              background: 'var(--omni-surface, #181A20)',
-              border: '1px solid var(--omni-border, #363A48)',
-              borderRadius: 8,
-              overflow: 'hidden'
-            }
-          },
-            filteredRows.map((row, rIdx) => h('button', {
+          h('div', { className: 'p-section-label', style: { padding: '6px 2px 6px' } }, group.heading),
+          h('div', null,
+            filteredRows.map((row) => h('button', {
               key: row.id,
               type: 'button',
-              onClick: () => setActiveSubView(row.id),
-              style: {
-                width: '100%',
-                background: 'transparent',
-                borderTop: 'none',
-                borderLeft: 'none',
-                borderRight: 'none',
-                borderBottom: rIdx < filteredRows.length - 1 ? '1px solid var(--omni-hairline, #262A36)' : 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                textAlign: 'left',
-                padding: '13px 14px',
-                gap: 12,
-                cursor: 'pointer'
-              }
+              className: 'p-row',
+              onClick: () => setActiveSubView(row.id)
             },
               h('span', {
                 style: {
-                  width: 34,
-                  height: 34,
-                  borderRadius: 7,
-                  background: 'var(--omni-control, #23262F)',
-                  border: '1px solid var(--omni-border, #363A48)',
                   color: activePalette.accent,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  width: 24,
+                  height: 24,
                   flexShrink: 0
                 }
-              }, ic(row.icon, 16)),
+              }, ic(row.icon, 19)),
               h('div', { style: { flex: 1, minWidth: 0 } },
-                h('div', { style: { fontSize: 14.5, fontWeight: 650, color: 'var(--omni-text, #F5F6F8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, row.title),
-                h('div', { style: { fontSize: 11.5, color: 'var(--omni-text-sub, #AEB4C2)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, row.sub)
+                h('div', { className: 'p-row-title' }, row.title)
               ),
-              h('span', { style: { color: 'var(--omni-text-sub, #AEB4C2)', flexShrink: 0 } }, ic('ChevronRight', 16))
+              h('span', { style: { color: 'var(--p-dim)', flexShrink: 0 } }, ic('ChevronRight', 17))
             ))
           )
         );

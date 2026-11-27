@@ -111,41 +111,41 @@
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { flex: 1, minWidth: 0, height: 38, fontSize: 15, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
             title: 'Stop TTS',
             onClick: stopTts
-          }, '⏹'),
+          }, ic('Square', 15)),
 
           // 2. Prev Chapter
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { flex: 1, minWidth: 0, height: 38, fontSize: 13, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
             disabled: activeIdx <= 0,
             title: 'Previous Chapter',
             onClick: () => {
               if (activeIdx > 0) changeChapter(activeIdx - 1);
             }
-          }, '|◀'),
+          }, ic('SkipBack', 16)),
 
           // 3. Prev Sentence/Paragraph
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { flex: 1, minWidth: 0, height: 38, fontSize: 13, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
             disabled: activeSentenceIdx <= 0,
             title: 'Previous Chunk',
             onClick: () => speakSentence(Math.max(0, activeSentenceIdx - 1))
-          }, '◀◀'),
+          }, ic('Rewind', 15)),
 
           // 4. Voice & Engine Selector
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { flex: 1, minWidth: 0, height: 38, fontSize: 15, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
             title: 'Change Voice & Speech Engine (SherpaTTS / Piper)',
             onClick: () => setShowVoiceModal(true)
-          }, ic('Volume2', 15)),
+          }, ic('Volume2', 16)),
 
           // 5. Play / Pause button (DEAD CENTER)
           h('button', {
@@ -155,42 +155,41 @@
               height: 44,
               borderRadius: '50%',
               background: 'var(--r-accent)',
-              color: '#ffffff',
+              color: 'var(--r-on-accent, #111318)',
               border: 'none',
-              fontSize: 18,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              boxShadow: '0 0 16px rgba(99, 102, 241, 0.45)',
+              boxShadow: '0 6px 18px rgba(0, 0, 0, 0.45)',
               flexShrink: 0,
               margin: '0 4px'
             },
             title: ttsPaused ? 'Resume' : 'Pause',
             onClick: toggleTts
-          }, ttsPaused ? '▶' : '⏸'),
+          }, ic(ttsPaused ? 'Play' : 'Pause', 18)),
 
           // 6. Next Sentence/Paragraph
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { flex: 1, minWidth: 0, height: 38, fontSize: 13, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
             disabled: activeSentenceIdx >= sentencesRef.current.length - 1,
             title: 'Next Chunk',
             onClick: () => speakSentence(activeSentenceIdx + 1)
-          }, '▶▶'),
+          }, ic('FastForward', 15)),
 
           // 7. Next Chapter
           h('button', {
             type: 'button',
             className: 'mini-btn ghost',
-            style: { flex: 1, minWidth: 0, height: 38, fontSize: 13, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+            style: { flex: 1, minWidth: 0, height: 38, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
             disabled: activeIdx >= safeChapters.length - 1,
             title: 'Next Chapter',
             onClick: () => {
               if (activeIdx < safeChapters.length - 1) changeChapter(activeIdx + 1);
             }
-          }, '▶|'),
+          }, ic('SkipForward', 16)),
 
           // 8. TTS Options
           h('button', {
@@ -655,7 +654,7 @@
                           onToggleBookmark(bm.chapterIdx);
                         }
                       }
-                    }, ic('Trash2', 13) || '✕')
+                    }, ic('Trash2', 13))
                   ),
 
                   // Card Body (Highlight colored box vs Note vs Bookmark progress)
@@ -1128,14 +1127,15 @@
                   width: 38,
                   height: 38,
                   borderRadius: 10,
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  background: 'var(--r-accent, var(--omni-accent, #E8C26A))',
+                  color: 'var(--r-on-accent, #111318)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: 19,
-                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.35)'
                 }
-              }, ic('Volume2', 20, 'text-white')),
+              }, ic('Volume2', 20)),
               h('div', null,
                 h('div', { style: { fontWeight: 800, fontSize: 16.5, letterSpacing: -0.3 } }, 'Speech Engine & Voices'),
                 h('div', { style: { fontSize: 12, color: 'var(--r-muted, #94a3b8)' } }, 'Select offline Piper AI (SherpaTTS) or system speech')
@@ -1163,9 +1163,9 @@
           // ── 1. ACTIVE ANDROID SYSTEM SPEECH STATUS CARD ──
           h('div', {
             style: {
-              background: 'rgba(99, 102, 241, 0.08)',
-              border: '1px solid var(--r-border, #363A48)',
-              borderRadius: 10,
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: 'none',
+              borderRadius: 14,
               padding: 16,
               display: 'flex',
               flexDirection: 'column',
@@ -1174,9 +1174,9 @@
           },
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' } },
               h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
-                ic('Activity', 22, 'text-indigo-400'),
+                h('span', { style: { color: 'var(--r-accent, var(--omni-accent))' } }, ic('Activity', 22)),
                 h('div', null,
-                  h('div', { style: { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8 } }, 'Active Speech Engine (From Android)'),
+                  h('div', { style: { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--r-accent, var(--omni-accent))', letterSpacing: 0.8 } }, 'Active Speech Engine (From Android)'),
                   h('div', { style: { fontWeight: 800, fontSize: 16, color: 'var(--r-text, #f1f5f9)', marginTop: 2 } },
                     systemTtsInfo.engineLabel || 'System Default'
                   )
@@ -1226,8 +1226,8 @@
                 style: {
                   flex: 1,
                   padding: '10px 14px',
-                  background: 'var(--r-accent, #6366f1)',
-                  color: 'var(--r-on-accent, #ffffff)',
+                  background: 'var(--r-accent, var(--omni-accent))',
+                  color: 'var(--r-on-accent, #111318)',
                   fontWeight: 700,
                   borderRadius: 8,
                   fontSize: 13,
@@ -1263,18 +1263,18 @@
 
           // ── 2. QUICK SHORTCUTS TO ANDROID & SHERPATTS ──
           h('div', null,
-            h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8, marginBottom: 8 } }, 'Configure Voice & Engine in Android'),
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, var(--omni-accent))', letterSpacing: 0.8, marginBottom: 8 } }, 'Configure Voice & Engine in Android'),
             h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
               window.NativeBridge?.openTtsSettings && h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { padding: '12px 14px', borderRadius: 12, border: '1px solid var(--r-border)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+                style: { padding: '12px 14px', borderRadius: 12, border: 'none', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
                 onClick: () => window.NativeBridge.openTtsSettings()
               }, [ic('Settings', 13), ' Android Settings']),
               window.NativeBridge?.openSherpaApp && h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(16,185,129,0.35)', color: '#34d399', background: 'rgba(16,185,129,0.08)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
+                style: { padding: '12px 14px', borderRadius: 12, border: 'none', color: '#34d399', background: 'rgba(16,185,129,0.1)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
                 onClick: () => window.NativeBridge.openSherpaApp()
               }, [ic('Zap', 13), ' Open SherpaTTS App'])
             )
@@ -1284,21 +1284,21 @@
           h('div', {
             style: {
               background: 'rgba(255,255,255,0.03)',
-              border: '1px solid var(--r-border, rgba(255,255,255,0.08))',
+              border: 'none',
               borderRadius: 14,
               padding: 14
             }
           },
             h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
-              h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8 } }, '3. Speech Speed'),
-              h('div', { style: { fontSize: 13, fontWeight: 800, color: 'var(--r-accent, #6366f1)' } }, `${ttsRate}x`)
+              h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, var(--omni-accent))', letterSpacing: 0.8 } }, '3. Speech Speed'),
+              h('div', { style: { fontSize: 13, fontWeight: 800, color: 'var(--r-accent, var(--omni-accent))' } }, `${ttsRate}x`)
             ),
             h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 10 } },
               [0.75, 1.0, 1.25, 1.5, 2.0].map(r => h('button', {
                 key: r,
                 type: 'button',
                 className: `mini-btn ${Math.abs(ttsRate - r) < 0.05 ? '' : 'ghost'}`,
-                style: Math.abs(ttsRate - r) < 0.05 ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
+                style: Math.abs(ttsRate - r) < 0.05 ? { background: 'var(--r-accent)', color: 'var(--r-on-accent, #111318)', fontWeight: 700 } : {},
                 onClick: () => handleRateChange(r)
               }, `${r}x`))
             ),
@@ -1318,19 +1318,19 @@
           h('div', {
             style: {
               background: 'rgba(255,255,255,0.03)',
-              border: '1px solid var(--r-border, rgba(255,255,255,0.08))',
+              border: 'none',
               borderRadius: 14,
               padding: 14
             }
           },
-            h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, #6366f1)', letterSpacing: 0.8, marginBottom: 4 } }, '4. Sentence Pause (DAC Buffer)'),
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--r-accent, var(--omni-accent))', letterSpacing: 0.8, marginBottom: 4 } }, '4. Sentence Pause (DAC Buffer)'),
             h('div', { style: { fontSize: 11.5, color: 'var(--r-muted)', marginBottom: 8 } }, 'Recommended: 200ms to prevent initial consonant clipping on Piper models'),
             h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 } },
               [[0, '0ms'], [100, '100ms'], [200, '200ms (Rec)'], [300, '300ms'], [500, '500ms']].map(([ms, label]) => h('button', {
                 key: ms,
                 type: 'button',
                 className: `mini-btn ${dacDelayMs === ms ? '' : 'ghost'}`,
-                style: dacDelayMs === ms ? { background: 'var(--r-accent)', color: '#fff', fontWeight: 700 } : {},
+                style: dacDelayMs === ms ? { background: 'var(--r-accent)', color: 'var(--r-on-accent, #111318)', fontWeight: 700 } : {},
                 onClick: () => setDacDelayMs(ms)
               }, label))
             )
@@ -1687,7 +1687,7 @@
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { border: 'none', padding: 0, color: '#6366f1', fontSize: 12.5, fontWeight: 600 },
+                style: { border: 'none', padding: 0, color: 'var(--r-accent, var(--omni-accent))', fontSize: 12.5, fontWeight: 600 },
                 onClick: () => {
                   const input = prompt('Paste filter rules JSON or CSV (from,to):');
                   if (!input) return;
@@ -1718,7 +1718,7 @@
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { border: 'none', padding: 0, color: '#6366f1', fontSize: 12.5, fontWeight: 600 },
+                style: { border: 'none', padding: 0, color: 'var(--r-accent, var(--omni-accent))', fontSize: 12.5, fontWeight: 600 },
                 onClick: () => {
                   const json = JSON.stringify(ttsCharFilters, null, 2);
                   if (navigator.clipboard?.writeText) {
@@ -1733,7 +1733,7 @@
               h('button', {
                 type: 'button',
                 className: 'mini-btn ghost',
-                style: { border: 'none', padding: 0, color: '#6366f1', fontSize: 12.5, fontWeight: 600 },
+                style: { border: 'none', padding: 0, color: 'var(--r-accent, var(--omni-accent))', fontSize: 12.5, fontWeight: 600 },
                 onClick: () => {
                   if (confirm('Clear all custom filter rules?')) {
                     setTtsCharFilters([]);

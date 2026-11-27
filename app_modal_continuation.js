@@ -139,7 +139,7 @@
           style: {
             background: 'transparent',
             border: 'none',
-            color: 'var(--accent, #6366f1)',
+            color: 'var(--p-accent, var(--omni-accent))',
             fontSize: 15,
             fontWeight: 600,
             display: 'flex',
@@ -304,7 +304,7 @@
           h('label', {
             className: 'mini-btn',
             style: {
-              background: ongoingEpubModal.file ? 'rgba(255, 255, 255, 0.08)' : 'var(--accent, #6366f1)',
+              background: ongoingEpubModal.file ? 'rgba(255, 255, 255, 0.08)' : 'var(--p-accent, var(--omni-accent))',
               color: ongoingEpubModal.file ? 'var(--paper)' : '#fff',
               padding: '10px 16px',
               borderRadius: 12,
@@ -604,7 +604,7 @@
               style: {
                 background: 'rgba(99, 102, 241, 0.1)',
                 border: '1px solid rgba(99, 102, 241, 0.25)',
-                color: 'var(--accent, #6366f1)',
+                color: 'var(--p-accent, var(--omni-accent))',
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -670,7 +670,7 @@
                 className: 'mini-btn',
                 style: {
                   background: ongoingEpubModal.showSourceSwitcher ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.06)',
-                  border: ongoingEpubModal.showSourceSwitcher ? '1px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
+                  border: ongoingEpubModal.showSourceSwitcher ? '1px solid var(--p-accent, var(--omni-accent))' : '1px solid var(--hairline)',
                   color: ongoingEpubModal.showSourceSwitcher ? '#818cf8' : 'var(--paper)',
                   fontSize: 12,
                   padding: '6px 12px',
@@ -786,7 +786,7 @@
               h('button', {
                 type: 'button',
                 className: 'mini-btn',
-                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '0 16px', height: 42, borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6 },
+                style: { background: 'var(--p-accent, var(--omni-accent))', color: '#fff', fontWeight: 600, padding: '0 16px', height: 42, borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6 },
                 disabled: ongoingEpubModal.isSearchingSources || ongoingEpubModal.isFetching,
                 onClick: () => {
                   if (handleSearchContinuationSources) {
@@ -831,7 +831,7 @@
                       padding: '12px 14px',
                       borderRadius: 12,
                       background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                      border: isSelected ? '1.5px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
+                      border: isSelected ? '1.5px solid var(--p-accent, var(--omni-accent))' : '1px solid var(--hairline)',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                       minHeight: 52
@@ -843,7 +843,7 @@
                         width: 32,
                         height: 32,
                         borderRadius: 8,
-                        background: isSelected ? 'var(--accent, #6366f1)' : 'rgba(255, 255, 255, 0.06)',
+                        background: isSelected ? 'var(--p-accent, var(--omni-accent))' : 'rgba(255, 255, 255, 0.06)',
                         color: '#fff',
                         display: 'flex',
                         alignItems: 'center',
@@ -901,7 +901,7 @@
                 h('button', {
                   type: 'button',
                   className: 'mini-btn',
-                  style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '0 16px', height: 42, borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6 },
+                  style: { background: 'var(--p-accent, var(--omni-accent))', color: '#fff', fontWeight: 600, padding: '0 16px', height: 42, borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6 },
                   disabled: !ongoingEpubModal.sourceUrl?.trim() || ongoingEpubModal.isFetching || ongoingEpubModal.isScanningToc,
                   onClick: () => handleScanContinuationToc && handleScanContinuationToc(ongoingEpubModal.sourceUrl, ongoingEpubModal.existingCount)
                 }, ongoingEpubModal.isScanningToc ? 'Scanning…' : [ic('Search', 13), ' Use & Scan'])
@@ -1020,7 +1020,7 @@
               style: {
                 background: 'rgba(99, 102, 241, 0.1)',
                 border: '1px solid rgba(99, 102, 241, 0.25)',
-                color: 'var(--accent, #6366f1)',
+                color: 'var(--p-accent, var(--omni-accent))',
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -1061,7 +1061,7 @@
                     flex: 1,
                     minWidth: 200,
                     background: 'rgba(99, 102, 241, 0.15)',
-                    border: '1px dashed var(--accent, #6366f1)',
+                    border: '1px dashed var(--p-accent, var(--omni-accent))',
                     color: 'var(--paper)',
                     padding: '12px 16px',
                     borderRadius: 12,
@@ -1155,7 +1155,7 @@
                   type: 'button',
                   className: 'mini-btn',
                   style: {
-                    background: 'var(--accent, #6366f1)',
+                    background: 'var(--p-accent, var(--omni-accent))',
                     color: '#fff',
                     fontWeight: 600,
                     padding: '8px 16px',
@@ -1203,7 +1203,7 @@
                 'Original path in backup: ', h('span', { style: { color: 'var(--paper)', fontFamily: 'monospace' } }, ongoingEpubModal.mrexptData.info.oldFilePath)
               ),
               ongoingEpubModal.mrexptData.info?.bookId && h('div', { style: { fontSize: 11, color: 'var(--slate)' } },
-                'Original Moon+ Reader Book ID: ', h('span', { style: { color: 'var(--accent, #6366f1)', fontWeight: 700, fontFamily: 'monospace' } }, ongoingEpubModal.mrexptData.info.bookId)
+                'Original Moon+ Reader Book ID: ', h('span', { style: { color: 'var(--p-accent, var(--omni-accent))', fontWeight: 700, fontFamily: 'monospace' } }, ongoingEpubModal.mrexptData.info.bookId)
               ),
 
               // Compatibility Mode Switcher (Phone Passport vs Direct EPUB)
@@ -1258,7 +1258,7 @@
                       fontWeight: 600,
                       cursor: 'pointer',
                       border: 'none',
-                      background: ongoingEpubModal.mrexptData.alignMode === 'direct' ? 'var(--accent, #6366f1)' : 'transparent',
+                      background: ongoingEpubModal.mrexptData.alignMode === 'direct' ? 'var(--p-accent, var(--omni-accent))' : 'transparent',
                       color: ongoingEpubModal.mrexptData.alignMode === 'direct' ? '#fff' : 'var(--slate)'
                     },
                     onClick: () => {
@@ -1289,7 +1289,7 @@
                         flex: 1,
                         minWidth: 180,
                         background: 'rgba(99, 102, 241, 0.2)',
-                        border: '1px dashed var(--accent, #6366f1)',
+                        border: '1px dashed var(--p-accent, var(--omni-accent))',
                         color: 'var(--paper)',
                         padding: '9px 12px',
                         borderRadius: 8,
@@ -1385,7 +1385,7 @@
                         type: 'button',
                         style: {
                           background: isSel ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                          border: isSel ? '1px solid var(--accent, #6366f1)' : '1px solid var(--hairline)',
+                          border: isSel ? '1px solid var(--p-accent, var(--omni-accent))' : '1px solid var(--hairline)',
                           color: isSel ? 'var(--iris)' : 'var(--slate)',
                           fontSize: 11,
                           fontWeight: 600,
@@ -1684,7 +1684,7 @@
         },
           h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
             h('span', { style: { fontSize: 13, fontWeight: 700, color: 'var(--paper)' } }, ongoingEpubModal.progress?.status || 'Fetching chapters…'),
-            h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: 'var(--accent, #6366f1)', fontSize: 13 } }, `${ongoingEpubModal.progress?.pct || 0}%`)
+            h('span', { style: { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: 'var(--p-accent, var(--omni-accent))', fontSize: 13 } }, `${ongoingEpubModal.progress?.pct || 0}%`)
           ),
           h('div', { style: { width: '100%', height: 6, borderRadius: 99, background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden', margin: '6px 0' } },
             h('div', { style: { height: '100%', width: `${ongoingEpubModal.progress?.pct || 0}%`, background: 'linear-gradient(90deg, #6366f1, #10b981)', transition: 'width 0.25s' } })

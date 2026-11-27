@@ -268,10 +268,10 @@
         'activeTab', 'studioSubTab', 'inputBoxHeight', 'outputBoxHeight', 'instructionsBoxHeight',
         'glossaryBoxHeight', 'glossaryCardOpen', 'showLiveLogs',
         // OmniTrack Visual Theme, Layouts & Custom Artwork Map
-        'omni_theme_id', 'omni_amoled_canvas', 'omni_custom_hex_1', 'omni_custom_hex_2',
+        'omni_theme_id', 'omni_amoled_canvas', 'omni_nav_glow', 'omni_custom_hex_1', 'omni_custom_hex_2',
         'omni_library_layout', 'omni_details_header', 'omni_discover_layout',
         'omni_hero_blur', 'omni_glass_sheen', 'omni_poster_radius',
-        'omni_hero_autoscroll', 'omni_hero_interval', 'gemini_novel_artwork_map',
+        'omni_hero_autoscroll', 'omni_hero_interval', 'omni_fallback_waterfall', 'gemini_novel_artwork_map',
         // Cloud & Sync
         'cloudProvider', 'webdavUrl', 'webdavUser', 'webdavPath', 'webdavAutoSync', 'webdavLastSync',
         'gdrive_client_id', 'gdrive_folder_mode', 'gdrive_auto_sync', 'gdrive_last_sync',
@@ -739,6 +739,18 @@
 
         const p = data.appPreferences;
         const toBool = (v) => v === 'true' || v === true;
+
+        if (p.omni_fallback_waterfall) {
+          try {
+            const wfParsed = typeof p.omni_fallback_waterfall === 'string' ? JSON.parse(p.omni_fallback_waterfall) : p.omni_fallback_waterfall;
+            if (Array.isArray(wfParsed) && window.FallbackWaterfallStore?.save) {
+              window.FallbackWaterfallStore.save(wfParsed, setters.setFallbackModels);
+            }
+          } catch (_) {}
+        }
+        if (window.OmniThemeEngine?.init) {
+          try { window.OmniThemeEngine.init(); } catch (_) {}
+        }
 
         if (p.darkMode !== undefined && setters.setDarkMode) setters.setDarkMode(toBool(p.darkMode));
         if (p.amoledMode !== undefined && setters.setAmoledMode) setters.setAmoledMode(toBool(p.amoledMode));
@@ -1378,7 +1390,7 @@
       });
       const timeStr = new Date().toLocaleString();
       try {
-        window.NativeBridge?.showCompletionNotification?.('Cloud Backup Complete! ☁️', `Backup saved to WebDAV /${targetFolder}/.`);
+        window.NativeBridge?.showCompletionNotification?.('Cloud Backup Complete', `Backup saved to WebDAV /${targetFolder}/.`);
       } catch (e) {}
       if (callbacks.onSuccess) callbacks.onSuccess(timeStr, targetFolder);
       return { timeStr, targetFolder };
@@ -1412,7 +1424,7 @@
 
       const restoreSummary = await this.applyRestoredData(data, setters);
       try {
-        window.NativeBridge?.showCompletionNotification?.('Cloud Restore Complete! 📥', `Restored ${countNovels} novels and ${countGloss} glossaries from WebDAV.`);
+        window.NativeBridge?.showCompletionNotification?.('Cloud Restore Complete', `Restored ${countNovels} novels and ${countGloss} glossaries from WebDAV.`);
       } catch (e) {}
       if (callbacks.onSuccess) callbacks.onSuccess(countNovels, countGloss, restoreSummary);
       return { success: true, countNovels, countGloss, restoreSummary };
@@ -1484,7 +1496,7 @@
 
       const restoreSummary = await this.applyRestoredData(data, setters);
       try {
-        window.NativeBridge?.showCompletionNotification?.('Google Drive Restore Complete! 📥', `Restored ${countNovels} novels and ${countGloss} glossaries from Google Drive.`);
+        window.NativeBridge?.showCompletionNotification?.('Google Drive Restore Complete', `Restored ${countNovels} novels and ${countGloss} glossaries from Google Drive.`);
       } catch (e) {}
       if (callbacks.onSuccess) callbacks.onSuccess(countNovels, countGloss, restoreSummary);
       return { success: true, countNovels, countGloss, restoreSummary };
@@ -1644,7 +1656,7 @@
         try {
           const res = await BackupEngine.testWebDav({ url: webdavUrl, user: webdavUser, pass: webdavPass });
           if (res.status >= 200 && res.status < 400) {
-            toast(`✅ Connected to WebDAV! (Status ${res.status})`, 'success');
+            toast(`Connected to WebDAV (Status ${res.status})`, 'success');
           } else if (res.status === 401 || res.status === 403) {
             toast(`Authentication failed (HTTP ${res.status}). Check username/password.`, 'error');
           } else {
@@ -1677,7 +1689,7 @@
             state,
             callbacks: {
               onSuccess: (timeStr, targetFolder) => {
-                toast(`☁️ WebDAV Backup Successful! Saved to /${targetFolder}/`, 'success');
+                toast(`WebDAV Backup Successful. Saved to /${targetFolder}/`, 'success');
                 if (callbacks.setLastSync) callbacks.setLastSync(timeStr);
                 try { localStorage.setItem('webdavLastSync', timeStr); } catch (e) {}
                 if (callbacks.onSuccess) callbacks.onSuccess(timeStr, targetFolder);
@@ -1751,7 +1763,7 @@
             onSuccess: (profile) => {
               if (callbacks.setProfile) callbacks.setProfile(profile);
               if (callbacks.setConnected) callbacks.setConnected(true);
-              toast(`✅ Connected to Google Drive! (${profile.emailAddress || profile.displayName})`, 'success');
+              toast(`Connected to Google Drive (${profile.emailAddress || profile.displayName})`, 'success');
               if (callbacks.onSuccess) callbacks.onSuccess(profile);
             }
           });
@@ -1779,7 +1791,7 @@
             callbacks: {
               onSuccess: (timeStr, novelCount, historyCount) => {
                 if (callbacks.setLastSync) callbacks.setLastSync(timeStr);
-                toast(`☁️ Google Drive Backup Successful! (${novelCount} novels, ${historyCount} history items)`, 'success');
+                toast(`Google Drive Backup Successful (${novelCount} novels, ${historyCount} history items)`, 'success');
                 if (callbacks.onSuccess) callbacks.onSuccess(timeStr, novelCount, historyCount);
               }
             }
@@ -1837,7 +1849,7 @@
               if (callbacks.setConnected) callbacks.setConnected(isConnected);
               if (profile) {
                 if (callbacks.setProfile) callbacks.setProfile(profile);
-                toast(`Google Drive connected as ${profile.emailAddress || profile.displayName}! 🎉`, 'success');
+                toast(`Google Drive connected as ${profile.emailAddress || profile.displayName}`, 'success');
               } else {
                 toast('Google Drive connected!', 'success');
               }

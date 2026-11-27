@@ -113,9 +113,10 @@
           minWidth: 0,
           textAlign: 'left',
           padding: '10px',
-          borderRadius: 8,
-          background: isActive ? 'var(--omni-control, #23262F)' : 'var(--omni-surface, #181A20)',
-          border: isActive ? ('1.5px solid ' + activePalette.accent) : '1px solid var(--omni-border, #363A48)',
+          borderRadius: 14,
+          background: isActive ? 'var(--omni-accent-soft, rgba(255,255,255,0.09))' : 'var(--omni-surface, #1A1D24)',
+          border: 'none',
+          boxShadow: isActive ? ('inset 0 0 0 2px ' + activePalette.accent) : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
           cursor: 'pointer',
           display: 'flex',
           flexDirection: 'column',
@@ -126,9 +127,8 @@
           style: {
             width: '100%',
             height: 62,
-            borderRadius: 5,
+            borderRadius: 8,
             background: previewCanvasBg,
-            border: '1px solid var(--omni-hairline, #262A36)',
             padding: 5,
             display: 'flex',
             flexDirection: 'column',
@@ -140,7 +140,7 @@
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 } },
           h('div', { style: { minWidth: 0 } },
             h('div', { style: { fontSize: 12, fontWeight: isActive ? 750 : 600, color: 'var(--omni-text, #F5F6F8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, opts.title),
-            h('div', { style: { fontSize: 10.5, color: 'var(--omni-text-sub, #AEB4C2)', marginTop: 1 } }, opts.desc)
+            opts.desc ? h('div', { style: { fontSize: 10.5, color: 'var(--omni-text-sub, #AEB4C2)', marginTop: 1 } }, opts.desc) : null
           ),
           isActive && h('span', { style: { color: activePalette.accent, flexShrink: 0 } }, ic('Check', 14))
         )
@@ -217,7 +217,6 @@
               if (Engine && typeof Engine.resetPrefs === 'function') {
                 Engine.resetPrefs();
                 toggleAmoledCanvas(false);
-                toast('Reset visual theme and layouts to Chimanew Elevated Dark defaults.', 'info');
               }
             },
             style: {
@@ -541,15 +540,15 @@
         )
       ),
 
-      // ── 2. Screen Layouts (Clickable Wireframes) ──
+      // ── 2. Screen Layouts (Picture-Only Wireframe Tiles) ──
       hairlineSectionHeader('Library Screen Layout', prefs.libraryLayout === 'editorial' ? 'Editorial' : 'Minimal'),
       h('div', { style: { display: 'flex', gap: 8 } },
         renderWireframeCard({
           prefKey: 'libraryLayout',
           value: 'editorial',
           active: prefs.libraryLayout === 'editorial',
-          title: 'Editorial Showcase',
-          desc: 'Hero carousel + resume rail + grid',
+          title: 'Editorial',
+          desc: '',
           schematic: function (tint) {
             return [
               h('div', { key: 'h', style: { height: 22, borderRadius: 3, background: tint + '33', border: '0.6px solid ' + tint } }),
@@ -569,8 +568,8 @@
           prefKey: 'libraryLayout',
           value: 'minimal',
           active: prefs.libraryLayout === 'minimal',
-          title: 'Minimal Classic Grid',
-          desc: 'Compact header + immediate 3-col shelf',
+          title: 'Minimal',
+          desc: '',
           schematic: function (tint) {
             return [
               h('div', { key: 't', style: { height: 8, width: '58%', borderRadius: 2, background: tint } }),
@@ -589,14 +588,14 @@
         })
       ),
 
-      hairlineSectionHeader('Book Details Header', prefs.detailsHeader === 'jacket' ? 'Book Jacket' : 'Split Hero'),
+      hairlineSectionHeader('Book Details Header', prefs.detailsHeader === 'jacket' ? 'Jacket' : 'Split'),
       h('div', { style: { display: 'flex', gap: 8 } },
         renderWireframeCard({
           prefKey: 'detailsHeader',
           value: 'jacket',
           active: prefs.detailsHeader === 'jacket',
-          title: 'Centered Book Jacket',
-          desc: 'Floating 2:3 spine cover + halo',
+          title: 'Jacket',
+          desc: '',
           schematic: function (tint) {
             return [
               h('div', { key: 'c', style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
@@ -610,8 +609,8 @@
           prefKey: 'detailsHeader',
           value: 'split',
           active: prefs.detailsHeader === 'split',
-          title: 'Full-Bleed Split Hero',
-          desc: 'Edge-to-edge banner + left poster',
+          title: 'Split Hero',
+          desc: '',
           schematic: function (tint) {
             return [
               h('div', { key: 'bg', style: { height: 28, borderRadius: 3, background: tint + '25', position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 4, padding: 3 } },
@@ -624,14 +623,14 @@
         })
       ),
 
-      hairlineSectionHeader('Discover Catalog Layout', prefs.discoverLayout === 'grid' ? 'Poster Grid' : (prefs.discoverLayout === 'rails' ? 'Editorial Rails' : 'Sources List')),
+      hairlineSectionHeader('Discover Catalog Layout', prefs.discoverLayout === 'grid' ? 'Grid' : (prefs.discoverLayout === 'rails' ? 'Rails' : 'Sources')),
       h('div', { style: { display: 'flex', gap: 8 } },
         renderWireframeCard({
           prefKey: 'discoverLayout',
           value: 'sources',
           active: !prefs.discoverLayout || prefs.discoverLayout === 'sources',
-          title: 'Sources Directory',
-          desc: 'Search + hairline site list',
+          title: 'Sources',
+          desc: '',
           schematic: function (tint) {
             return [
               h('div', { key: 'sb', style: { height: 10, borderRadius: 2, background: 'rgba(255,255,255,0.16)', border: '1px solid ' + tint } }),
@@ -645,8 +644,8 @@
           prefKey: 'discoverLayout',
           value: 'grid',
           active: prefs.discoverLayout === 'grid',
-          title: 'Poster Grid',
-          desc: 'Dense cover gallery',
+          title: 'Grid',
+          desc: '',
           schematic: function (tint) {
             return [
               h('div', { key: 'r1', style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, flex: 1 } },
@@ -666,8 +665,8 @@
           prefKey: 'discoverLayout',
           value: 'rails',
           active: prefs.discoverLayout === 'rails',
-          title: 'Source Rails',
-          desc: 'Banner + sidecar rails',
+          title: 'Rails',
+          desc: '',
           schematic: function (tint) {
             return [
               h('div', { key: 'sp', style: { height: 22, borderRadius: 3, background: tint + '30', border: '1px solid ' + tint } }),
@@ -772,6 +771,28 @@
             value: prefs.posterRadius,
             onChange: function (e) { setPref('posterRadius', Number(e.target.value)); },
             style: { width: '100%', accentColor: activePalette.accent, cursor: 'pointer' }
+          })
+        ),
+
+        // Navbar Glass Glow switch (top-lip accent aura on floating navbar)
+        h('div', {
+          style: {
+            padding: '13px 0',
+            borderBottom: '0.6px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }
+        },
+          h('div', null,
+            h('div', { style: { fontSize: 13.5, fontWeight: 600, color: '#F5F5F5' } }, 'Navbar Glass Glow'),
+            h('div', { style: { fontSize: 11, color: 'rgba(255,255,255,0.48)', marginTop: 2 } }, 'Feathered accent light along bottom nav rim')
+          ),
+          h('button', {
+            type: 'button',
+            className: 'switch ' + (prefs.navGlow !== false ? 'on' : ''),
+            'aria-pressed': prefs.navGlow !== false,
+            onClick: function () { setPref('navGlow', prefs.navGlow === false); }
           })
         ),
 

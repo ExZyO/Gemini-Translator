@@ -225,7 +225,7 @@
           }
         });
         if (res && typeof toast === 'function') {
-          toast(`📁 Saved folder path for "${novel.title}" (${res.displayPath})! Future EPUBs will overwrite here.`, 'success');
+          toast(`Saved folder path for "${novel.title}" (${res.displayPath}). Future EPUBs will overwrite here.`, 'success');
         }
         return res;
       } catch (e) {
@@ -324,7 +324,7 @@
           if (res.localUrl && typeof setOpdsUrl === 'function') setOpdsUrl(res.localUrl);
           if (res.wifiUrl && typeof setOpdsWifiUrl === 'function') setOpdsWifiUrl(res.wifiUrl);
           if (typeof toast === 'function') {
-            toast('Moon+ Reader OPDS Feed online! 📡 (' + (res.localUrl || 'port 8080') + ')', 'success');
+            toast('Moon+ Reader OPDS Feed online (' + (res.localUrl || 'port 8080') + ')', 'success');
           }
         } else {
           if (typeof toast === 'function') {
@@ -1812,21 +1812,18 @@
           }
 
           const finalFileName = result?.outFileName || (ongoingEpubModal.originalFileName || `${title}.epub`);
-          const modalSetter = callbacks.setDownloadSuccessModal || (typeof window !== 'undefined' ? window.__setDownloadModal : null);
-          if (typeof modalSetter === 'function') {
-            modalSetter({
-              fileName: finalFileName,
-              title,
-              newChaptersCount: newFetchedCount,
-              totalChaptersCount: totalChapterCount,
-              isContinuation: true,
-              path: folderOpts?.fileUri || ongoingEpubModal.fileUri || folderOpts?.displayPath || ongoingEpubModal.displayPath || result?.savedPath || ''
-            });
+          const savePayload = {
+            fileName: finalFileName,
+            title,
+            newChaptersCount: newFetchedCount,
+            totalChaptersCount: totalChapterCount,
+            isContinuation: true,
+            path: folderOpts?.fileUri || ongoingEpubModal.fileUri || folderOpts?.displayPath || ongoingEpubModal.displayPath || result?.savedPath || ''
+          };
+          if (typeof window !== 'undefined' && window.OmniFeedback && typeof window.OmniFeedback.notifySaveReady === 'function') {
+            window.OmniFeedback.notifySaveReady(savePayload);
           }
 
-          if (typeof toast === 'function') {
-            toast(`Updated "${title}"! Appended ${newFetchedCount} new chapters. Book ID and styling preserved for Moon+ Reader Pro!`, 'success');
-          }
           if (typeof setOngoingEpubModal === 'function') {
             setOngoingEpubModal(null);
           }

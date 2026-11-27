@@ -45,18 +45,18 @@
       setCustomPluginUrl,
       handleInstallCustomPluginUrl
     } = props;
-    if (!isOpen) return null;
     const h = getH();
     const ReactComp = typeof React !== 'undefined' ? React : window.React;
     const [newRepoUrl, setNewRepoUrl] = ReactComp.useState ? ReactComp.useState('') : ['', () => {}];
     const [repoListTick, setRepoListTick] = ReactComp.useState ? ReactComp.useState(0) : [0, () => {}];
+    if (!isOpen) return null;
 
     return h('div', {
       style: {
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'var(--void, #090d16)',
+        background: 'var(--p-canvas, #111318)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden'
@@ -489,7 +489,7 @@
                 type: 'button',
                 className: 'mini-btn',
                 disabled: !newRepoUrl || !newRepoUrl.trim(),
-                style: { background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: 600, padding: '7px 14px', fontSize: 12, borderRadius: 6, flexShrink: 0 },
+                style: { background: 'var(--p-accent, var(--omni-accent))', color: 'var(--p-accent-ink, #111318)', fontWeight: 700, padding: '8px 16px', fontSize: 12, borderRadius: 999, flexShrink: 0, border: 'none' },
                 onClick: () => {
                   const regInst = window.sourceRegistry || window.SourceRegistry;
                   if (regInst && typeof regInst.addRepoUrl === 'function') {

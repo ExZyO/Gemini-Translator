@@ -30,8 +30,8 @@
         overflow: hidden;
         font-family: inherit;
       }
-      .reader-v2-theme-black { background: #000000; color: #f3f4f6; --r-accent: var(--omni-accent, #38bdf8); --r-on-accent: var(--omni-on-accent, #0F1014); --r-bg: #000000; --r-card: var(--omni-surface, #181A20); --r-border: var(--omni-border, #363A48); --r-text: var(--omni-text, #F5F6F8); --r-muted: var(--omni-text-sub, #AEB4C2); }
-      .reader-v2-theme-dark { background: #0F1014; color: #F5F6F8; --r-accent: var(--omni-accent, #38bdf8); --r-on-accent: var(--omni-on-accent, #0F1014); --r-bg: #0F1014; --r-card: var(--omni-surface, #181A20); --r-border: var(--omni-border, #363A48); --r-text: #F5F6F8; --r-muted: #AEB4C2; }
+      .reader-v2-theme-black { background: #000000; color: #f3f4f6; --r-accent: var(--omni-accent, #E8C26A); --r-on-accent: var(--omni-on-accent, #111318); --r-bg: #000000; --r-card: var(--omni-surface, #1A1D24); --r-border: var(--omni-border, rgba(255,255,255,0.08)); --r-text: var(--omni-text, #F5F6F8); --r-muted: var(--omni-text-sub, #AEB4C2); }
+      .reader-v2-theme-dark { background: #111318; color: #F5F6F8; --r-accent: var(--omni-accent, #E8C26A); --r-on-accent: var(--omni-on-accent, #111318); --r-bg: #111318; --r-card: var(--omni-surface, #1A1D24); --r-border: var(--omni-border, rgba(255,255,255,0.08)); --r-text: #F5F6F8; --r-muted: #AEB4C2; }
       .reader-v2-theme-nord { background: #242933; color: #eceff4; --r-accent: #88c0d0; --r-bg: #242933; --r-card: #2e3440; --r-border: #434c5e; --r-text: #eceff4; --r-muted: #9baec8; }
       .reader-v2-theme-sepia { background: #fbf0d9; color: #433422; --r-accent: #b45309; --r-bg: #fbf0d9; --r-card: #f3e5c8; --r-border: #e3d2b2; --r-text: #433422; --r-muted: #7d6b53; }
       .reader-v2-theme-parchment { background: #f4ecd8; color: #383226; --r-accent: #92400e; --r-bg: #f4ecd8; --r-card: #eadebe; --r-border: #dbcbb1; --r-text: #383226; --r-muted: #706551; }
@@ -633,8 +633,8 @@
         transition: background 0.15s ease;
       }
       .moon-scrub-jump-btn:active {
-        background: var(--r-accent, #6366f1);
-        color: #fff;
+        background: var(--r-accent, var(--omni-accent, #E8C26A));
+        color: var(--r-on-accent, #111318);
       }
 
       /* ── 1:1 Moon+ Reader Table of Contents Drawer ── */

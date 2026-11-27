@@ -39,6 +39,7 @@
   const PREF_SCHEMA = [
     { key: 'themeId', storage: 'omni_theme_id', type: 'string', def: 'WHITE' },
     { key: 'amoledCanvas', storage: 'omni_amoled_canvas', type: 'bool', def: false },
+    { key: 'navGlow', storage: 'omni_nav_glow', type: 'bool', def: true },
     { key: 'customHex1', storage: 'omni_custom_hex_1', type: 'hex', def: '#E8C26A' },
     { key: 'customHex2', storage: 'omni_custom_hex_2', type: 'hex', def: '#A855F7' },
     { key: 'libraryLayout', storage: 'omni_library_layout', type: 'enum', values: ['editorial', 'minimal'], def: 'editorial' },
@@ -147,12 +148,20 @@
     if (typeof document !== 'undefined') {
       const docEl = document.documentElement;
       const isAmoled = !!prefs.amoledCanvas;
-      const canvasColor = isAmoled ? '#000000' : '#0F1014';
-      const surfaceColor = isAmoled ? '#14161C' : '#181A20';
+      const isGlow = prefs.navGlow !== false;
+      const canvasColor = isAmoled ? '#000000' : '#111318';
+      const surfaceColor = isAmoled ? '#0D0F14' : '#1A1D24';
+      const surface2Color = isAmoled ? '#151820' : '#222630';
+      const controlColor = isAmoled ? '#1C1F28' : '#262A35';
+      const controlHoverColor = isAmoled ? '#242834' : '#2E3340';
+      const inputColor = isAmoled ? '#0A0C10' : '#171A21';
+      const borderColor = isAmoled ? 'rgba(255, 255, 255, 0.07)' : 'rgba(255, 255, 255, 0.08)';
+      const hairlineColor = isAmoled ? 'rgba(255, 255, 255, 0.055)' : 'rgba(255, 255, 255, 0.065)';
 
       if (docEl && typeof docEl.setAttribute === 'function') {
         docEl.setAttribute('data-omni', 'true');
         docEl.setAttribute('data-omni-amoled', isAmoled ? 'true' : 'false');
+        docEl.setAttribute('data-omni-glow', isGlow ? 'true' : 'false');
         if (isAmoled) {
           docEl.setAttribute('data-theme', 'amoled');
         } else if (typeof docEl.removeAttribute === 'function') {
@@ -162,11 +171,13 @@
       if (docEl && docEl.style && typeof docEl.style.setProperty === 'function') {
         docEl.style.setProperty('--omni-canvas', canvasColor);
         docEl.style.setProperty('--omni-surface', surfaceColor);
-        docEl.style.setProperty('--omni-control', '#23262F');
-        docEl.style.setProperty('--omni-control-hover', '#2C303C');
-        docEl.style.setProperty('--omni-input', '#1B1D24');
-        docEl.style.setProperty('--omni-border', '#363A48');
-        docEl.style.setProperty('--omni-hairline', '#262A36');
+        docEl.style.setProperty('--omni-surface-2', surface2Color);
+        docEl.style.setProperty('--omni-control', controlColor);
+        docEl.style.setProperty('--omni-control-hover', controlHoverColor);
+        docEl.style.setProperty('--omni-input', inputColor);
+        docEl.style.setProperty('--omni-border', borderColor);
+        docEl.style.setProperty('--omni-hairline', hairlineColor);
+        docEl.style.setProperty('--p-accent-rgb', String(rgb || '232, 194, 106'));
         docEl.style.setProperty('--omni-text', '#F5F6F8');
         docEl.style.setProperty('--omni-text-sub', '#AEB4C2');
         docEl.style.setProperty('--omni-text-muted', '#7C8394');

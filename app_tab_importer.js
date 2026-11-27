@@ -309,7 +309,6 @@
         if (full && full.epubBlob && !full.isEdited && !targetObj?.isEdited) {
           const fname = fixedName || getEpubFileName(novelTitle, chs.length, isInc);
           await saveUniversalBlob(full.epubBlob, fname, 'application/epub+zip', false, getNovelFolderOptions(targetObj || full));
-          toast(`EPUB downloaded (${chs.length} chapters).`, 'success');
           return;
         }
         setEpubPackagingModal({ title: novelTitle, status: `Packaging ${chs.length} chapters...`, pct: 5 });
@@ -319,9 +318,8 @@
         }, opts);
         const epubFileName = fixedName || getEpubFileName(novelTitle, chs.length, isInc);
         await saveUniversalBlob(blob, epubFileName, 'application/epub+zip', false, getNovelFolderOptions(targetObj || full));
-        toast(`EPUB downloaded (${chs.length} chapters).`, 'success');
       } catch (e) {
-        toast('EPUB export error: ' + e.message, 'error');
+        setWebImportError?.('EPUB export error: ' + e.message);
       } finally {
         setEpubPackagingModal(null);
       }
@@ -370,8 +368,8 @@
       setFileName(full?.title || targetObj?.title || 'Web Novel');
       setCurrentDocTitle?.(full?.title || targetObj?.title || 'Web Novel');
       checkAndApplyNovelGlossary?.(full || targetObj);
-      setActiveTab('text');
-      toast(`Loaded ${chs.length} chapters into Translator.`, 'info');
+      if (typeof window.setActiveAppTab === 'function') window.setActiveAppTab('text');
+      else setActiveTab('text');
     };
 
     const handleAutoScoutSite = async () => {

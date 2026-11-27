@@ -552,12 +552,12 @@
         const lvl1Btn = document.getElementById('btn-move-sheet-level1');
         const lvl2Btn = document.getElementById('btn-move-sheet-level2');
         if (lvl1Btn) {
-            lvl1Btn.style.borderColor = ch.level === 1 ? '#6366f1' : 'var(--hairline)';
-            lvl1Btn.style.color = ch.level === 1 ? '#a5b4fc' : 'var(--paper)';
+            lvl1Btn.style.borderColor = ch.level === 1 ? 'var(--p-accent, #E8C26A)' : 'var(--hairline)';
+            lvl1Btn.style.color = ch.level === 1 ? 'var(--p-accent, #E8C26A)' : 'var(--paper)';
         }
         if (lvl2Btn) {
-            lvl2Btn.style.borderColor = ch.level === 2 ? '#6366f1' : 'var(--hairline)';
-            lvl2Btn.style.color = ch.level === 2 ? '#a5b4fc' : 'var(--paper)';
+            lvl2Btn.style.borderColor = ch.level === 2 ? 'var(--p-accent, #E8C26A)' : 'var(--hairline)';
+            lvl2Btn.style.color = ch.level === 2 ? 'var(--p-accent, #E8C26A)' : 'var(--paper)';
         }
     }
 
@@ -791,7 +791,7 @@
         if (/^>\s+/.test(trimmed)) {
             const qText = trimmed.replace(/^>\s+/, '');
             if (isPreview) {
-                return `<blockquote style="margin:16px 0; padding:8px 16px; border-left:3px solid #6366f1; background:rgba(99,102,241,0.06); border-radius:0 8px 8px 0; font-style:italic;"><p style="margin:0; text-indent:0;">${formatInlineTypography(qText)}</p></blockquote>`;
+                return `<blockquote style="margin:16px 0; padding:8px 16px; border-left:3px solid var(--p-accent, #E8C26A); background:var(--p-accent-soft, rgba(232,194,106,0.08)); border-radius:0 8px 8px 0; font-style:italic;"><p style="margin:0; text-indent:0;">${formatInlineTypography(qText)}</p></blockquote>`;
             }
             return `<blockquote style="margin:1.2em 1.5em; padding-left:1em; border-left:3px solid #888; font-style:italic;"><p style="text-indent:0;">${formatInlineTypography(qText)}</p></blockquote>`;
         }
@@ -1022,7 +1022,7 @@
             const renameBtn = document.createElement('button');
             renameBtn.type = 'button';
             renameBtn.className = 'stu-chip-btn ghost shrink-0 px-2 sm:px-2.5 h-7 sm:h-8 text-[11px] sm:text-xs';
-            renameBtn.innerHTML = '<span class="sm:hidden">✏</span><span class="hidden sm:inline">Rename</span>';
+            renameBtn.innerHTML = '<span class="sm:hidden">Edit</span><span class="hidden sm:inline">Rename</span>';
             renameBtn.title = 'Rename chapter';
             renameBtn.onclick = (e) => {
                 e.stopPropagation();
@@ -1035,7 +1035,7 @@
             lvlBtn.type = 'button';
             lvlBtn.className = 'stu-chip-btn ghost shrink-0 px-2 sm:px-2.5 h-7 sm:h-8 text-[11px] sm:text-xs';
             if (isSub) {
-                lvlBtn.innerHTML = '<span class="sm:hidden">↰</span><span class="hidden sm:inline">↰ Main</span>';
+                lvlBtn.innerHTML = '<span>Main</span>';
                 lvlBtn.style.color = '#34d399';
                 lvlBtn.title = 'Restore to normal chapter';
                 lvlBtn.onclick = (e) => {
@@ -1046,8 +1046,8 @@
                     saveNovelToDatabase({ silent: true }).catch(err => console.warn('Auto-save error:', err));
                 };
             } else {
-                lvlBtn.innerHTML = '<span class="sm:hidden">↳</span><span class="hidden sm:inline">↳ Sub</span>';
-                lvlBtn.style.color = '#818cf8';
+                lvlBtn.innerHTML = '<span>Sub</span>';
+                lvlBtn.style.color = 'var(--p-accent, var(--omni-accent, #E8C26A))';
                 lvlBtn.title = `Nest under Chapter #${idx}`;
                 lvlBtn.disabled = idx === 0;
                 lvlBtn.onclick = (e) => {
@@ -1064,14 +1064,14 @@
             const delBtn = document.createElement('button');
             delBtn.type = 'button';
             delBtn.className = 'stu-chip-btn danger shrink-0 px-2 sm:px-3 h-7 sm:h-8 text-[11px] sm:text-xs';
-            delBtn.innerHTML = '<span class="sm:hidden">✕</span><span class="hidden sm:inline">Delete</span>';
+            delBtn.innerHTML = '<span class="sm:hidden">Del</span><span class="hidden sm:inline">Delete</span>';
             delBtn.title = 'Delete this chapter';
             delBtn.onclick = (e) => {
                 e.stopPropagation();
                 if (delBtn.dataset.confirming === 'true') {
                     clearTimeout(delBtn._confirmTimer);
                     delBtn.dataset.confirming = 'false';
-                    delBtn.innerHTML = '<span class="sm:hidden">✕</span><span class="hidden sm:inline">Delete</span>';
+                    delBtn.innerHTML = '<span class="sm:hidden">Del</span><span class="hidden sm:inline">Delete</span>';
                     delBtn.style.background = '';
                     const removedTitle = ch.title || `Chapter #${idx + 1}`;
                     state.chapters.splice(idx, 1);
@@ -1086,7 +1086,7 @@
                     delBtn.style.color = '#ffffff';
                     delBtn._confirmTimer = setTimeout(() => {
                         delBtn.dataset.confirming = 'false';
-                        delBtn.innerHTML = '<span class="sm:hidden">✕</span><span class="hidden sm:inline">Delete</span>';
+                        delBtn.innerHTML = '<span class="sm:hidden">Del</span><span class="hidden sm:inline">Delete</span>';
                         delBtn.style.background = '';
                         delBtn.style.color = '';
                     }, 3000);
@@ -1120,10 +1120,18 @@
                curContent !== (initialChapterSnapshot.content || '');
     }
 
+    let editorBackPop = null;
     function closeChapterModalDirect() {
         exitEpubEditorPreview();
         document.getElementById('edit-unsaved-confirm-modal')?.classList.add('hidden');
         document.getElementById('edit-chapter-modal')?.classList.add('hidden');
+        if (typeof document !== 'undefined' && document.body) {
+            document.body.classList.remove('is-fullscreen-editor');
+        }
+        if (typeof editorBackPop === 'function') {
+            try { editorBackPop(); } catch (_) {}
+            editorBackPop = null;
+        }
     }
     if (typeof window !== 'undefined') {
         window.closeChapterModalDirect = closeChapterModalDirect;
@@ -1143,10 +1151,8 @@
             if (confirm('You have unsaved changes in this chapter.\n\nClick OK to Save & Close.\nClick Cancel to Discard.')) {
                 saveCurrentModalChapter();
                 closeChapterModalDirect();
-                if (typeof window.toast === 'function') window.toast('Chapter saved!', 'success');
             } else {
                 closeChapterModalDirect();
-                if (typeof window.toast === 'function') window.toast('Unsaved changes discarded.', 'info');
             }
         }
     }
@@ -1156,6 +1162,15 @@
         if (idx < 0 || idx >= state.chapters.length) return;
         modalActiveIdx = idx;
         exitEpubEditorPreview();
+        if (typeof document !== 'undefined' && document.body) {
+            document.body.classList.add('is-fullscreen-editor');
+        }
+        if (typeof window !== 'undefined' && window.OmniBackStack && typeof window.OmniBackStack.push === 'function') {
+            editorBackPop = window.OmniBackStack.push('epub-prose-editor', () => {
+                requestCloseChapterModal();
+                return true;
+            });
+        }
 
         const ch = state.chapters[idx];
         initialChapterSnapshot = {
